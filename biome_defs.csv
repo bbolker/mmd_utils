@@ -1,0 +1,17 @@
+code,name,abbrev
+1,'Trop. & Subtrop. Moist Broadleaf Forests', 'Trop/Subtrop Moist'
+2,'Trop. & Subtrop. Dry Broadleaf Forests', 'Trop/Subtrop Dry'
+3,'Trop. & Subtrop. Coniferous Forests', 'Trop/Subtrop Conif'
+4,'Temp. Broadleaf & Mixed Forests', 'Temp Broad'
+5,'Temp. Conifer Forests', 'Temp Conif'
+6,'Boreal Forests/Taiga','Boreal/Taiga'
+7,'Trop. & Subtrop. Grasslands, Savannas & Shrublands','Trop Grass'
+8,'Temp. Grasslands, Savannas & Shrublands', 'Temp Grass'
+9,'Flooded Grasslands & Savannas', 'Flood Grass'
+10, 'Montane Grasslands & Shrublands', 'Mont Grass'
+11, 'Tundra', 'Tundra'
+12, 'Medit. Forests, Woodlands & Scrub', 'Medit',
+13, 'Deserts & Xeric Shrublands', 'Desert/Shrub'
+14, 'Mangroves', 'Mangro'
+98, 'Lakes', 'Lakes'
+99, 'Rock and Ice', 'R&I'
