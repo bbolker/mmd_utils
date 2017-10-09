@@ -1,6 +1,6 @@
 ## basic check for singular random effects (i.e. overfitted)
 is.singular <- function(fit,tol=1e-4) {
-    any(abs(getME(fit,"theta"))<tol)
+    any(abs(lme4::getME(fit,"theta"))<tol)
 }
 ## pretty-print model summary
 pfun <- function(x) print(summary(x),correlation=FALSE)
@@ -21,7 +21,7 @@ fit_all <- function(response="mbirds_log",
                             full=paste("1+",paste(pars,collapse="+"),"|")
                             ),
                     ## grouping variables
-                    rterms=c("biome","flor_realms","biome:flor_realms"),
+                    rterms=c("biome","flor_realms","biome_FR"),
                     interax=TRUE,
                     data=ecoreg) {
     ## n.b. need to pass data to function so lme4 internals can find it ...
@@ -47,8 +47,8 @@ fit_all <- function(response="mbirds_log",
         ## cat(i,w,nm,"\n")
         ff <- mform(w)
         results[[i]] <- try(suppressWarnings(lmer(ff,data=data,
-                            control=lmerControl(optimizer=nloptwrap,
                             na.action=na.exclude,
+                            control=lmerControl(optimizer=nloptwrap,
                             optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12)))))
         names(results)[i] <- nm
     }
@@ -56,8 +56,9 @@ fit_all <- function(response="mbirds_log",
 }
 
 AICtabx <- function(fitlist) {
-    aa <- bbmle::AICtab(results)
-    sing <- sapply(results,is.singular)[attr(aa,"row.names")]
+    force(fitlist)
+    aa <- bbmle::AICtab(fitlist,mnames=names(fitlist))
+    sing <- sapply(fitlist,is.singular)[attr(aa,"row.names")]
     aa2 <- data.frame(dAIC=round(aa$dAIC,1),df=aa$df,singular=sing)
     return(aa2)
 }

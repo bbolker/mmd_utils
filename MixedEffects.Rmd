@@ -87,21 +87,6 @@ grid.arrange(plot(best_model,type=c("p","smooth")),
 
 ```{r ranef_mod}
 rr <- ranef(best_model)
-## better to do this upstream?
-rownames(rr$biome) <- biome_defs$abbrev[as.numeric(rownames(rr$biome))]
-rownames(rr$flor_realms) <- flor_defs$name[as.numeric(rownames(rr$flor_realms))]
-rrbf <- rr[["biome:flor_realms"]]
-intnames <- rownames(rrbf)
-intnames2 <- paste(biome_defs$abbrev[as.numeric(gsub(":[0-9]+$","",intnames))],
-      flor_defs$abbrev[as.numeric(gsub("^[0-9]+:","",intnames))],
-      sep=":")
-rownames(rr[["biome:flor_realms"]]) <- intnames2
-reorder_var <- "NPP_cv_ctr"
-if (!is.null(reorder_var) && reorder_var %in% names(rrbf)) {
-    ## only try to reorder if the variable is actually there ...
-    rr[["biome:flor_realms"]] <-
-        rr[["biome:flor_realms"]][order(rrbf[[reorder_var]]),]
-}
 ```
 
 ```{r ranefplots,fig.width=8}
@@ -110,7 +95,13 @@ do.call(grid.arrange,c(ranefplots[2:3],list(nrow=1)))
 ```
 
 ```{r ranefplot2,fig.width=10,fig.height=10}
-rr3 <- as.data.frame(rr[["biome:flor_realms"]]) %>%
+reorder_var <- "NPP_cv_ctr"
+reorder_var <- "NPP_cv_ctr"
+if (!is.null(reorder_var) && reorder_var %in% names(rr$biome_FR)) {
+    ## only try to reorder if the variable is actually there ...
+    rr$biome_FR <- rr$biome_FR[order(rr$biome_FR[[reorder_var]]),]
+}
+rr3 <- as.data.frame(rr$biome_FR) %>%
     rownames_to_column("br") %>%
     ## mutate(br=reorder(br,order(NPP_cv_ctr))) %>%
     gather(key=term,value=value,-br)

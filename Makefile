@@ -1,7 +1,7 @@
 %.html: %.Rmd
 	Rscript -e "rmarkdown::render(\"$<\")"
 
-MixedEffects.html: ecoreg2.RData mmd_utils.R allfits.RData MixedEffects.Rmd	
+MixedEffects.html: mmd_utils.R  ecoreg2.RData allfits.RData allprofs.RData MixedEffects.Rmd	
 
 ecoreg2.RData: ecoreg_means.RData mmd_procdata.R biome_defs.csv olson_flor.csv
 	R CMD BATCH mmd_procdata.R
@@ -9,8 +9,18 @@ ecoreg2.RData: ecoreg_means.RData mmd_procdata.R biome_defs.csv olson_flor.csv
 allfits.RData: ecoreg2.RData mmd_utils.R mmd_fitbatch.R
 	R CMD BATCH mmd_fitbatch.R
 
+allprofs.RData: allfits.RData
+	R CMD BATCH mmd_profilebatch.R
+
 ## requires 'dot': sudo apt-get install graphviz
 make.png: Makefile
 	~/bin/genmakegraph
 
+clean:
+	rm -f *~ .#* .RData
+
+## copy archive to my google drive
+to_gd:
+	make clean
+	rsync -auv --exclude='.git/' --exclude='*cache*' . /media/sf_Google_Drive/Enric
 

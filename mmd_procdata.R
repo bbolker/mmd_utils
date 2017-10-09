@@ -20,7 +20,8 @@ predvars <- c("NPP_mean","NPP_cv_inter","Feat_mean","Feat_cv_inter")
 nm <- names(ecoreg)
 ## potential grouping variables
 grpvars <- c("biome",grep("_(realms|regions)$",nm,value=TRUE))
-## potential response variables
+## potential response variables:
+##  plants, plus everything starting with m (amph, birds, mamm)
 respvars <- c("plants",nm[grepl("^m",nm) & !grepl("regions$",nm)])
 ecoreg <- ecoreg[c(respvars,predvars,grpvars)]
 
@@ -34,12 +35,26 @@ ecoreg <- ecoreg[ecoreg$biome<98,]
 for (v in grpvars) {
     ecoreg[[v]] <- factor(ecoreg[[v]])
 }
+
+
+## set factor names
+ecoreg$biome <- factor(ecoreg$biome,
+                       levels=seq(nrow(biome_defs)),
+                       labels=biome_defs$abbrev)
+ecoreg$flor_realms <- factor(ecoreg$flor_realms,
+                       levels=seq(nrow(flor_defs)),
+                       labels=flor_defs$name)
+## better ordering?
+ecoreg$biome_FR <- factor(paste(flor_defs$abbrev[ecoreg$flor_realms],
+                            ecoreg$biome,sep=":"))
+
 ## log-scale all non-CV predictors
 log_vars <- c(respvars,grep("_cv_inter",predvars,invert=TRUE,value=TRUE))
 for (v in log_vars) {
     scv <- gsub("(_inter|_mean)","",paste0(v,"_log"))
     ecoreg[[scv]] <- log(ecoreg[[v]]/mean(ecoreg[[v]],na.rm=TRUE))
 }
+
 ## center CVs
 ctr_vars <- grep("_cv_inter",predvars,value=TRUE)      
 for (v in ctr_vars) {
