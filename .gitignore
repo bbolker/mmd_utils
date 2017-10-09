@@ -1,0 +1,8 @@
+make.*
+Makefile.complete
+ecoreg2.RData
+allfits.RData
+ecoreg_means.RData
+*_cache/
+*_files/
+*.Rout
