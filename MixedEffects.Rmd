@@ -1,0 +1,251 @@
+---
+title: "Diversity analysis"
+date: "`r Sys.time()`"
+bibliography: mixed.bib
+---
+
+This is an attempt at a streamlined and yet complete, relatively *a priori*/non-
+snooped model analysis. Some parts of the analysis have been moved into separate `.R` files: the overall workflow is
+
+![](make.png)
+
+```{r load_packages,message=FALSE}
+library('lme4')        ## lmer etc.
+stopifnot(packageVersion("lme4")>="1.1-14")
+library('bbmle')       ## AICtab, cosmetic
+library('broom')
+library('lattice')
+library('gridExtra')
+library('ggplot2'); theme_set(theme_bw())
+## library('ggalt')
+library('dplyr')
+library('tidyr')
+library('tibble') ## rownames_to_column
+## devtools::install_github("hohenstein/remef")
+library('remef')
+```
+
+```{r get_utils}
+source("mmd_utils.R")
+```
+
+```{r knitr_setup,echo=FALSE}
+library(knitr)
+opts_chunk$set(error=FALSE)
+```
+
+```{r get_data,cache=TRUE}
+load("ecoreg2.RData")
+```
+
+Limit all observations with all predictor variables > 0 and no biome 98/99; set `biome` as factor. Log and scale center variables as appropriate. This leaves us with `r ncol(ecoreg)` variables and
+`r nrow(ecoreg)` observations.
+
+## Model fitting
+
+This can now be done semi-automatically (i.e., fit all combinations
+of random effects) by using the function `fit_all` from the `mmd_utils.R`
+file (sourced above), e.g.
+
+```{r comb_models,eval=FALSE}
+results <- fit_all(response="mbirds_log")
+```
+
+However, the `mmd_fitbatch.R` code has already run all
+random-effects model combinations for all four response variables,
+so we can extract just the bird model this way:
+
+```{r get_allfits}
+load("allfits.RData")
+results <- allfits[["mamph_log"]]
+```
+
+```{r summarize_model}
+subset(aa2 <- AICtabx(results),dAIC<10)
+```
+
+```{r get_best}
+## get the name of the best model from the 27 fits
+best_name <- get_best_name(results)
+best_model <- results[[best_name]]
+## shortcut:
+best_model <- update(best_model,na.action=na.exclude)
+best_df <- attr(logLik(best_model),"df")
+```
+
+To get residuals use `residuals(best_model,re.form=NULL)`; this
+uses the random effects
+
+Best model (by AIC) is `r best_name` (`r best_df` parameters); it isn't singular.
+
+Diagnostics?
+
+```{r diagplots}
+grid.arrange(plot(best_model,type=c("p","smooth")),
+             lattice::qqmath(best_model),nrow=1)
+```
+
+```{r ranef_mod}
+rr <- ranef(best_model)
+## better to do this upstream?
+rownames(rr$biome) <- biome_defs$abbrev[as.numeric(rownames(rr$biome))]
+rownames(rr$flor_realms) <- flor_defs$name[as.numeric(rownames(rr$flor_realms))]
+rrbf <- rr[["biome:flor_realms"]]
+intnames <- rownames(rrbf)
+intnames2 <- paste(biome_defs$abbrev[as.numeric(gsub(":[0-9]+$","",intnames))],
+      flor_defs$abbrev[as.numeric(gsub("^[0-9]+:","",intnames))],
+      sep=":")
+rownames(rr[["biome:flor_realms"]]) <- intnames2
+reorder_var <- "NPP_cv_ctr"
+if (!is.null(reorder_var) && reorder_var %in% names(rrbf)) {
+    ## only try to reorder if the variable is actually there ...
+    rr[["biome:flor_realms"]] <-
+        rr[["biome:flor_realms"]][order(rrbf[[reorder_var]]),]
+}
+```
+
+```{r ranefplots,fig.width=8}
+ranefplots <- lattice::dotplot(rr)
+do.call(grid.arrange,c(ranefplots[2:3],list(nrow=1)))
+```
+
+```{r ranefplot2,fig.width=10,fig.height=10}
+rr3 <- as.data.frame(rr[["biome:flor_realms"]]) %>%
+    rownames_to_column("br") %>%
+    ## mutate(br=reorder(br,order(NPP_cv_ctr))) %>%
+    gather(key=term,value=value,-br)
+ggplot(rr3,aes(value,br))+facet_wrap(~term,nrow=1)+geom_point()+
+    theme(panel.spacing=grid::unit(0,"lines"))+
+    labs(x="",y="")
+```
+
+```{r varcorr}
+VarCorr(best_model)
+```
+
+## coefficient plot of all models tried
+
+```{r coefplot,echo=FALSE,fig.width=10,fig.height=8}
+all_coef <- dplyr::bind_rows(lapply(results,tidy,effect="fixed"),.id="model")
+all_coef <- merge(all_coef,data.frame(model=rownames(aa2),aa2))
+all_coef$model <- gsub("diag","d",
+                       gsub("full","f",
+                            gsub("int","i",
+                                 gsub("flor_realms","fr",
+                                      gsub("biome","b",all_coef$model)))))
+all_coef$model <- reorder(factor(all_coef$model),-all_coef$dAIC)
+ggplot(all_coef,aes(estimate,model,colour=singular))+geom_point()+
+    geom_errorbarh(aes(xmin=estimate-1.96*std.error,
+                       xmax=estimate+1.96*std.error),height=0)+
+    facet_wrap(~term,scale="free_x")+
+    geom_vline(xintercept=0,lty=2)
+```
+
+```{r profile,cache=TRUE}
+pp <- profile(best_model,signames=FALSE)
+```
+
+```{r profplots,echo=FALSE,eval=FALSE}
+xyplot(pp)
+xyplot(logProf(pp))
+## splom(pp) ## impressive but not very useful
+```
+
+Very small difference between Wald and likelihood profile
+confidence intervals.
+
+```{r profcis}
+confint(pp,parm="beta_") ## only available with devel/lme4
+confint(best_model,method="Wald",parm="beta_")
+```
+
+```{r best_coefplot,warning=FALSE,fig.width=8}
+cc <- confint(pp)
+best_coef <- tidy(best_model) %>% filter(term !="(Intercept)")
+tt <- gsub("\\.[0-9]","",best_coef$term)
+tt <- gsub("biome\\.flor_realms","biome:flor_realms",tt)
+tt <- gsub("\\.(flor_realms$|biome$|biome:flor_realms$)","|\\1",tt)
+best_coef$term <- tt
+nppcv_var <- best_coef$nppcv_var <- grepl("NPP_cv",tt)
+re_var <- grepl("^(sd|cor)",tt) & !nppcv_var
+otherfix_var <- !re_var & !nppcv_var
+ee <- best_coef$estimate
+best_coef$term <- factor(tt,
+      levels=c((tt[re_var])[order(ee[re_var])],
+               (tt[otherfix_var])[order(ee[otherfix_var])],
+               (tt[nppcv_var])[order(ee[nppcv_var])]))
+mm <- match(tt,rownames(cc))
+mm[is.na(mm)] <- match("sigma",rownames(cc))
+best_coef$lwr <- cc[mm,"2.5 %"]
+best_coef$upr <- cc[mm,"97.5 %"]
+best_coef$sd_var <- grepl("^sd",best_coef$term)
+ggplot(best_coef,aes(estimate,term,
+                     colour=sd_var))+
+    scale_colour_manual(values=c("black","red"),guide=FALSE)+
+    geom_point()+
+    geom_errorbarh(aes(xmin=lwr, # estimate-1.96*std.error,
+                       xmax=upr, # estimate+1.96*std.error
+                       ),height=0)+
+    geom_vline(xintercept=0,lty=2)+
+    facet_wrap(~nppcv_var,scale="free")+
+    labs(x="",y="")
+```
+
+*Interpreting scales*: In principle the (centered) coefficient of variation and the log-scaled effects should be directly comparable, since both are on a proportional scale. That is, a change of 0.1 in CV of NPP corresponds to an increase in standard deviation of 10% of the mean NPP; a change of 0.1 in log NPP corresponds *approximately* to a 10% increase in the NPP (actually $\exp(0.1)=`round(exp(0.1),2)`). None of this explains particularly well why the `NPP_cv` effects are so large (and uncertain).
+
+```{r predplot,fig.width=10,fig.height=8}
+pdata <- with(ecoreg,
+              expand.grid(NPP_log=seq(min(NPP_log),max(NPP_log),length=51),
+                          Feat_log=quantile(Feat_log,c(0.1,0.5,0.9)),
+                          NPP_cv_ctr=median(NPP_cv_ctr),
+                          Feat_cv_ctr=median(Feat_cv_ctr)))
+pdata$mbirds_log <- predict(best_model,newdata=pdata,re.form=NA)
+## these predictions do *not* incorporate random effects (biome, flor_realms)
+ecoreg$br <- with(ecoreg,interaction(biome,flor_realms))
+ggplot(ecoreg,aes(NPP_log,mbirds_log))+
+    geom_point(aes(colour=biome,shape=flor_realms))+
+    ## geom_encircle(aes(group=br),expand=0)+  ## ugly ...
+    geom_line(data=pdata,aes(linetype=factor(Feat_log)))+
+    scale_colour_discrete(labels=biome_defs$abbrev)+
+    scale_shape(labels=flor_defs$name)+
+    scale_linetype_manual(name="feat_log",labels=c("q(0.1)","q(0.5)","q(0.9)"),
+                   values=c(2,1,3))+
+    theme(legend.box="horizontal")
+```
+
+plot fixes: (1) confidence intervals on predictions; (2) ? relabel axes with absolute rather than log values; ?
+
+Quick shot at re-plotting with random effects *removed* from data (should avoid repeating so much code ...)
+
+```{r remefplot}
+rem1 <- try(remef(best_model,ran="all"))
+if (length(rem1)==nrow(ecoreg)) {
+    ## otherwise
+    ##  have to use napredict() to stick the NAs back in the right places ...
+    ## if it worked ...
+    ecoreg$rem1 <- rem1
+    ggplot(ecoreg,aes(NPP_log,rem1))+
+        geom_point(aes(colour=biome,shape=flor_realms))+
+        geom_line(data=pdata,aes(y=mbirds_log,linetype=factor(Feat_log)))+
+        scale_colour_discrete(labels=biome_defs$abbrev)+
+        scale_shape(labels=flor_defs$name)+
+        scale_linetype_manual(name="feat_log",labels=c("q(0.1)","q(0.5)","q(0.9)"),
+                              values=c(2,1,3))+
+        theme(legend.box="horizontal")
+}
+```
+
+## To do
+
+- fix problem with amphibian processing (maybe setting labels upstream would help ... ?)
+- improve documentation (README file?)
+- check labels on floristic realms
+
+
+## To do (fancy)
+
+- More on Bates et al. approach?
+- Try with Julia??
+- Factor-analytic approach (e.g. @plmixed)?
+
+
