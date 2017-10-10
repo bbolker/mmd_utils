@@ -57,7 +57,10 @@ so we can extract just the bird model this way:
 
 ```{r get_allfits}
 load("allfits.RData")
-results <- allfits[["mamph_log"]]
+focal <- "mamph_log"
+results <- allfits[[focal]]
+load("allprofs.RData")
+pp <- profList[[focal]]
 ```
 
 ```{r summarize_model}
@@ -96,7 +99,6 @@ do.call(grid.arrange,c(ranefplots[2:3],list(nrow=1)))
 
 ```{r ranefplot2,fig.width=10,fig.height=10}
 reorder_var <- "NPP_cv_ctr"
-reorder_var <- "NPP_cv_ctr"
 if (!is.null(reorder_var) && reorder_var %in% names(rr$biome_FR)) {
     ## only try to reorder if the variable is actually there ...
     rr$biome_FR <- rr$biome_FR[order(rr$biome_FR[[reorder_var]]),]
@@ -132,10 +134,6 @@ ggplot(all_coef,aes(estimate,model,colour=singular))+geom_point()+
     geom_vline(xintercept=0,lty=2)
 ```
 
-```{r profile,cache=TRUE}
-pp <- profile(best_model,signames=FALSE)
-```
-
 ```{r profplots,echo=FALSE,eval=FALSE}
 xyplot(pp)
 xyplot(logProf(pp))
@@ -153,14 +151,19 @@ confint(best_model,method="Wald",parm="beta_")
 ```{r best_coefplot,warning=FALSE,fig.width=8}
 cc <- confint(pp)
 best_coef <- tidy(best_model) %>% filter(term !="(Intercept)")
+## drop spurious numeric values
 tt <- gsub("\\.[0-9]","",best_coef$term)
-tt <- gsub("biome\\.flor_realms","biome:flor_realms",tt)
-tt <- gsub("\\.(flor_realms$|biome$|biome:flor_realms$)","|\\1",tt)
+## group separator -> bar
+tt <- gsub("\\.(flor_realms$|biome$|biome_FR$)","|\\1",tt)
 best_coef$term <- tt
 nppcv_var <- best_coef$nppcv_var <- grepl("NPP_cv",tt)
 re_var <- grepl("^(sd|cor)",tt) & !nppcv_var
 otherfix_var <- !re_var & !nppcv_var
 ee <- best_coef$estimate
+## order by magnitude within
+## (1) random effects (non-NPPcv)
+## (2) non-NPPcv, non-RE
+## (3) NPPcv
 best_coef$term <- factor(tt,
       levels=c((tt[re_var])[order(ee[re_var])],
                (tt[otherfix_var])[order(ee[otherfix_var])],
@@ -170,6 +173,9 @@ mm[is.na(mm)] <- match("sigma",rownames(cc))
 best_coef$lwr <- cc[mm,"2.5 %"]
 best_coef$upr <- cc[mm,"97.5 %"]
 best_coef$sd_var <- grepl("^sd",best_coef$term)
+best_coef$nppcv_fac <- factor(best_coef$nppcv_var,
+                              labels=c("non-NPPcv terms",
+                                       "NPPcv terms"))
 ggplot(best_coef,aes(estimate,term,
                      colour=sd_var))+
     scale_colour_manual(values=c("black","red"),guide=FALSE)+
@@ -178,7 +184,7 @@ ggplot(best_coef,aes(estimate,term,
                        xmax=upr, # estimate+1.96*std.error
                        ),height=0)+
     geom_vline(xintercept=0,lty=2)+
-    facet_wrap(~nppcv_var,scale="free")+
+    facet_wrap(~nppcv_fac,scale="free")+
     labs(x="",y="")
 ```
 

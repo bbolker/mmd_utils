@@ -11,3 +11,6 @@ for (i in seq_along(allfits)) {
     save("profList",file="allprofs.RData")
 }
 
+## profiles ugly for 1 (plants), 4 (mammals);
+## plotting fails for amphibians (but confints work, falling back to lin)
+

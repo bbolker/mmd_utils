@@ -19,7 +19,7 @@ make.png: Makefile
 clean:
 	rm -f *~ .#* .RData
 
-## copy archive to my google drive
+## copy archive to my google drive folder
 to_gd:
 	make clean
 	rsync -auv --exclude='.git/' --exclude='*cache*' . /media/sf_Google_Drive/Enric

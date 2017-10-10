@@ -2,7 +2,9 @@ make.*
 Makefile.complete
 ecoreg2.RData
 allfits.RData
+allprofs.RData
 ecoreg_means.RData
 *_cache/
 *_files/
 *.Rout
+.Rhistory
