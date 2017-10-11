@@ -59,7 +59,8 @@ for (v in log_vars) {
 ctr_vars <- grep("_cv_inter",predvars,value=TRUE)      
 for (v in ctr_vars) {
     scv <- gsub("(_inter|_mean)","",paste0(v,"_ctr"))
-    ecoreg[[scv]] <- scale(ecoreg[[v]],scale=FALSE,center=TRUE)
+    ## drop() so we can use tidyverse later if we want ...
+    ecoreg[[scv]] <- drop(scale(ecoreg[[v]],scale=FALSE,center=TRUE))
 }   
 save("ecoreg","biome_defs","flor_defs","predvars","respvars",
      file="ecoreg2.RData")
