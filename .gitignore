@@ -8,3 +8,4 @@ ecoreg_means.RData
 *_files/
 *.Rout
 .Rhistory
+.#*
