@@ -24,6 +24,7 @@ library('tibble') ## rownames_to_column
 ## devtools::install_github("hohenstein/remef")
 library('remef')
 library('r2glmm')
+library('pander')  ## for tables
 ```
 
 ```{r get_utils}
@@ -36,10 +37,10 @@ opts_chunk$set(error=FALSE)
 ```
 
 ```{r get_data,cache=TRUE}
-load("ecoreg2.RData")
+L <- load("ecoreg2.RData")
 ```
 
-Limit all observations with all predictor variables > 0 and no biome 98/99; set `biome` as factor. Log and scale center variables as appropriate. This leaves us with `r ncol(ecoreg)` variables and
+Limit all observations with all predictor variables > 0 and no biome 98/99; set `biome` as factor. Log and scale/center variables as appropriate. This leaves us with `r ncol(ecoreg)` variables and
 `r nrow(ecoreg)` observations.
 
 ## Model fitting
@@ -53,11 +54,13 @@ random-effects model combinations for all four response variables,
 so we can extract just one set of models (and profiles) this way:
 
 ```{r get_allfits}
-load("allfits.RData")
+L <- load("allfits.RData")
+names(allfits)
 focal <- "mamph_log"
 results <- allfits[[focal]]
 ## profiles (from best model for each response variable/set of fits only)
-load("allprofs.RData")
+L <- load("allprofs.RData")
+names(profList) <- names(allfits)
 pp <- profList[[focal]] 
 ```
 
@@ -66,20 +69,28 @@ subset(aa2 <- AICtabx(results),dAIC<10)
 ```
 
 ```{r get_best}
-## get the name of the best model from the 27 fits
-best_name <- get_best_name(results)
-best_model <- results[[best_name]]
-best_df <- attr(logLik(best_model),"df")
+## get the name of the best model from all of the different RE models
+best_names <- sapply(allfits,get_best_name)
+## create a list of the best model for each taxon
+best_models <- Map(function(x,n) x[[n]],
+                   allfits,best_names)
+## e.g. ecoreg$birdres <- residuals(best_models[["mbirds_log"] ])
+best_df <- sapply(best_models, function(x) attr(logLik(x), "df"))
 ```
 
 To get residuals use `residuals(best_model,re.form=NULL)`; this
 uses all of the random effects.
 
-Best non-singular model (by AIC) is `r best_name` (`r best_df` parameters).
+Best non-singular models (by AIC):
+```{r bestmodels,results="asis"}
+pander(data.frame(taxon=names(allfits),best_model=best_names,
+                  df=best_df),row.names=FALSE)
+```
 
 Diagnostics?
 
 ```{r diagplots}
+best_model <- best_models[[focal]]
 grid.arrange(plot(best_model,type=c("p","smooth")),
              lattice::qqmath(best_model),nrow=1)
 ```
@@ -88,13 +99,19 @@ grid.arrange(plot(best_model,type=c("p","smooth")),
 rr <- ranef(best_model)
 ```
 
+The best arrangement of the random effect plots will vary somewhat
+depending on which components have single vs multiple terms ... the
+`biome_FR` plot will be tall in any case (because there are many levels),
+but the widest plots will be those with `diag` or `full` specifications
+rather than intercept-only models.
+
 ```{r ranefplots,fig.width=8}
 ranefplots <- lattice::dotplot(rr)
 do.call(grid.arrange,c(ranefplots[2:3],list(nrow=1)))
 ```
 
 ```{r ranefplot2,fig.width=10,fig.height=10}
-reorder_var <- "NPP_cv_ctr"
+reorder_var <- "NPP_cv_sc"
 if (!is.null(reorder_var) && reorder_var %in% names(rr$biome_FR)) {
     ## only try to reorder if the variable is actually there ...
     rr$biome_FR <- rr$biome_FR[order(rr$biome_FR[[reorder_var]]),]
@@ -180,67 +197,119 @@ ci_method <- "Wald" ## or 'profile' or 'boot'
 ```
 
 ```{r best_coefplot,warning=FALSE,fig.width=8}
-cc <- confint(best_model,method=ci_method)
-best_coef <- tidy(best_model) %>% filter(term !="(Intercept)")
-## drop spurious numeric values
-tt <- gsub("\\.[0-9]","",best_coef$term)
-## group separator -> bar
-tt <- gsub("\\.(flor_realms$|biome$|biome_FR$)","|\\1",tt)
-best_coef$term <- tt
-nppcv_var <- best_coef$nppcv_var <- grepl("NPP_cv",tt)
-re_var <- grepl("^(sd|cor)",tt) & !nppcv_var
-otherfix_var <- !re_var & !nppcv_var
-ee <- best_coef$estimate
-## order by magnitude within
-## (1) random effects (non-NPPcv)
-## (2) non-NPPcv, non-RE
-## (3) NPPcv
-best_coef$term <- factor(tt,
-      levels=c((tt[re_var])[order(ee[re_var])],
-               (tt[otherfix_var])[order(ee[otherfix_var])],
-               (tt[nppcv_var])[order(ee[nppcv_var])]))
-mm <- match(tt,rownames(cc))
-mm[is.na(mm)] <- match("sigma",rownames(cc))
-best_coef$lwr <- cc[mm,"2.5 %"]
-best_coef$upr <- cc[mm,"97.5 %"]
-best_coef$sd_var <- grepl("^sd",best_coef$term)
-best_coef$nppcv_fac <- factor(best_coef$nppcv_var,
-                              labels=c("non-NPPcv terms",
-                                       "NPPcv terms"))
-ggplot(best_coef,aes(estimate,term,
-                     colour=sd_var))+
+get_coeftab <- function(model,ci_method="Wald") {
+    cc <- confint(model,method=ci_method)
+    coeftab <- tidy(model) %>% filter(term !="(Intercept)")
+    ## drop spurious numeric values
+    tt <- gsub("\\.[0-9]","",coeftab$term)
+    ## group separator -> bar
+    tt <- gsub("\\.(flor_realms$|biome$|biome_FR$)","|\\1",tt)
+    coeftab$term <- tt
+    ## nppcv_var <- coeftab$nppcv_var <- grepl("NPP_cv",tt)
+    ## re_var <- grepl("^(sd|cor)",tt)  ## & !nppcv_var
+    ## otherfix_var <- !re_var & !nppcv_var
+    ## fix_var <- !re_var
+    ee <- coeftab$estimate
+    ## order by magnitude within
+    ## (1) random effects
+    ## (2) fixed effects
+    ## (3) NPPcv
+    ## coeftab$term <- factor(tt,
+    ##    levels=c((tt[re_var])[order(ee[re_var])],
+    ##      (tt[fix_var])[order(ee[fix_var])]
+    ##      (tt[nppcv_var])[order(ee[nppcv_var])]))
+    mm <- match(tt,rownames(cc))
+    mm[is.na(mm)] <- match("sigma",rownames(cc))
+    coeftab$lwr <- cc[mm,"2.5 %"]
+    coeftab$upr <- cc[mm,"97.5 %"]
+    ## coeftab$sd_var <- grepl("^sd",coeftab$term)
+    ## coeftab$nppcv_fac <- factor(coeftab$nppcv_var,
+    ## labels=c("non-NPPcv terms", "NPPcv terms"))
+    return(coeftab)
+}
+coeftabs <- bind_rows(lapply(best_models,get_coeftab),
+                      .id="taxon")
+## reorder parameters
+mean_est <- coeftabs %>% group_by(term,effect) %>%
+    summarise(est=mean(estimate))
+fix_var <- mean_est$effect=="fixed"
+flevs <- with(mean_est,
+              c((term[!fix_var])[order(est[!fix_var])],
+                (term[fix_var] )[order(est[fix_var])]))
+coeftabs$term <- factor(coeftabs$term,levels=flevs)
+```
+
+```{r coeftab_plot,fig.height=8}
+ggplot(coeftabs,aes(estimate,term,
+                     colour=effect))+
     scale_colour_manual(values=c("black","red"),guide=FALSE)+
     geom_point()+
     geom_errorbarh(aes(xmin=lwr, # estimate-1.96*std.error,
                        xmax=upr, # estimate+1.96*std.error
                        ),height=0)+
     geom_vline(xintercept=0,lty=2)+
-    facet_wrap(~nppcv_fac,scale="free")+
+    facet_wrap(~taxon,ncol=1)+
     labs(x="",y="")
 ```
 
-*Interpreting scales*: In principle the (centered) coefficient of variation and the log-scaled effects should be directly comparable, since both are on a proportional scale. That is, a change of 0.1 in CV of NPP corresponds to an increase in standard deviation of 10% of the mean NPP; a change of 0.1 in log NPP corresponds *approximately* to a 10% increase in the NPP (actually $\exp(0.1)=`round(exp(0.1),2)`). None of this explains particularly well why the `NPP_cv` effects are so large (and uncertain).
+```{r plotfun,echo=FALSE}
+plotfun <- function(model=best_model,
+                    xvar="NPP_log",
+                    auxvar="Feat_cv_sc",
+                    respvar=NULL,
+                    aux_quantiles=c(0.1,0.5,0.9),
+                    pred_lower_lim= -3,
+                    data = ecoreg,
+                    re.form = NA  ## exclude REs from prediction
+                    ) {
+    ## get LHS of formula
+    mrespvar <- deparse(formula(best_model)[[2]])
+    if (is.null(respvar)) respvar <- mrespvar
+    ## extract variables from data set by name
+    xx <- data[[xvar]]
+    aa <- drop(data[[auxvar]])
+    ## add factor equiv of auxvar to data
+    av <- all.vars(formula(model,fixed.only=TRUE))
+    othervars <- setdiff(av,c(respvar,xvar,auxvar,mrespvar))
+    ## construct prediction frame
+    pdata <- expand.grid(seq(min(xx),max(xx),length=51),
+                         quantile(aa,aux_quantiles))
+    names(pdata) <- c(xvar,auxvar)
+    ## variables other than primary x-variable and aux are set to median
+    ##  (more consistent to set to mean=0)?
+    for (i in othervars) {
+        pdata[[i]] <- median(data[[i]])
+    }
+    fauxvar <- paste0("f",auxvar)
+    pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("(",aux_quantiles,")"))
+    pdata[[focal]] <- predict(best_model,newdata=pdata,re.form=re.form)
+    pdata[[focal]][pdata[[focal]] < pred_lower_lim] <- NA
+    gg0 <- ggplot(data,aes_(x=as.name(xvar),y=as.name(respvar)))+
+        ## geom_encircle(aes(group=biome_FR),expand=0)+  ## ugly ...
+        ## use model respvar for predicted values
+        geom_line(data=pdata,aes_(y=as.name(mrespvar),linetype=as.name(fauxvar))) +
+        ## FIXME (don't hard-code line types)
+        scale_linetype_manual(values=c(2,1,3))+
+        ## scale_y_continuous(limits=c(-3,1),oob=scales::squish)+
+        theme(legend.box="horizontal")
+    return(gg0 + geom_point(aes(colour=biome,shape=flor_realms)))
+}
+```
 
-**FIXME**: make sure that this graph adapts to different focal taxa!!
+`plotfun()` takes arguments:
+
+- `model`: fitted model
+- `xvar` ("NPP_log"): x-variable
+- `auxvar` ("Feat_cv_sv"): auxiliary variable (e.g. for examining interactions)
+- `respvar` (equal to model response by default): response variable
+- `aux_quantiles`: (0.1, 0.5, 0.9) quantiles of auxiliary variable to predict
+- `pred_lower_lim` (-3) : lower cut off values (log scale)
+- `data` (ecoreg)
+- `re.form` (NA) which RE to include in *predictions* (default is none)
 
 ```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
-pred_lower_lim <- -3
-pdata <- with(ecoreg,
-              expand.grid(NPP_log=seq(min(NPP_log),max(NPP_log),length=51),
-                          Feat_log=quantile(Feat_log,c(0.1,0.5,0.9)),
-                          NPP_cv_ctr=median(NPP_cv_ctr),
-                          Feat_cv_ctr=median(Feat_cv_ctr)))
-pdata$mbirds_log <- predict(best_model,newdata=pdata,re.form=NA)
-pdata$mbirds_log[pdata$mbirds_log< pred_lower_lim] <- NA
-## these predictions do *not* incorporate random effects (biome, flor_realms)
-gg0 <- ggplot(ecoreg,aes(NPP_log,mbirds_log))+
-    ## geom_encircle(aes(group=biome_FR),expand=0)+  ## ugly ...
-    geom_line(data=pdata,aes(linetype=factor(Feat_log)))+
-    scale_linetype_manual(name="feat_log",labels=c("q(0.1)","q(0.5)","q(0.9)"),
-                   values=c(2,1,3))+
-    ## scale_y_continuous(limits=c(-3,1),oob=scales::squish)+
-    theme(legend.box="horizontal")
-print(gg0 + geom_point(aes(colour=biome,shape=flor_realms)))
+ggplot1 <- plotfun(best_model)
+print(ggplot1)
 ```
 
 plot fixes: (1) confidence intervals on predictions; (2) ? relabel axes with absolute rather than log values; ?
@@ -255,21 +324,20 @@ rem1 <- fix_NAs(remef(best_model,ran="all"),best_model)
 if (length(rem1)==nrow(ecoreg)) {
     ## if it worked ...
     ecoreg$rem1 <- rem1
-    ## update previous plot: 
-    print(gg0 %+% ecoreg +  ## incorporate new column 
-          geom_point(aes(y=rem1,colour=biome,shape=flor_realms)))  ## change response var
+    ## update previous plot:
+    plotfun(best_model,respvar="rem1")
 }
 ```
 
-```{r}
+```{r other_plot}
 ecoreg$rem2 <- fix_NAs(remef(best_model,ran="all",
-                             fix=c("NPP_log","NPP_cv_ctr","Feat_cv_ctr"),grouping=TRUE),
+                             fix=c("NPP_log","NPP_cv_sc","Feat_cv_sc"),grouping=TRUE),
                        best_model)
 ecoreg$rem3 <- fix_NAs(remef(best_model,ran="all",
-                             fix=c("NPP_log","NPP_cv_ctr","Feat_log"),grouping=TRUE),
+                             fix=c("NPP_log","NPP_cv_sc","Feat_log"),grouping=TRUE),
                        best_model)
-## FIXME: drop dimensions on Feat_cv_ctr upstream
-gg1 <- ggplot(ecoreg,aes(c(Feat_cv_ctr),rem3))+
+## FIXME: drop dimensions on Feat_cv_sc upstream
+gg1 <- ggplot(ecoreg,aes(c(Feat_cv_sc),rem3))+
     geom_point(aes(colour=biome,shape=flor_realms))+
     geom_smooth(group=1)+
     theme(legend.box="horizontal")
@@ -287,13 +355,10 @@ plot(r2beta(best_model),maxcov=8)+scale_y_log10()+coord_flip()
 
 ## To do
 
-- start writing!
-- rescale CV parameters; consider rescaling all parameters; consider smart vs brute force approaches
 - more/nicer $R^2$ plots?
 - fit models without biome/realm interaction
-- combined coefficient plots from multiple taxa
-- handy-dandy functions to simplify making remef plots with specified response variable etc.?
-
+- CIs on predictions
+- examine models to see when profile CIs can be used; fix profiles?
 
 ## To do (fancy)
 

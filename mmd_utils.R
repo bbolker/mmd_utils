@@ -14,7 +14,7 @@ cplot <- function(x) {
 ## fits all of the combinations of random effects for a particular
 ## response variable
 fit_all <- function(response="mbirds_log",
-                    pars=c("NPP_log","Feat_log","NPP_cv_ctr","Feat_cv_ctr"),
+                    pars=c("NPP_log","Feat_log","NPP_cv_sc","Feat_cv_sc"),
                     ## possible random-effect models
                     forms=c(int="1|",  ## intercept-only
                             diag=paste("1+",paste(pars,collapse="+"),"||"),

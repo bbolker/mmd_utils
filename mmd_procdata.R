@@ -44,6 +44,7 @@ ecoreg$biome <- factor(ecoreg$biome,
 ecoreg$flor_realms <- factor(ecoreg$flor_realms,
                        levels=seq(nrow(flor_defs)),
                        labels=flor_defs$name)
+
 ## better ordering?
 ecoreg$biome_FR <- factor(paste(flor_defs$abbrev[ecoreg$flor_realms],
                             ecoreg$biome,sep=":"))
@@ -55,12 +56,12 @@ for (v in log_vars) {
     ecoreg[[scv]] <- log(ecoreg[[v]]/mean(ecoreg[[v]],na.rm=TRUE))
 }
 
-## center CVs
+## center *and* scale CVs
 ctr_vars <- grep("_cv_inter",predvars,value=TRUE)      
 for (v in ctr_vars) {
-    scv <- gsub("(_inter|_mean)","",paste0(v,"_ctr"))
+    scv <- gsub("(_inter|_mean)","",paste0(v,"_sc"))
     ## drop() so we can use tidyverse later if we want ...
-    ecoreg[[scv]] <- drop(scale(ecoreg[[v]],scale=FALSE,center=TRUE))
+    ecoreg[[scv]] <- drop(scale(ecoreg[[v]],scale=TRUE,center=TRUE))
 }   
 save("ecoreg","biome_defs","flor_defs","predvars","respvars",
      file="ecoreg2.RData")
