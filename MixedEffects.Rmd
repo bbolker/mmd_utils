@@ -230,8 +230,8 @@ flevs <- with(mean_est,
 coeftabs$term <- factor(coeftabs$term,levels=flevs)
 ```
 
-```{r coeftab_plot,fig.height=7,fig.width=7}
-ggplot(coeftabs,aes(estimate,term,
+```{r coeftab_plot,fig.height=7,fig.width=7,warning=FALSE}
+ctplot1 <- ggplot(coeftabs,aes(estimate,term,
                      colour=effect))+
     scale_colour_manual(values=c("black","red"),guide=FALSE)+
     geom_point()+
@@ -241,7 +241,25 @@ ggplot(coeftabs,aes(estimate,term,
     geom_vline(xintercept=0,lty=2)+
     facet_wrap(~taxon)+  ## ncol=1 might be nice, but too skinny
     labs(x="",y="")
+print(ctplot1)
 ```
+
+Zoom in a bit:
+exclude random effects and `NPP_log` (which is large and
+significant for all taxa). **Abuse warning**: coloring significant effects.
+
+```{r coeftab2,message=FALSE}
+ctx <- coeftabs %>%
+    filter(effect=="fixed" & term!="NPP_log") %>%
+    mutate(effect=factor((lwr*upr)>0))
+ctplot1 %+% ctx +
+        scale_colour_manual(values=c("black","orange"),guide=FALSE)
+```
+Definitely starting to get into a snooping mindset here.
+There are not a lot of effects other than `NPP_log` that are consistently large
+and significant; perhaps main effects of fire for birds and mammals.
+Amphibians have considerably larger effects (the last three: Feat cv and its
+interactions).
 
 `plotfun()` takes arguments:
 
@@ -259,7 +277,7 @@ ggplot1 <- plotfun(best_model)
 print(ggplot1)
 ```
 
-**FIXME**: (1) confidence intervals on predictions; (2) ? relabel axes with absolute rather than log values; ?
+**FIXME**: (1) ? relabel axes with absolute rather than log values ?
 
 ```{r remefplot,fig.width=10,fig.height=8,warning=FALSE}
 fix_NAs <- function(rem,model) {
@@ -276,7 +294,7 @@ if (length(rem1)==nrow(ecoreg)) {
 }
 ```
 
-```{r other_plot}
+```{r other_plot,warning=FALSE,message=FALSE}
 ecoreg$rem2 <- fix_NAs(remef(best_model,ran="all",
                              fix=c("NPP_log","NPP_cv_sc","Feat_cv_sc"),grouping=TRUE),
                        best_model)

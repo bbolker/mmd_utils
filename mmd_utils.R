@@ -71,14 +71,15 @@ get_best_name <- function(fitlist,allow_sing=FALSE) {
     return(rownames(aa)[which.min(aa$dAIC)])
 }
 
-plotfun <- function(model=best_model,
-                    xvar="NPP_log",
-                    auxvar="Feat_cv_sc",
-                    respvar=NULL,
-                    aux_quantiles=c(0.1,0.5,0.9),
-                    pred_lower_lim= -3,
+predfun <- function(model=best_model,
                     data = ecoreg,
-                    re.form = NA  ## exclude REs from prediction
+                    xvar="NPP_log",
+                    respvar=NULL,
+                    auxvar="Feat_cv_sc",
+                    pred_lower_lim= -3,
+                    aux_quantiles=c(0.1,0.5,0.9),
+                    re.form = NA,  ## exclude REs from prediction
+                    alpha=0.05
                     ) {
     ## get LHS of formula
     mrespvar <- deparse(formula(best_model)[[2]])
@@ -99,18 +100,48 @@ plotfun <- function(model=best_model,
         pdata[[i]] <- median(data[[i]])
     }
     fauxvar <- paste0("f",auxvar)
-    pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("(",aux_quantiles,")"))
-    pdata[[focal]] <- predict(best_model,newdata=pdata,re.form=re.form)
-    pdata[[focal]][pdata[[focal]] < pred_lower_lim] <- NA
-    gg0 <- ggplot(data,aes_(x=as.name(xvar),y=as.name(respvar)))+
+    pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("Q(",aux_quantiles,")"))
+    pdata[[mrespvar]] <- predict(best_model,newdata=pdata,re.form=re.form)
+    ## confidence intervals (fixed-effects only) on predictions
+    mm <- model.matrix(terms(best_model),pdata)
+    pvar1 <- diag(mm %*% tcrossprod(vcov(best_model),mm))
+    pdata <- transform(pdata,
+                 lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
+                 upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
+    cut_lwr <- function(x,val=NA) {
+        x[x<pred_lower_lim] <- val
+        return(x)
+    }
+    pdata[[mrespvar]] <- cut_lwr(pdata[[mrespvar]])
+    pdata <- transform(pdata,
+                       lwr=cut_lwr(lwr,val=pred_lower_lim),
+                       upr=cut_lwr(upr,val=pred_lower_lim))
+    return(pdata)
+}
+
+plotfun <- function(model=best_model,
+                    data = ecoreg,
+                    xvar="NPP_log",
+                    respvar=NULL,
+                    auxvar="Feat_cv_sc",...
+                    ) {
+    pdata <- predfun(model,data,xvar,respvar,auxvar,...)
+    mrespvar <- deparse(formula(best_model)[[2]])
+    if (is.null(respvar)) respvar <- mrespvar
+    fauxvar <- paste0("f",auxvar)
+    gg0 <- ggplot(data,aes_(x=as.name(xvar)))+
         ## geom_encircle(aes(group=biome_FR),expand=0)+  ## ugly ...
         ## use model respvar for predicted values
         geom_line(data=pdata,aes_(y=as.name(mrespvar),linetype=as.name(fauxvar))) +
+        geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr,
+                                    group=as.name(fauxvar)),
+                    colour=NA,fill="black",alpha=0.1) +
         ## FIXME (don't hard-code line types)
         scale_linetype_manual(values=c(2,1,3))+
-        ## scale_y_continuous(limits=c(-3,1),oob=scales::squish)+
+        scale_y_continuous(limits=c(-3,1),oob=scales::squish)+
         theme(legend.box="horizontal")
-    return(gg0 + geom_point(aes(colour=biome,shape=flor_realms)))
+    return(gg0 + geom_point(aes_(y=as.name(respvar),
+                                colour=~biome,shape=~flor_realms)))
 }
 
 ## test
