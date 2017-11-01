@@ -13,12 +13,12 @@ snooped model analysis. Some parts of the analysis have been moved into separate
 source("mmd_utils.R")
 ```
 
+Packages used/versions:
 ```{r load_packages,message=FALSE}
 load_all_pkgs()
-
 theme_set(theme_bw())
 library('pander')  ## for tables
-load_all_pkgs()
+sapply(pkgList,function(x) format(packageVersion(x)))
 ```
 
 
@@ -131,9 +131,11 @@ all_coef$model <- gsub("diag","d",
                                  gsub("flor_realms","fr",
                                       gsub("biome","b",all_coef$model)))))
 all_coef$model <- reorder(factor(all_coef$model),-all_coef$dAIC)
-ggplot(all_coef,aes(estimate,model,colour=singular))+geom_point()+
-    geom_errorbarh(aes(xmin=estimate-1.96*std.error,
-                       xmax=estimate+1.96*std.error),height=0)+
+ggplot(all_coef,aes(estimate,model,colour=singular))+
+    ## use point + linerange because some RE are missing std.errors
+    geom_point()+
+    geom_linerangeh(aes(xmin=estimate-1.96*std.error,
+                       xmax=estimate+1.96*std.error))+
     facet_wrap(~term,scale="free_x")+
     geom_vline(xintercept=0,lty=2)
 ```
@@ -234,10 +236,12 @@ coeftabs$term <- factor(coeftabs$term,levels=flevs)
 ctplot1 <- ggplot(coeftabs,aes(estimate,term,
                      colour=effect))+
     scale_colour_manual(values=c("black","red"),guide=FALSE)+
+    ## use point + linerange because some RE are missing std.errors
+    ## (could also set NA std.errors to zero)
     geom_point()+
-    geom_errorbarh(aes(xmin=lwr, # estimate-1.96*std.error,
-                       xmax=upr, # estimate+1.96*std.error
-                       ),height=0)+
+    geom_linerangeh(aes(xmin=lwr, # estimate-1.96*std.error,
+                         xmax=upr  # estimate+1.96*std.error
+                         ))+
     geom_vline(xintercept=0,lty=2)+
     facet_wrap(~taxon)+  ## ncol=1 might be nice, but too skinny
     labs(x="",y="")
@@ -255,6 +259,7 @@ ctx <- coeftabs %>%
 ctplot1 %+% ctx +
         scale_colour_manual(values=c("black","orange"),guide=FALSE)
 ```
+
 Definitely starting to get into a snooping mindset here.
 There are not a lot of effects other than `NPP_log` that are consistently large
 and significant; perhaps main effects of fire for birds and mammals.
@@ -309,20 +314,67 @@ gg1 <- ggplot(ecoreg,aes(c(Feat_cv_sc),rem3))+
 print(gg1)
 ```
 
-## Rsq
+## $R^2$ across taxa
+
+Only a few effects have partial $R^2$ values of more than a few percent:
+NPP (of course), fire (for mammals and ?birds?), and fire CV (for amphibians).
+Everything else is going to be pretty subtle (provided of course that
+we trust this particular way of estimating $R^2$).
 
 ```{r rsq}
-plot(r2beta(best_model),maxcov=8)+scale_y_log10()+coord_flip()
+all_rsq <- bind_rows(lapply(best_models,r2beta),.id="taxon") %>%
+    mutate(Effect=reorder(Effect,Rsq))
+ggplot(all_rsq,aes(Rsq,Effect,colour=taxon))+
+    geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
+                   position=position_dodgev(height=0.5))+
+    scale_colour_brewer(palette="Dark2")+
+    scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
+    labs(y="")
+
 ```
+
 
 ## Models without biome/realm interaction
 
+- explore degree of among-biome/among-realm variability in effects
+- look at random effects to see which biomes/realms have high/low (or unusual) effects
+
+```{r}
+L <- load("allfits_restr.RData")
+coefs_restr <- bind_rows(lapply(allfits_restr,
+               function(x) as.data.frame(ranef(x))),.id="taxon")
+gg_restr_biome <- ggplot(filter(coefs_restr,grpvar=="biome"),
+                         aes(condval,grp,colour=taxon,shape=taxon))+
+    geom_point()+facet_wrap(~term,scale="free_x",nrow=1)+
+    scale_colour_brewer(palette="Dark2")+theme(legend.pos="bottom")
+```
+
+```{r print_biome_restr,fig.width=10}
+print(gg_restr_biome)
+```
+
+- better ordering? I think it's currently ordered by plant intercept term (which makes sense: trop/subtrop moist at the top, mangrove at the bottom ...)
+- leave out plants entirely?
+
+```{r print_fr_restr,fig.width=10}
+print(gg_restr_biome %+% filter(coefs_restr,grpvar=="flor_realms"))
+```
+
+```{r vars_restr_plot}
+vars_restr <- bind_rows(lapply(allfits_restr,
+               function(x) as.data.frame(VarCorr(x))),.id="taxon") %>%
+    mutate(grp=gsub("\\.[0-9]*$","",grp)) %>%
+    filter(grp!="Residual", !is.na(var1))
+ggplot(vars_restr,aes(sdcor,var1,colour=taxon,shape=taxon))+
+    geom_point()+facet_wrap(~grp)+
+    scale_colour_brewer(palette="Dark2")+
+    theme(legend.pos="bottom")+
+    labs(y="",x="standard deviation of random effect")
+```
 
 ## To do
 
-- more/nicer $R^2$ plots?
-- fit models without biome/realm interaction
-- CIs on predictions
+- further examine models without biome/realm interaction?
 - examine models to see when profile CIs can be used; fix profiles?
 
 ## To do (fancy)

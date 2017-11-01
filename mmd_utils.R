@@ -13,6 +13,24 @@ cplot <- function(x) {
 
 ## fits all of the combinations of random effects for a particular
 ## response variable
+##
+##' @param response (character) response variable
+##' @param pars (character) vector of input variables
+##' @param forms list of allowed random-effect terms
+##' @param rterms grouping variables
+##' @param interax include (2-way) interactions among fixed effects?
+##' @param data data frame
+##' @param single_fit fit a single specified model instead of all combinations?
+##'
+##' @examples
+##' # two equivalent ways to fit a single model with diagonal terms
+##' #  for biome and flor_realms and no effect for their interaction
+##' f1 <- fit_all(single_fit=c(2,2,NA))
+##' f2 <- fit_all(single_fit=c(2,2),rterms=c("biome","flor_realms"))
+## TODO
+## - select terms by name ("int", "diag", "full") rather than number?
+## - repeat less (if lmer() is encapsulated may need to play with
+##   environment stuff some more, ugh)
 fit_all <- function(response="mbirds_log",
                     pars=c("NPP_log","Feat_log","NPP_cv_sc","Feat_cv_sc"),
                     ## possible random-effect models
@@ -23,33 +41,46 @@ fit_all <- function(response="mbirds_log",
                     ## grouping variables
                     rterms=c("biome","flor_realms","biome_FR"),
                     interax=TRUE,
-                    data=ecoreg) {
+                    data=ecoreg,
+                    single_fit=NULL) {
     ## n.b. need to pass data to function so lme4 internals can find it ...
     ## set up formula with specified combination of random effects
     mform <- function(which_term,interax=TRUE) {
-        rterms <- paste("(",forms[which_term],rterms,")")
+        ## select non-NA terms
+        dd <- na.omit(data.frame(rterms,forms=forms[which_term]))
+        rterms2 <- paste("(",dd$forms,dd$rterms,")")
         if (!interax) {
             pp <- pars
         } else {
             pp <- paste0("(",paste(pars,collapse="+"),")^2")
         }
-        ff <- reformulate(c(pp,rterms),response=response)
+        ff <- reformulate(c(pp,rterms2),response=response)
         environment(ff) <- parent.frame() ## ugh
         return(ff)
     }
-    dd <- expand.grid(1:3,1:3,1:3)
+    ctrl <- lmerControl(optimizer=nloptwrap,
+                        optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12))
+    ## run just one model
+    if (!is.null(single_fit)) {
+        ff <- mform(single_fit)
+        return(try(suppressWarnings(
+            lmer(ff,data=data,
+                 na.action=na.exclude,
+                 control=ctrl))))
+    }
+    dd <- expand.grid(seq_len(forms),seq_len(forms),seq_len(forms))
     ## For example, use RE #1 (intercept) for biome, RE #2 (diag) for realm, RE #3 (full) for biome $\times$ realm interaction ...
     ## mform(c(1,2,3))
-    results <- list()
-    for (i in seq(nrow(dd))) {
-        w <- unlist(dd[i,])
+        results <- list()
+        for (i in seq(nrow(dd))) {
+            w <- unlist(dd[i,])
         nm <- paste(rterms,"=",names(forms)[w],sep="",collapse="/")
         ## cat(i,w,nm,"\n")
         ff <- mform(w)
-        results[[i]] <- try(suppressWarnings(lmer(ff,data=data,
-                            na.action=na.exclude,
-                            control=lmerControl(optimizer=nloptwrap,
-                            optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12)))))
+        results[[i]] <- try(suppressWarnings(
+            lmer(ff,data=data,
+                 na.action=na.exclude,
+                 control=ctrl)))
         names(results)[i] <- nm
     }
     return(results)
@@ -160,6 +191,7 @@ pkgList <- c('lme4',      ## lmer etc.
              'lattice',   ## diagnostic plots
              'gridExtra', ## arrange plots
              'ggplot2',
+             'ggstance',  ## horizontal geoms
              'dplyr',     ## data manipulation
              'tidyr',     ## ditto
              'tibble',    ## ditto: rownames_to_column
