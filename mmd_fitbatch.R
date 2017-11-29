@@ -1,4 +1,4 @@
-L <- load("ecoreg2.RData")
+L <- load("ecoreg.RData")
 source("mmd_utils.R")
 library(lme4)
 library(parallel)
@@ -10,5 +10,6 @@ allfits <- parallel::mclapply(logrespvars, fit_all,
                               mc.cores = 2  ## change as available
                               )
 names(allfits) <- logrespvars
+sapply(allfits, function(x) is(x,"try-error"))
 
 save("allfits",file="allfits.RData")

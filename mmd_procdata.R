@@ -1,3 +1,5 @@
+## setwd('D:/Enric/8.Fire_Biodiversity/3.Mixed_Effects')
+
 load("ecoreg_means.RData")
 ## labels: biome.code.name, short.biome.names, flor.code, zoor.code
 ## "bindex" ?
@@ -23,7 +25,8 @@ grpvars <- c("biome",grep("_(realms|regions)$",nm,value=TRUE))
 ## potential response variables:
 ##  plants, plus everything starting with m (amph, birds, mamm)
 respvars <- c("plants",nm[grepl("^m",nm) & !grepl("regions$",nm)])
-ecoreg <- ecoreg[c(respvars,predvars,grpvars)]
+## Adding three additional columns that will be needed to assign the residuals to each ecoregion
+ecoreg <- ecoreg[c('eco_id','Ncells','Area',respvars,predvars,grpvars)]
 
 ## select non-zero vals
 for (v in predvars) {
@@ -62,6 +65,5 @@ for (v in ctr_vars) {
     scv <- gsub("(_inter|_mean)","",paste0(v,"_sc"))
     ## drop() so we can use tidyverse later if we want ...
     ecoreg[[scv]] <- drop(scale(ecoreg[[v]],scale=TRUE,center=TRUE))
-}   
-save("ecoreg","biome_defs","flor_defs","predvars","respvars",
-     file="ecoreg2.RData")
+}
+save("ecoreg", file="ecoreg.RData")

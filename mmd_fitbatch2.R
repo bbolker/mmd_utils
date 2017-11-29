@@ -1,4 +1,4 @@
-L <- load("ecoreg2.RData")
+L <- load("ecoreg.RData")
 source("mmd_utils.R")
 library(lme4)
 library(parallel)

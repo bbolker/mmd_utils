@@ -27,8 +27,9 @@ library(knitr)
 opts_chunk$set(error=FALSE)
 ```
 
+Data from Enric (includes area and lat/long coordinates):
 ```{r get_data,cache=TRUE}
-L <- load("ecoreg2.RData")
+L <- load("ecoreg.RData")
 ```
 
 Limit all observations with all predictor variables > 0 and no biome 98/99; set `biome` as factor. Log and scale/center variables as appropriate. This leaves us with `r ncol(ecoreg)` variables and
@@ -341,8 +342,11 @@ ggplot(all_rsq,aes(Rsq,Effect,colour=taxon))+
 
 ```{r}
 L <- load("allfits_restr.RData")
+mf <- function(x) {
+  bind_rows()
+}
 coefs_restr <- bind_rows(lapply(allfits_restr,
-               function(x) as.data.frame(ranef(x))),.id="taxon")
+               function(x) as.data.frame(coef(x))),.id="taxon")
 gg_restr_biome <- ggplot(filter(coefs_restr,grpvar=="biome"),
                          aes(condval,grp,colour=taxon,shape=taxon))+
     geom_point()+facet_wrap(~term,scale="free_x",nrow=1)+

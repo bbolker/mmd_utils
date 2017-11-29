@@ -1,17 +1,17 @@
 %.html: %.Rmd
 	Rscript -e "rmarkdown::render(\"$<\")"
 
-MixedEffects.html: mmd_utils.R ecoreg2.RData allfits.RData allfits_restr.RData allprofs.RData MixedEffects.Rmd
+MixedEffects.html: mmd_utils.R ecoreg.RData allfits.RData allfits_restr.RData allprofs.RData MixedEffects.Rmd
 
-ecoreg2.RData: ecoreg_means.RData mmd_procdata.R biome_defs.csv olson_flor.csv
+ecoreg.RData: ecoreg_means.RData mmd_procdata.R biome_defs.csv olson_flor.csv
 	R CMD BATCH mmd_procdata.R
 
 ## all combinations of fits
-allfits.RData: ecoreg2.RData mmd_utils.R mmd_fitbatch.R
+allfits.RData: ecoreg.RData mmd_utils.R mmd_fitbatch.R
 	R CMD BATCH mmd_fitbatch.R
 
 ## biome=diag, flor_realm=diag fits
-allfits_restr.RData: ecoreg2.RData mmd_utils.R mmd_fitbatch.R
+allfits_restr.RData: ecoreg.RData mmd_utils.R mmd_fitbatch.R
 	R CMD BATCH mmd_fitbatch2.R
 
 allprofs.RData: allfits.RData

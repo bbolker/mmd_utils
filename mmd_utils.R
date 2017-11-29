@@ -33,6 +33,7 @@ cplot <- function(x) {
 ##   environment stuff some more, ugh)
 fit_all <- function(response="mbirds_log",
                     pars=c("NPP_log","Feat_log","NPP_cv_sc","Feat_cv_sc"),
+                    extra_pred_vars="log(area_km2)",
                     ## possible random-effect models
                     forms=c(int="1|",  ## intercept-only
                             diag=paste("1+",paste(pars,collapse="+"),"||"),
@@ -45,16 +46,26 @@ fit_all <- function(response="mbirds_log",
                     single_fit=NULL) {
     ## n.b. need to pass data to function so lme4 internals can find it ...
     ## set up formula with specified combination of random effects
-    mform <- function(which_term,interax=TRUE) {
+    mform <- function(which_term,interax=TRUE,extra_pred_vars=NULL) {
         ## select non-NA terms
         dd <- na.omit(data.frame(rterms,forms=forms[which_term]))
+        ## random-effect terms
         rterms2 <- paste("(",dd$forms,dd$rterms,")")
+        ## construct fixed-effect terms
         if (!interax) {
             pp <- pars
         } else {
             pp <- paste0("(",paste(pars,collapse="+"),")^2")
         }
-        ff <- reformulate(c(pp,rterms2),response=response)
+        pred_vars <- c(pp,rterms2)
+        if (!is.null(extra_pred_vars)) {
+            test_pv <- function(x) all(all.vars(parse(text=x)) %in% names(data))
+            for (v in extra_pred_vars) {
+                if (!test_pv(v)) stop("extra vars not found in data:",v)
+            }
+            pred_vars <- c(pred_vars,extra_pred_vars)
+        }
+        ff <- reformulate(pred_vars,response=response)
         environment(ff) <- parent.frame() ## ugh
         return(ff)
     }
@@ -62,13 +73,13 @@ fit_all <- function(response="mbirds_log",
                         optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12))
     ## run just one model
     if (!is.null(single_fit)) {
-        ff <- mform(single_fit)
+        ff <- mform(single_fit,extra_pred_vars=extra_pred_vars)
         return(try(suppressWarnings(
             lmer(ff,data=data,
                  na.action=na.exclude,
                  control=ctrl))))
     }
-    dd <- expand.grid(seq_len(forms),seq_len(forms),seq_len(forms))
+    dd <- expand.grid(seq_along(forms),seq_along(forms),seq_along(forms))
     ## For example, use RE #1 (intercept) for biome, RE #2 (diag) for realm, RE #3 (full) for biome $\times$ realm interaction ...
     ## mform(c(1,2,3))
         results <- list()
@@ -76,7 +87,7 @@ fit_all <- function(response="mbirds_log",
             w <- unlist(dd[i,])
         nm <- paste(rterms,"=",names(forms)[w],sep="",collapse="/")
         ## cat(i,w,nm,"\n")
-        ff <- mform(w)
+        ff <- mform(w,extra_pred_vars=extra_pred_vars)
         results[[i]] <- try(suppressWarnings(
             lmer(ff,data=data,
                  na.action=na.exclude,
@@ -178,7 +189,7 @@ plotfun <- function(model=best_model,
 ## test
 
 if (FALSE) {
-    load("ecoreg2.RData")
+    load("ecoreg.RData")
     library(lme4)
     debug(lFormula)
     debug(fit_all)
