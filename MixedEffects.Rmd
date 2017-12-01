@@ -9,6 +9,7 @@ snooped model analysis. Some parts of the analysis have been moved into separate
 
 ![](make.png)
 
+(`mmd_procdata` is a little bit 
 ```{r get_utils}
 source("mmd_utils.R")
 ```
@@ -325,13 +326,13 @@ we trust this particular way of estimating $R^2$).
 ```{r rsq}
 all_rsq <- bind_rows(lapply(best_models,r2beta),.id="taxon") %>%
     mutate(Effect=reorder(Effect,Rsq))
-ggplot(all_rsq,aes(Rsq,Effect,colour=taxon))+
+rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon))+
     geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
                    position=position_dodgev(height=0.5))+
     scale_colour_brewer(palette="Dark2")+
     scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
     labs(y="")
-
+print(rsqplot)
 ```
 
 
@@ -342,14 +343,21 @@ ggplot(all_rsq,aes(Rsq,Effect,colour=taxon))+
 
 ```{r}
 L <- load("allfits_restr.RData")
-mf <- function(x) {
-  bind_rows()
+as.data.frame.coef.mer <- function(x,...) {
+    class(x) <- "list"
+    lapply(x,tibble::rownames_to_column,var="grp") %>%
+        bind_rows(.id="grpvar") %>%
+        gather(term,condval,-c(grpvar,grp))
 }
+ranefs_restr <- bind_rows(lapply(allfits_restr,
+                 function(x) as.data.frame(ranef(x))),.id="taxon")
 coefs_restr <- bind_rows(lapply(allfits_restr,
-               function(x) as.data.frame(coef(x))),.id="taxon")
-gg_restr_biome <- ggplot(filter(coefs_restr,grpvar=="biome"),
+                 function(x) as.data.frame(coef(x))),.id="taxon")
+
+cd1 <- filter(coefs_restr,grpvar=="biome",term != "log(area_km2)")
+gg_restr_biome <- ggplot(cd1,
                          aes(condval,grp,colour=taxon,shape=taxon))+
-    geom_point()+facet_wrap(~term,scale="free_x",nrow=1)+
+    geom_point()+facet_wrap(~term,scale="free_x")+
     scale_colour_brewer(palette="Dark2")+theme(legend.pos="bottom")
 ```
 
@@ -361,8 +369,11 @@ print(gg_restr_biome)
 - leave out plants entirely?
 
 ```{r print_fr_restr,fig.width=10}
-print(gg_restr_biome %+% filter(coefs_restr,grpvar=="flor_realms"))
+print(gg_restr_biome %+%
+      filter(coefs_restr,grpvar=="flor_realms",term != "log(area_km2)"))
 ```
+
+**needs work: looking at predicted values rather than deviations from population mean, the values for different taxa are very far apart, need to look at them separately for each taxon ... ??**
 
 ```{r vars_restr_plot}
 vars_restr <- bind_rows(lapply(allfits_restr,
