@@ -118,7 +118,7 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">Diversity analysis</h1>
-<h4 class="date"><em>2017-11-30 21:25:42</em></h4>
+<h4 class="date"><em>2017-11-30 21:30:19</em></h4>
 
 </div>
 
@@ -426,7 +426,22 @@ ggplot(vars_restr,aes(sdcor,var1,colour=taxon,shape=taxon))+
 spatform &lt;- update(formula(best_models[[1]],fixed.only=TRUE),
                    . ~ . + s(x,y,bs=&quot;sos&quot;))
 ranform &lt;- formula(best_models[[1]],random.only=TRUE)
-try(gamm4(spatform,random=ranform,data=na.omit(ecoreg)))</code></pre>
+print(try(gamm4(spatform,random=ranform,
+          data=na.omit(ecoreg))))</code></pre>
+<pre><code>## [1] &quot;Error in model.frame.default(data = mf, weights = G$w, drop.unused.levels = TRUE,  : \n  object is not a matrix\n&quot;
+## attr(,&quot;class&quot;)
+## [1] &quot;try-error&quot;
+## attr(,&quot;condition&quot;)
+## &lt;simpleError in model.frame.default(data = mf, weights = G$w, drop.unused.levels = TRUE,     formula = y.0 ~ X - 1 + (1 + Xr) + lants_log ~ (1 + biome) +         (1 + flor_realms) + (1 + biome_FR) + (0 + NPP_log + biome_FR) +         (0 + Feat_log + biome_FR) + (0 + NPP_cv_sc + biome_FR) +         (0 + Feat_cv_sc + biome_FR)): object is not a matrix&gt;</code></pre>
+<p>Try something (much) simpler?</p>
+<pre class="r"><code>print(try(gamm4(mbirds_log ~ NPP_log + log(area_km2) + s(x,y,bs=&quot;sos&quot;),
+      random=~1|biome,
+      data=ecoreg)))</code></pre>
+<pre><code>## [1] &quot;Error in model.matrix.default(eval(substitute(~foo, list(foo = x[[2]]))),  : \n  model frame and formula mismatch in model.matrix()\n&quot;
+## attr(,&quot;class&quot;)
+## [1] &quot;try-error&quot;
+## attr(,&quot;condition&quot;)
+## &lt;simpleError in model.matrix.default(eval(substitute(~foo, list(foo = x[[2]]))),     frloc): model frame and formula mismatch in model.matrix()&gt;</code></pre>
 </div>
 <div id="to-do" class="section level2">
 <h2>To do</h2>

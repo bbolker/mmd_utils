@@ -398,16 +398,16 @@ library(gamm4)
 spatform <- update(formula(best_models[[1]],fixed.only=TRUE),
                    . ~ . + s(x,y,bs="sos"))
 ranform <- formula(best_models[[1]],random.only=TRUE)
-try(gamm4(spatform,random=ranform,
-          data=na.omit(ecoreg)))
+print(try(gamm4(spatform,random=ranform,
+          data=na.omit(ecoreg))))
 ```
 
 Try something (much) simpler?
 
 ```{r spat2}
-try(gamm4(mbirds_log ~ NPP_log + log(area_km2) + s(x,y,bs="sos"),
+print(try(gamm4(mbirds_log ~ NPP_log + log(area_km2) + s(x,y,bs="sos"),
       random=~1|biome,
-      data=ecoreg))
+      data=ecoreg)))
 ```
 
 ## To do
