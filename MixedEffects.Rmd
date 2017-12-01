@@ -393,27 +393,55 @@ ggplot(vars_restr,aes(sdcor,var1,colour=taxon,shape=taxon))+
 
 So far ...
 
-```{r spat1}
+```{r spat1,cache=TRUE}
 library(gamm4)
+## add spatial smooth to fixed effect formula
 spatform <- update(formula(best_models[[1]],fixed.only=TRUE),
                    . ~ . + s(x,y,bs="sos"))
-ranform <- formula(best_models[[1]],random.only=TRUE)
-print(try(gamm4(spatform,random=ranform,
-          data=na.omit(ecoreg))))
+## extract random effect formula and drop LHS
+ranform1 <- formula(best_models[[1]],random.only=TRUE)[-2]
+spat1 <- gamm4(spatform,random=ranform1,
+               data=na.omit(ecoreg))
+class(spat1) <- "gamm4"
 ```
 
-Try something (much) simpler?
-
-```{r spat2}
-print(try(gamm4(mbirds_log ~ NPP_log + log(area_km2) + s(x,y,bs="sos"),
-      random=~1|biome,
-      data=ecoreg)))
+```{r spat1plot}
+plot(spat1$gam)
 ```
+
+```{r spatcoefs}
+tidy.gamm4 <- function(x,...) {
+    r <- tidy(x$mer,...)
+    r$term <- gsub("^X","",r$term)
+    return(r)
+}
+spatcoefs <- dplyr::bind_rows(lapply(list(orig=best_models[[1]],
+                             spat=spat1),tidy,effect="fixed"),
+                 .id="model") %>%
+    filter(term!="(Intercept)") %>%
+    mutate(term=reorder(factor(term),estimate))
+ggplot(spatcoefs,aes(estimate,term,
+                     xmin=estimate-1.96*std.error,
+                     xmax=estimate+1.96*std.error,
+                     colour=model))+
+    geom_pointrangeh(position=position_dodgev(height=0.5))+
+    geom_vline(xintercept=0,lty=2)+
+    scale_colour_brewer(palette="Set1")
+```
+
+**n.b.**: for simple models need `random=~(1|biome)`,
+`random=~1|biome` fails with "model frame and formula mismatch in model.matrix()"
 
 ## To do
 
 - further examine models without biome/realm interaction?
 - examine models to see when profile CIs can be used; fix profiles?
+- spatial models
+    - automate/run for all cases
+	- extract residuals, re-check autocorr
+	- other info/plotting methods for smooth component? plotting arguments? (see `?smooth.construct.sos.smooth.spec`)
+	- is extracting the `mer` component and doing inference etc. OK?
+	- should this be done from the start?
 
 ## To do (fancy)
 
