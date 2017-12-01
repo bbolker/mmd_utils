@@ -9,7 +9,9 @@ snooped model analysis. Some parts of the analysis have been moved into separate
 
 ![](make.png)
 
-(`mmd_procdata` is a little bit 
+(`mmd_procdata` is a little bit out of date: Enric has processing machinery to
+extract lat/long of centroid of largest polygon (?) (`x`/`y` in the data set) and area ...)
+
 ```{r get_utils}
 source("mmd_utils.R")
 ```
@@ -385,6 +387,27 @@ ggplot(vars_restr,aes(sdcor,var1,colour=taxon,shape=taxon))+
     scale_colour_brewer(palette="Dark2")+
     theme(legend.pos="bottom")+
     labs(y="",x="standard deviation of random effect")
+```
+
+## spatial fits
+
+So far ...
+
+```{r spat1}
+library(gamm4)
+spatform <- update(formula(best_models[[1]],fixed.only=TRUE),
+                   . ~ . + s(x,y,bs="sos"))
+ranform <- formula(best_models[[1]],random.only=TRUE)
+try(gamm4(spatform,random=ranform,
+          data=na.omit(ecoreg)))
+```
+
+Try something (much) simpler?
+
+```{r spat2}
+try(gamm4(mbirds_log ~ NPP_log + log(area_km2) + s(x,y,bs="sos"),
+      random=~1|biome,
+      data=ecoreg))
 ```
 
 ## To do
