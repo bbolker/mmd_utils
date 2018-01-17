@@ -402,11 +402,15 @@ spatform <- update(formula(best_models[[1]],fixed.only=TRUE),
 ranform1 <- formula(best_models[[1]],random.only=TRUE)[-2]
 spat1 <- gamm4(spatform,random=ranform1,
                data=na.omit(ecoreg))
-class(spat1) <- "gamm4"
+class(spat1) <- "gamm4"  ## why list()?
 ```
 
-```{r spat1plot}
-plot(spat1$gam)
+`?smooth.construct.sos.smooth.spec`
+`mgcv:::plot.sos.smooth`
+```{r spat1plot,fig.width=10}
+par(mfrow=c(1,2))
+plot(spat1$gam,theta=50,phi=50,scheme=1,pch=1)
+plot(y~x,data=ecoreg)
 ```
 
 ```{r spatcoefs}
