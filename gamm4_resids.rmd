@@ -1,0 +1,116 @@
+---
+title: exploring `gamm4` residuals
+date: "`r Sys.time()`"
+---
+
+
+The fitted model objects returned by `gamm4` are lists of two components, called `mer` and `gam`. How do we get the predictions/residuals we want, i.e. incorporating effects of all three of (1) regular fixed effect terms, (2) smooth terms, (3) random effect terms?
+
+**tl;dr** `residuals(m1$mer)` should be fine.
+
+```{r pkgs, message=FALSE}
+##
+library(gamm4)
+library(lme4)     ## for simulate()
+library(splines)  ## for ns()
+library(ggplot2); theme_set(theme_bw())
+library(cowplot)  ## for plot_grid()
+```
+
+Set up simulated data with
+
+- regular fixed effect (predictor is 0/1, so this should be pretty easy to see)
+- smooth term (10-point spline)
+- random effect (scalar/intercept-only model)
+
+```{r sim}
+set.seed(101)
+dd <- data.frame(z=rep(0:1,each=250),
+                 x=rnorm(500),f=factor(rep(1:10,50)))
+## check number of parameters, order:
+colnames(model.matrix(~z+ns(x,10),data=dd))
+## spline parameters (pretty arbitrary - we need 10 values)
+## won't correspond exactly to parameters from mgcv::gam anyway,
+##  as it uses a different spline framework
+sparms <- rep(c(1,0),5)
+## simulate data:
+## (suppress message about unnamed theta/beta)
+dd$y <- suppressMessages(simulate(~z+ns(x,10)+(1|f),
+                  newdata=dd,
+                  newparams=list(beta=c(1,1,sparms),
+                                 ## random-effects sd (scaled by sigma)
+                                 theta=30,
+                                 ## small residual error so we can see
+                                 ##  what's going on clearly
+                                 sigma=0.01),
+                  family=gaussian))[[1]]
+## order by x for plotting convenience
+dd <- dd[order(dd$x),]
+```
+
+See what we've got:
+
+```{r gg0}
+gg0 <- ggplot(dd,aes(x,y,colour=f))+geom_point()+
+    geom_line(aes(group=interaction(z,f)))+
+    scale_colour_discrete(guide=FALSE)
+print(gg0)
+```
+
+Fit the `gamm4` model:
+```{r fit}
+## n.b. need parentheses around random effect
+m1 <- gamm4(y~z+s(x), random=~(1|f),data=dd)
+```
+
+Check parameters:
+```{r parms}
+fixef(m1$mer) ## includes z + a mystery parameter (smooth effect?)
+coef(m1$gam)  ## includes z + smooth terms
+```
+
+Look at predicted from each component vs observed:
+neither prediction captures everything?
+
+```{r pred_obs,fig.width=8}
+par(mfrow=c(1,2))
+plot(dd$y,predict(m1$mer),xlab="obs",ylab="pred",main="mer pred")
+abline(a=0,b=1,col="red")
+plot(dd$y,predict(m1$gam),xlab="obs",ylab="pred",main="gam pred")
+abline(a=0,b=1,col="red")
+```
+
+But adding random effects to gam prediction by hand gives
+mer prediction ...
+
+```{r pred_aug}
+re <- ranef(m1$mer)$f[,1]  ## random-effects vector
+augpred <- c(predict(m1$gam)+ re[dd$f])
+all.equal(augpred,predict(m1$mer))
+```
+
+... suggesting that mer prediction is what we need
+
+This model (which I originally fitted) *would* capture everything almost exactly
+but slow (lots of FE parameters):
+```{r ns_fit,eval=FALSE}
+gamm4(y~z+ns(x,10), random=~(1|f),data=dd)
+```
+
+If we plot the predicted rather than the actual data, we clearly
+see that all of the components of the pattern (fixed effect,
+smooth terms, random terms) are incorporated in the prediction:
+
+```{r plot_res}
+plot_grid(gg0+ggtitle("sim data"),
+          gg0 %+% transform(dd,y=predict(m1$mer)) + ggtitle("mer predictions"))
+```
+
+
+So `residuals(m1$mer)` should be fine:
+
+```{r resids}
+all.equal(residuals(m1$mer),dd$y-predict(m1$mer))
+```
+
+See also: https://stat.ethz.ch/pipermail/r-sig-mixed-models/2011q2/013602.html
