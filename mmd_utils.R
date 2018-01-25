@@ -47,7 +47,8 @@ fit_all <- function(response="mbirds_log",
                     interax=TRUE,
                     data=ecoreg,
                     single_fit=NULL,
-                    use_gamm4=FALSE) {
+                    use_gamm4=FALSE,
+                    verbose=FALSE) {
     if (use_gamm4) {
         ## add spherical smoothing term
         ## ?smooth.construct.sos.smooth.spec:
@@ -95,16 +96,16 @@ fit_all <- function(response="mbirds_log",
     dd <- expand.grid(seq_along(forms),seq_along(forms),seq_along(forms))
     ## For example, use RE #1 (intercept) for biome, RE #2 (diag) for realm, RE #3 (full) for biome $\times$ realm interaction ...
     ## mform(c(1,2,3))
-        results <- list()
-        for (i in seq(nrow(dd))) {
-            w <- unlist(dd[i,])
+    results <- list()
+    for (i in seq(nrow(dd))) {
+        w <- unlist(dd[i,])
         nm <- paste(rterms,"=",names(forms)[w],sep="",collapse="/")
-        ## cat(i,w,nm,"\n")
+        if (verbose) cat(i,w,nm,"\n")
         ff <- mform(w,extra_pred_vars=extra_pred_vars)
         results[[i]] <- try(suppressWarnings(
             fitfun(ff,data=data,
-                 na.action=na.exclude,
-                 control=ctrl)))
+                   na.action=na.exclude,
+                   control=ctrl)))
         names(results)[i] <- nm
     }
     return(results)

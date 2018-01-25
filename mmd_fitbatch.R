@@ -3,11 +3,11 @@ source("mmd_utils.R")
 library(lme4)
 library(parallel)
 
-## pick out all response variables
-logrespvars <- paste0(respvars,"_log")
+logrespvars <- paste0(c("plants","mamph","mbirds","mmamm"),"_log")
 
 allfits <- parallel::mclapply(logrespvars, fit_all,
-                              use_gamm4 = TRUE,
+                              ## use_gamm4 = TRUE,
+                              verbose = TRUE,
                               mc.cores = 2  ## change as available
                               )
 names(allfits) <- logrespvars
