@@ -36,7 +36,7 @@ cplot <- function(x) {
 ##   environment stuff some more, ugh)
 fit_all <- function(response="mbirds_log",
                     pars=c("NPP_log","Feat_log","NPP_cv_sc","Feat_cv_sc"),
-                    extra_pred_vars="log(area_km2)",
+                    extra_pred_vars="log(Area)",
                     ## possible random-effect models
                     forms=c(int="1|",  ## intercept-only
                             diag=paste("1+",paste(pars,collapse="+"),"||"),
@@ -79,7 +79,9 @@ fit_all <- function(response="mbirds_log",
         environment(ff) <- parent.frame() ## ugh
         return(ff)
     }
-    fitfun <- if (use_gamm4) gamm4 else lmer
+    ## g4fit() is our wrapper that calls gamm4 and assigns class "gamm4"
+    ##  to the result
+    fitfun <- if (use_gamm4) g4fit else lmer
     ctrl <- lmerControl(optimizer=nloptwrap,
                         optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12))
     ## run just one model

@@ -7,6 +7,7 @@ library(parallel)
 logrespvars <- paste0(respvars,"_log")
 
 allfits <- parallel::mclapply(logrespvars, fit_all,
+                              use_gamm4 = TRUE,
                               mc.cores = 2  ## change as available
                               )
 names(allfits) <- logrespvars
