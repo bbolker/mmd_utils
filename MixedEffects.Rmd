@@ -399,6 +399,7 @@ So far ...
 library(gamm4)
 ## add spatial smooth to fixed effect formula
 spatform <- update(formula(best_models[[1]],fixed.only=TRUE),
+                   ## latitude first! as in documentation ...
                    . ~ . + s(y,x,bs="sos",
                              m=-1 ## play with smoothing order
                              ))
@@ -409,8 +410,8 @@ spat1 <- gamm4(spatform,random=ranform1,
 class(spat1) <- "gamm4"  ## why list()?
 ```
 
-`?smooth.construct.sos.smooth.spec`
-`mgcv:::plot.sos.smooth`
+For more information on spherical smooth terms and plotting, see `?smooth.construct.sos.smooth.spec` and `mgcv:::plot.sos.smooth` ...
+
 ```{r spat1plot,fig.width=10}
 par(mfrow=c(1,2))
 plot(spat1$gam,theta=0,phi=120,scheme=0,pch=1)
