@@ -9,5 +9,6 @@ ecoreg_means.RData
 *.Rout
 .Rhistory
 .#*
+\#*
 *~
 .RData
