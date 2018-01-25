@@ -129,6 +129,7 @@ VarCorr(best_model)
 ```{r coefplot,echo=FALSE,fig.width=10,fig.height=8}
 all_coef <- dplyr::bind_rows(lapply(results,tidy,effect="fixed"),.id="model")
 all_coef <- merge(all_coef,data.frame(model=rownames(aa2),aa2))
+## shorten model names
 all_coef$model <- gsub("diag","d",
                        gsub("full","f",
                             gsub("int","i",
@@ -161,7 +162,7 @@ Could combine, *or* sort out problems with profiles (or go back
 to `glmmTMB`/`brms`/etc. ...)
 
 ```{r profcis,warning=FALSE}
-profci <- confint(pp,parm="beta_") ## only available with devel/lme4
+profci <- confint(pp,parm="beta_")
 waldci <- confint(best_model,method="Wald",parm="beta_")
 ```
 
@@ -260,8 +261,9 @@ significant for all taxa). **Abuse warning**: coloring significant effects.
 ctx <- coeftabs %>%
     filter(effect=="fixed" & term!="NPP_log") %>%
     mutate(effect=factor((lwr*upr)>0))
-ctplot1 %+% ctx +
-        scale_colour_manual(values=c("black","orange"),guide=FALSE)
+## suppress message about replacing 'colour'
+suppressMessages(print(ctplot1 %+% ctx +
+        scale_colour_manual(values=c("black","orange"),guide=FALSE)))
 ```
 
 Definitely starting to get into a snooping mindset here.
@@ -397,7 +399,9 @@ So far ...
 library(gamm4)
 ## add spatial smooth to fixed effect formula
 spatform <- update(formula(best_models[[1]],fixed.only=TRUE),
-                   . ~ . + s(x,y,bs="sos"))
+                   . ~ . + s(y,x,bs="sos",
+                             m=-1 ## play with smoothing order
+                             ))
 ## extract random effect formula and drop LHS
 ranform1 <- formula(best_models[[1]],random.only=TRUE)[-2]
 spat1 <- gamm4(spatform,random=ranform1,
@@ -409,7 +413,8 @@ class(spat1) <- "gamm4"  ## why list()?
 `mgcv:::plot.sos.smooth`
 ```{r spat1plot,fig.width=10}
 par(mfrow=c(1,2))
-plot(spat1$gam,theta=50,phi=50,scheme=1,pch=1)
+plot(spat1$gam,theta=0,phi=120,scheme=0,pch=1)
+plot(spat1$gam,scheme=1,pch=1)
 plot(y~x,data=ecoreg)
 ```
 
