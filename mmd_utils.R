@@ -21,7 +21,8 @@ cplot <- function(x) {
 ##' @param interax include (2-way) interactions among fixed effects?
 ##' @param data data frame
 ##' @param single_fit fit a single specified model instead of all combinations?
-##'
+##' @param use_gamm4 fit a spatial model?
+##' 
 ##' @examples
 ##' # two equivalent ways to fit a single model with diagonal terms
 ##' #  for biome and flor_realms and no effect for their interaction
@@ -43,7 +44,12 @@ fit_all <- function(response="mbirds_log",
                     rterms=c("biome","flor_realms","biome_FR"),
                     interax=TRUE,
                     data=ecoreg,
-                    single_fit=NULL) {
+                    single_fit=NULL,
+                    use_gamm4=FALSE) {
+    if (use_gamm4) {
+        ## add spherical smoothing term
+        extra_pred_vars <- c(extra_pred_vars,"s(y,x,bs='sos')")
+    }
     ## n.b. need to pass data to function so lme4 internals can find it ...
     ## set up formula with specified combination of random effects
     mform <- function(which_term,interax=TRUE,extra_pred_vars=NULL) {
@@ -69,13 +75,14 @@ fit_all <- function(response="mbirds_log",
         environment(ff) <- parent.frame() ## ugh
         return(ff)
     }
+    fitfun <- if (use_gamm4) gamm4 else lmer
     ctrl <- lmerControl(optimizer=nloptwrap,
                         optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12))
     ## run just one model
     if (!is.null(single_fit)) {
         ff <- mform(single_fit,extra_pred_vars=extra_pred_vars)
         return(try(suppressWarnings(
-            lmer(ff,data=data,
+            fitfun(ff,data=data,
                  na.action=na.exclude,
                  control=ctrl))))
     }
@@ -89,7 +96,7 @@ fit_all <- function(response="mbirds_log",
         ## cat(i,w,nm,"\n")
         ff <- mform(w,extra_pred_vars=extra_pred_vars)
         results[[i]] <- try(suppressWarnings(
-            lmer(ff,data=data,
+            fitfun(ff,data=data,
                  na.action=na.exclude,
                  control=ctrl)))
         names(results)[i] <- nm
@@ -199,6 +206,7 @@ if (FALSE) {
 pkgList <- c('lme4',      ## lmer etc.
              'bbmle',     ## AICtab, cosmetic
              'broom',     ## coef tables
+             'broom.mixed', ## better coef tables
              'lattice',   ## diagnostic plots
              'gridExtra', ## arrange plots
              'ggplot2',
