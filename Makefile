@@ -1,7 +1,7 @@
 %.html: %.Rmd
 	Rscript -e "rmarkdown::render(\"$<\")"
 
-MixedEffects.html: mmd_utils.R ecoreg.RData allfits.RData allfits_restr.RData allprofs.RData MixedEffects.Rmd
+MixedEffects.html: gamm4_utils.R mmd_utils.R ecoreg.RData allfits.RData allfits_restr.RData allprofs.RData MixedEffects.Rmd
 
 ecoreg.RData: ecoreg_means.RData mmd_procdata.R biome_defs.csv olson_flor.csv
 	R CMD BATCH mmd_procdata.R

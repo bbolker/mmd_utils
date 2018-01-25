@@ -1,3 +1,5 @@
+source("gamm4_utils.R")
+
 ## basic check for singular random effects (i.e. overfitted)
 is.singular <- function(fit,tol=1e-4) {
     any(abs(lme4::getME(fit,"theta"))<tol)
@@ -48,6 +50,8 @@ fit_all <- function(response="mbirds_log",
                     use_gamm4=FALSE) {
     if (use_gamm4) {
         ## add spherical smoothing term
+        ## ?smooth.construct.sos.smooth.spec:
+        ##  s(latitude,longitude,bs='sos') [lat first!]
         extra_pred_vars <- c(extra_pred_vars,"s(y,x,bs='sos')")
     }
     ## n.b. need to pass data to function so lme4 internals can find it ...
@@ -204,6 +208,7 @@ if (FALSE) {
 }
 
 pkgList <- c('lme4',      ## lmer etc.
+             'gamm4',     ## spatial fits
              'bbmle',     ## AICtab, cosmetic
              'broom',     ## coef tables
              'broom.mixed', ## better coef tables
@@ -225,6 +230,3 @@ load_all_pkgs <- function() {
 }
 
 
-
-    
-    
