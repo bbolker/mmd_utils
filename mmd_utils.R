@@ -232,4 +232,10 @@ load_all_pkgs <- function() {
     ## FIXME: print results
 }
 
-
+shorten_modelname <- function(mname) {
+    return(gsub("diag","d",
+                gsub("full","f",
+                     gsub("int","i",
+                          gsub("flor_realms","fr",
+                               gsub("biome","b",mname))))))
+}
