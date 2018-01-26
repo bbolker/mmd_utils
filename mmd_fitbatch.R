@@ -1,12 +1,18 @@
 L <- load("ecoreg.RData")
 source("mmd_utils.R")
 library(lme4)
+library(gamm4)
 library(parallel)
 
 logrespvars <- paste0(c("plants","mamph","mbirds","mmamm"),"_log")
+## pp <- ecoreg[c("plants_log","NPP_mean","NPP_cv_inter",
+##                     "Feat_mean","Feat_cv_inter",
+##                     "biome","flor_realms","area_km2","x","y")]
+## pp[!complete.cases(pp),]  ## NA values in predictor
+## f1 <- fit_all(logrespvars[1],use_gamm4=TRUE,verbose=TRUE)
 
 allfits <- parallel::mclapply(logrespvars, fit_all,
-                              ## use_gamm4 = TRUE,
+                              use_gamm4 = TRUE,
                               verbose = TRUE,
                               mc.cores = 2  ## change as available
                               )
