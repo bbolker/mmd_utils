@@ -258,7 +258,7 @@ get_best_name <- function(x,tt) {
     return(best_model)
 }
 
-get_best_pred <- function(x,tt,best=get_best_name(x)) {
+get_best_pred <- function(x,tt,best=get_best_name(x,tt)) {
     p <- x$pred %>%
         filter(taxon==tt,model==best)
     return(p)
