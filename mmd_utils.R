@@ -239,3 +239,44 @@ shorten_modelname <- function(mname) {
                           gsub("flor_realms","fr",
                                gsub("biome","b",mname))))))
 }
+
+## extraction from summaries
+get_best_sum <- function(x) {
+    x$sum %>%   ## tidyverse-ish extraction?
+    group_by(taxon) %>%
+    filter(best) %>%
+    select(-c(AIC,best,singular))
+}
+
+get_best_name <- function(x,tt) {
+    ## extract *name* of best model
+    best_model <- x$sum %>%
+        ## couldn't figure out how to use 'taxon' twice here
+        filter(taxon==tt) %>%
+        filter(best) %>%
+        pull(model)
+    return(best_model)
+}
+
+get_best_pred <- function(x,tt,best=get_best_name(x)) {
+    p <- x$pred %>%
+        filter(taxon==tt,model==best)
+    return(p)
+}
+
+## tried to get 14 distinguishable colours from IWantHue
+## (still not great)
+iwh14 <- c("#ff3579","#2ace05","#b90dd3","#00ac42","#4842b6","#e5c400","#1bd4ff","#cf2700","#018e66","#ff64b0","#47591c","#ff9065","#953012","#d5ad7f")
+##' @param x a model-summary object (lme4_res or gamm4_res)
+##' @param taxon
+diag_plot <- function(x,tt) {
+    require(cowplot)
+    pred_vals <- get_best_pred(x,tt)
+    fitres <- ggplot(pred_vals,aes(.fitted,.resid))+geom_point()+
+        geom_smooth()
+    qqplot <- ggplot(pred_vals,aes(sample=.resid))+
+        stat_qq(aes(colour=biome))+
+        stat_qq_line()+
+        scale_colour_manual(values=iwh14)
+    cowplot::plot_grid(fitres,qqplot)
+}

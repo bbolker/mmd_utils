@@ -9,7 +9,8 @@ library(broom.mixed)
 ##  to find vars we need, extract those from data ...
 get_data <- function(x,data) {
     if (inherits(x,"merMod")) {
-        av <- all.vars(formula(x))
+        ## include x/y vars for future ref even though not in formula
+        av <- c(all.vars(formula(x)),"x","y")
     } else {  ## gamm4/list
         av <- union(all.vars(formula(x$mer)),all.vars(formula(x$gam)))
     }
@@ -81,46 +82,3 @@ lme4_res <- get_allsum(allfits)
 save(lme4_res,file="allfits_sum_lmer.RData")
 rm(allfits)
 
-## testing
-#####
-library(ggplot2); theme_set(theme_bw())
-library(cowplot)
-
-load("allfits_sum_lmer.RData")
-load("allfits_sum_gamm4.RData")
-
-get_best_sum <- function(x) {
-    x$sum %>%   ## tidyverse-ish extraction?
-    group_by(taxon) %>%
-    filter(best) %>%
-    select(-c(AIC,best,singular))
-}
-
-get_best_name <- function(x) {
-    ## extract *name* of best model
-    best_model <- x$sum %>%
-        ## couldn't figure out how to use 'taxon' twice here
-        filter(taxon==tt) %>%
-        filter(best) %>%
-        pull(model)
-    return(best_model)
-}
-
-get_best_sum(lme4_res)
-get_best_sum(gamm4_res)
-
-iwh14 <- c("#ff3579","#2ace05","#b90dd3","#00ac42","#4842b6","#e5c400","#1bd4ff","#cf2700","#018e66","#ff64b0","#47591c","#ff9065","#953012","#d5ad7f")
-##    c("#984e81","#5bac47","#9d5ccf","#b2b045","#cb4fb2","#54a87f","#d7447d","#5ba2d6","#cc542b","#656fc8","#d79248","#d48ec9","#7f702f","#c85b5c")
-##' @param x a model-summary object (lme4_res or gamm4_res)
-##' @param taxon
-diag_plot <- function(x,tt) {
-    pred_vals <- x$pred %>%
-        filter(taxon==tt,model==get_best_name(x))
-    fitres <- ggplot(pred_vals,aes(.fitted,.resid))+geom_point()+
-        geom_smooth()
-    qqplot <- ggplot(pred_vals,aes(sample=.resid))+
-        stat_qq(aes(colour=biome))+
-        stat_qq_line()+
-        scale_colour_manual(values=iwh14)
-    plot_grid(fitres,qqplot)
-}
