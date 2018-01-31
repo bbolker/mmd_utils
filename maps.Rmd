@@ -1,43 +1,41 @@
+---
+title: "maps of predictions and residuals"
+---
+
+Load packages:
+
+```{r pkgs,message=FALSE}
 library(dplyr)
 library(tidyr)
-library(ggplot2); theme_set(theme_bw())
+library(ggplot2)
+## b&w, squash panels together
+theme_set(theme_bw()+theme(panel.spacing=grid::unit(0,"lines")))
 library(viridis)  ## fancy colour scheme
 ## if you want to run the last bit
-## devtools::install_github("marcosci/cividis")
+## to install: devtools::install_github("marcosci/cividis")
 library(cividis)
+```
 
+Setup:
+```{r setup}
 ## utility functions
 source("mmd_utils.R")
-
 ## load summaries
 load("allfits_sum_lmer.RData")
 load("allfits_sum_gamm4.RData")
-
 taxa <- unique(lme4_res$sum$taxon)  ## plants_log, mamph_log, ...
+```
 
-## extract gamm4 residuals/predictions/etc. for best (lme4) model
-## for each taxon
+Extract gamm4 residuals/predictions/etc. for best (lme4) model
+for each taxon:
+
+```{r extract}
 gamm4_pred <- lapply(taxa,
                      function(tt) {
                        best <- get_best_name(lme4_res,tt)
                        get_best_pred(gamm4_res,tt,best)
                      })
 names(gamm4_pred) <- taxa
-
-
-
-## plot lat/long/predicted log richness as colour
-ggplot(gamm4_pred$plants_log,
-       aes(x,y,colour=.fitted))+
-    geom_point(size=3)+
-    scale_colour_viridis()
-
-## plot lat/long/residual log richness as colour
-ggplot(gamm4_pred$plants_log,
-       aes(x,y,colour=.resid))+
-    geom_point(size=3)+
-    scale_colour_viridis()
-
 ## put together predictions from different taxa into
 ## a single data frame
 all_pred1 <- bind_rows(gamm4_pred,.id="taxon")
@@ -45,38 +43,67 @@ all_pred1 <- bind_rows(gamm4_pred,.id="taxon")
 ## collapse residual and fitted into the same column
 all_pred2 <- all_pred1 %>%
     tidyr::gather(type,value,.resid,.fitted)
+```
 
-## show residual & fitted plots side by side
+
+### Plot lat/long/predicted log richness as colour
+```{r gg1}
+ggplot(gamm4_pred$plants_log,
+       aes(x,y,colour=.fitted))+
+    geom_point(size=3)+
+    scale_colour_viridis()
+```
+
+### Plot lat/long/residual log richness as colour
+```{r gg2}
+ggplot(gamm4_pred$plants_log,
+       aes(x,y,colour=.resid))+
+    geom_point(size=3)+
+    scale_colour_viridis()
+```
+
+### Show residual & fitted plots side by side
+```{r}
 ggplot(all_pred2,
        aes(x,y,colour=value))+
     geom_point(size=3)+
     scale_colour_viridis()+
     facet_grid(taxon~type)
+```
 
-## residuals by taxon
+### residuals by taxon
+```{r}
 ggplot(all_pred1,
        aes(x,y,colour=.resid))+
     geom_point(size=3)+
     scale_colour_viridis()+
     facet_wrap(~taxon)
+```
 
-## predictions by taxon
+### predictions by taxon
+```{r}
 ggplot(all_pred1,
        aes(x,y,colour=.fitted))+
     geom_point(size=3)+
     scale_colour_viridis()+
     facet_wrap(~taxon)
+```
 
-## predictions based on fixed effects only
+### predictions based on fixed effects only
+```{r}
 ggplot(all_pred1,
        aes(x,y,colour=.fixed))+
     geom_point(size=2.5)+
     scale_colour_viridis(alpha=0.7)+
     facet_wrap(~taxon)
+```
 
-## colour-blind friendly?
+### colour-blind friendly?
+
+```{r}
 ggplot(all_pred1,
        aes(x,y,colour=.fixed))+
     geom_point(size=2.5)+
     scale_colour_cividis(alpha=0.7)+
     facet_wrap(~taxon)
+```
