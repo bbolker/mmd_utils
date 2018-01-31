@@ -18,7 +18,7 @@ get_data <- function(x,data) {
     ## includes some bogus/constructed vars (y.0,X,Xr), but harmless?
 }
 
-## FIXME: still hard-coded
+## FIXME: ecoreg data set still hard-coded here
 aa <- function(m,data=ecoreg) {
     augment(m,data=get_data(m,data))
 }
@@ -76,6 +76,16 @@ system.time(load("allfits.RData"))
 gamm4_res <- get_allsum(allfits)
 save(gamm4_res,file="allfits_sum_gamm4.RData")
 rm(allfits)
+gc()
+
+gamm4_allfits <- lapply(allfits,
+            function(x) lapply(x,strip_gamm4_env))
+## save(gamm4_allfits,file="allfits_strip_gamm4.RData")
+## ugh. "only" 160 M
+
+## save test fits, for queries to mailing lists/Simon Wood/etc.
+gamm4_testfits <- gamm4_allfits[[1]][1:8]
+save(gamm4_testfits,file="testfits.RData")  ## down to 11M
 
 system.time(load("allfits_lmer.RData"))
 lme4_res <- get_allsum(allfits)

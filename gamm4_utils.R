@@ -47,3 +47,20 @@ tidy.gamm4 <- function(x,...) {
     return(r)
 }
 
+## ugh. result of trial-and-error with object_size(), neutralizing
+##  environments where we can find them.  Wonder if extractors still
+##  work?
+strip_gamm4_env <- function(x) {
+    gam_env_obj <- c("pred.formula","formula","pterms","terms","model")
+    for (i in gam_env_obj) {
+        environment(x$gam[[i]]) <- NULL
+    }
+    x$gam$model <- c(x$gam$model)
+    mer_env_obj <- c("pp","frame")
+    for (i in mer_env_obj) {
+        environment(slot(x$mer,i)) <- NULL
+    }
+    ## should strip environment from formula; don't trash formula ...
+    x$mer@frame <- as.data.frame(c(x$mer@frame))
+    return(x)
+}
