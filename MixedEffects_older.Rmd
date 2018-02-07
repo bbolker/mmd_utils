@@ -1,0 +1,462 @@
+---
+title: "Diversity analysis"
+date: "`r Sys.time()`"
+bibliography: mixed.bib
+---
+
+This is an attempt at a streamlined and yet complete, relatively *a priori*/non-
+snooped model analysis. Some parts of the analysis have been moved into separate `.R` files: the overall workflow is
+
+![](make.png)
+
+(`mmd_procdata` is a little bit out of date: Enric has processing machinery to
+extract lat/long of centroid of largest polygon (?) (`x`/`y` in the data set) and area ...)
+
+```{r get_utils}
+source("mmd_utils.R")
+```
+
+Packages used/versions:
+```{r load_packages,message=FALSE}
+load_all_pkgs()
+theme_set(theme_bw())
+library('pander')  ## for tables
+sapply(pkgList,function(x) format(packageVersion(x)))
+```
+
+
+```{r knitr_setup,echo=FALSE}
+library(knitr)
+opts_chunk$set(error=FALSE)
+```
+
+Data from Enric (includes area and lat/long coordinates):
+```{r get_data,cache=TRUE}
+L <- load("ecoreg.RData")
+```
+
+Limit all observations with all predictor variables > 0 and no biome 98/99; set `biome` as factor. Log and scale/center variables as appropriate. This leaves us with `r ncol(ecoreg)` variables and
+`r nrow(ecoreg)` observations.
+
+## Model fitting
+
+This can now be done semi-automatically (i.e., fit all combinations
+of random effects) by using the function `fit_all` from the `mmd_utils.R`
+file (sourced above), e.g. `fit_all(response="mbirds_log")`
+
+However, the `mmd_fitbatch.R` code has already run all
+random-effects model combinations for all four response variables,
+so we can extract just one set of models (and profiles) this way:
+
+```{r get_allfits}
+L <- load("allfits.RData")
+names(allfits)
+focal <- "mamph_log"
+results <- allfits[[focal]]
+## profiles (from best model for each response variable/set of fits only)
+L <- load("allprofs.RData")
+names(profList) <- names(allfits)
+pp <- profList[[focal]] 
+```
+
+```{r summarize_model}
+subset(aa2 <- AICtabx(results),dAIC<10)
+```
+
+```{r get_best}
+## get the name of the best model from all of the different RE models
+best_names <- sapply(allfits,get_best_name)
+## create a list of the best model for each taxon
+best_models <- Map(function(x,n) x[[n]],
+                   allfits,best_names)
+## e.g. ecoreg$birdres <- residuals(best_models[["mbirds_log"] ])
+best_df <- sapply(best_models, function(x) attr(logLik(x), "df"))
+```
+
+To get residuals use `residuals(best_model,re.form=NULL)`; this
+uses all of the random effects.
+
+Best non-singular models (by AIC):
+```{r bestmodels,results="asis"}
+pander(data.frame(taxon=names(allfits),best_model=best_names,
+                  df=best_df),row.names=FALSE)
+```
+
+Diagnostics?
+
+```{r diagplots}
+best_model <- best_models[[focal]]
+grid.arrange(plot(best_model,type=c("p","smooth")),
+             lattice::qqmath(best_model),nrow=1)
+```
+
+```{r ranef_mod}
+rr <- ranef(best_model)
+```
+
+The best arrangement of the random effect plots will vary somewhat
+depending on which components have single vs multiple terms ... the
+`biome_FR` plot will be tall in any case (because there are many levels),
+but the widest plots will be those with `diag` or `full` specifications
+rather than intercept-only models.
+
+```{r ranefplots,fig.width=8}
+ranefplots <- lattice::dotplot(rr)
+do.call(grid.arrange,c(ranefplots[2:3],list(nrow=1)))
+```
+
+```{r ranefplot2,fig.width=10,fig.height=10}
+reorder_var <- "NPP_cv_sc"
+if (!is.null(reorder_var) && reorder_var %in% names(rr$biome_FR)) {
+    ## only try to reorder if the variable is actually there ...
+    rr$biome_FR <- rr$biome_FR[order(rr$biome_FR[[reorder_var]]),]
+}
+rr3 <- as.data.frame(rr$biome_FR) %>%
+    tibble::rownames_to_column("br") %>%
+    ## mutate(br=reorder(br,order(NPP_cv_ctr))) %>%
+    gather(key=term,value=value,-br)
+ggplot(rr3,aes(value,br))+facet_wrap(~term,nrow=1)+geom_point()+
+    theme(panel.spacing=grid::unit(0,"lines"))+
+    labs(x="",y="")
+```
+
+```{r varcorr}
+VarCorr(best_model)
+```
+
+## coefficient plot of all models tried
+
+```{r coefplot,echo=FALSE,fig.width=10,fig.height=8}
+all_coef <- dplyr::bind_rows(lapply(results,tidy,effect="fixed"),.id="model")
+all_coef <- merge(all_coef,data.frame(model=rownames(aa2),aa2))
+## shorten model names
+all_coef$model <- gsub("diag","d",
+                       gsub("full","f",
+                            gsub("int","i",
+                                 gsub("flor_realms","fr",
+                                      gsub("biome","b",all_coef$model)))))
+all_coef$model <- reorder(factor(all_coef$model),-all_coef$dAIC)
+ggplot(all_coef,aes(estimate,model,colour=singular))+
+    ## use point + linerange because some RE are missing std.errors
+    geom_point()+
+    geom_linerangeh(aes(xmin=estimate-1.96*std.error,
+                       xmax=estimate+1.96*std.error))+
+    facet_wrap(~term,scale="free_x")+
+    geom_vline(xintercept=0,lty=2)
+```
+
+```{r profplots,echo=FALSE,eval=FALSE}
+xyplot(pp)
+xyplot(logProf(pp))
+## splom(pp) ## impressive but not very useful
+```
+
+Check difference between Wald and likelihood profile
+confidence intervals.
+In principle profile CIs are more accurate - **if** the computations
+have run reliably ... but I would probably be conservative and take
+the wider of the two.
+
+**FIXME**: Wald CIs only give fixed-effect confidence intervals.
+Could combine, *or* sort out problems with profiles (or go back
+to `glmmTMB`/`brms`/etc. ...)
+
+```{r profcis,warning=FALSE}
+profci <- confint(pp,parm="beta_")
+waldci <- confint(best_model,method="Wald",parm="beta_")
+```
+
+```{r combprof,echo=FALSE}
+## combine CIs via each method, in order to plot side-by-side:
+tmpfun <- function(p,lab) {
+    dd <- data.frame(type=lab,
+                     term=rownames(profci),
+                     lwr=p[,1],
+                     upr=p[,2])
+    dd <- dd[dd$term != "(Intercept)",]
+    dd$term <- reorder(dd$term,dd$lwr)
+    rownames(dd) <- NULL
+    return(dd)
+}
+comb <- do.call(rbind,Map(tmpfun,list(profci,waldci),
+                  c("profile","Wald")))
+ggplot(comb,aes(x=term,ymin=lwr,ymax=upr))+
+    labs(x="")+
+    geom_linerange(aes(colour=type),
+                   position=position_dodge(width=0.5),size=3)+
+    scale_colour_brewer(palette="Dark2")+
+    coord_flip()
+```
+
+Pick CI type:
+
+```{r coeftype}
+ci_method <- "Wald" ## or 'profile' or 'boot'
+```
+
+```{r best_coefplot,warning=FALSE,fig.width=8}
+get_coeftab <- function(model,ci_method="Wald") {
+    cc <- confint(model,method=ci_method)
+    coeftab <- tidy(model) %>% filter(term !="(Intercept)")
+    ## drop spurious numeric values
+    tt <- gsub("\\.[0-9]","",coeftab$term)
+    ## group separator -> bar
+    tt <- gsub("\\.(flor_realms$|biome$|biome_FR$)","|\\1",tt)
+    coeftab$term <- tt
+    ## nppcv_var <- coeftab$nppcv_var <- grepl("NPP_cv",tt)
+    ## re_var <- grepl("^(sd|cor)",tt)  ## & !nppcv_var
+    ## otherfix_var <- !re_var & !nppcv_var
+    ## fix_var <- !re_var
+    ee <- coeftab$estimate
+    ## order by magnitude within
+    ## (1) random effects
+    ## (2) fixed effects
+    ## (3) NPPcv
+    ## coeftab$term <- factor(tt,
+    ##    levels=c((tt[re_var])[order(ee[re_var])],
+    ##      (tt[fix_var])[order(ee[fix_var])]
+    ##      (tt[nppcv_var])[order(ee[nppcv_var])]))
+    mm <- match(tt,rownames(cc))
+    mm[is.na(mm)] <- match("sigma",rownames(cc))
+    coeftab$lwr <- cc[mm,"2.5 %"]
+    coeftab$upr <- cc[mm,"97.5 %"]
+    ## coeftab$sd_var <- grepl("^sd",coeftab$term)
+    ## coeftab$nppcv_fac <- factor(coeftab$nppcv_var,
+    ## labels=c("non-NPPcv terms", "NPPcv terms"))
+    return(coeftab)
+}
+coeftabs <- bind_rows(lapply(best_models,get_coeftab),
+                      .id="taxon")
+## reorder parameters
+mean_est <- coeftabs %>% group_by(term,effect) %>%
+    summarise(est=mean(estimate))
+fix_var <- mean_est$effect=="fixed"
+flevs <- with(mean_est,
+              c((term[!fix_var])[order(est[!fix_var])],
+                (term[fix_var] )[order(est[fix_var])]))
+coeftabs$term <- factor(coeftabs$term,levels=flevs)
+```
+
+```{r coeftab_plot,fig.height=7,fig.width=7,warning=FALSE}
+ctplot1 <- ggplot(coeftabs,aes(estimate,term,
+                     colour=effect))+
+    scale_colour_manual(values=c("black","red"),guide=FALSE)+
+    ## use point + linerange because some RE are missing std.errors
+    ## (could also set NA std.errors to zero)
+    geom_point()+
+    geom_linerangeh(aes(xmin=lwr, # estimate-1.96*std.error,
+                         xmax=upr  # estimate+1.96*std.error
+                         ))+
+    geom_vline(xintercept=0,lty=2)+
+    facet_wrap(~taxon)+  ## ncol=1 might be nice, but too skinny
+    labs(x="",y="")
+print(ctplot1)
+```
+
+Zoom in a bit:
+exclude random effects and `NPP_log` (which is large and
+significant for all taxa). **Abuse warning**: coloring significant effects.
+
+```{r coeftab2,message=FALSE}
+ctx <- coeftabs %>%
+    filter(effect=="fixed" & term!="NPP_log") %>%
+    mutate(effect=factor((lwr*upr)>0))
+## suppress message about replacing 'colour'
+suppressMessages(print(ctplot1 %+% ctx +
+        scale_colour_manual(values=c("black","orange"),guide=FALSE)))
+```
+
+Definitely starting to get into a snooping mindset here.
+There are not a lot of effects other than `NPP_log` that are consistently large
+and significant; perhaps main effects of fire for birds and mammals.
+Amphibians have considerably larger effects (the last three: Feat cv and its
+interactions).
+
+`plotfun()` takes arguments:
+
+- `model`: fitted model
+- `xvar` ("NPP_log"): x-variable
+- `auxvar` ("Feat_cv_sv"): auxiliary variable (e.g. for examining interactions)
+- `respvar` (equal to model response by default): response variable
+- `aux_quantiles`: (0.1, 0.5, 0.9) quantiles of auxiliary variable to predict
+- `pred_lower_lim` (-3) : lower cut off values (log scale)
+- `data` (ecoreg)
+- `re.form` (NA) which RE to include in *predictions* (default is none)
+
+```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
+ggplot1 <- plotfun(best_model)
+print(ggplot1)
+```
+
+**FIXME**: (1) ? relabel axes with absolute rather than log values ?
+
+```{r remefplot,fig.width=10,fig.height=8,warning=FALSE}
+fix_NAs <- function(rem,model) {
+    if (!is.null(nastuff <- attr(model.frame(model),"na.action"))) {
+        return(napredict(nastuff,rem))
+    } else return(rem)
+}
+rem1 <- fix_NAs(remef(best_model,ran="all"),best_model)
+if (length(rem1)==nrow(ecoreg)) {
+    ## if it worked ...
+    ecoreg$rem1 <- rem1
+    ## update previous plot:
+    plotfun(best_model,respvar="rem1")
+}
+```
+
+```{r other_plot,warning=FALSE,message=FALSE}
+ecoreg$rem2 <- fix_NAs(remef(best_model,ran="all",
+                             fix=c("NPP_log","NPP_cv_sc","Feat_cv_sc"),grouping=TRUE),
+                       best_model)
+ecoreg$rem3 <- fix_NAs(remef(best_model,ran="all",
+                             fix=c("NPP_log","NPP_cv_sc","Feat_log"),grouping=TRUE),
+                       best_model)
+## FIXME: drop dimensions on Feat_cv_sc upstream
+gg1 <- ggplot(ecoreg,aes(c(Feat_cv_sc),rem3))+
+    geom_point(aes(colour=biome,shape=flor_realms))+
+    geom_smooth(group=1)+
+    theme(legend.box="horizontal")
+print(gg1)
+```
+
+## $R^2$ across taxa
+
+Only a few effects have partial $R^2$ values of more than a few percent:
+NPP (of course), fire (for mammals and ?birds?), and fire CV (for amphibians).
+Everything else is going to be pretty subtle (provided of course that
+we trust this particular way of estimating $R^2$).
+
+```{r rsq}
+all_rsq <- bind_rows(lapply(best_models,r2beta),.id="taxon") %>%
+    mutate(Effect=reorder(Effect,Rsq))
+rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon))+
+    geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
+                   position=position_dodgev(height=0.5))+
+    scale_colour_brewer(palette="Dark2")+
+    scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
+    labs(y="")
+print(rsqplot)
+```
+
+
+## Models without biome/realm interaction
+
+- explore degree of among-biome/among-realm variability in effects
+- look at random effects to see which biomes/realms have high/low (or unusual) effects
+
+```{r}
+L <- load("allfits_restr.RData")
+as.data.frame.coef.mer <- function(x,...) {
+    class(x) <- "list"
+    lapply(x,tibble::rownames_to_column,var="grp") %>%
+        bind_rows(.id="grpvar") %>%
+        gather(term,condval,-c(grpvar,grp))
+}
+ranefs_restr <- bind_rows(lapply(allfits_restr,
+                 function(x) as.data.frame(ranef(x))),.id="taxon")
+coefs_restr <- bind_rows(lapply(allfits_restr,
+                 function(x) as.data.frame(coef(x))),.id="taxon")
+
+cd1 <- filter(coefs_restr,grpvar=="biome",term != "log(area_km2)")
+gg_restr_biome <- ggplot(cd1,
+                         aes(condval,grp,colour=taxon,shape=taxon))+
+    geom_point()+facet_wrap(~term,scale="free_x")+
+    scale_colour_brewer(palette="Dark2")+theme(legend.pos="bottom")
+```
+
+```{r print_biome_restr,fig.width=10}
+print(gg_restr_biome)
+```
+
+- better ordering? I think it's currently ordered by plant intercept term (which makes sense: trop/subtrop moist at the top, mangrove at the bottom ...)
+- leave out plants entirely?
+
+```{r print_fr_restr,fig.width=10}
+print(gg_restr_biome %+%
+      filter(coefs_restr,grpvar=="flor_realms",term != "log(area_km2)"))
+```
+
+**needs work: looking at predicted values rather than deviations from population mean, the values for different taxa are very far apart, need to look at them separately for each taxon ... ??**
+
+```{r vars_restr_plot}
+vars_restr <- bind_rows(lapply(allfits_restr,
+               function(x) as.data.frame(VarCorr(x))),.id="taxon") %>%
+    mutate(grp=gsub("\\.[0-9]*$","",grp)) %>%
+    filter(grp!="Residual", !is.na(var1))
+ggplot(vars_restr,aes(sdcor,var1,colour=taxon,shape=taxon))+
+    geom_point()+facet_wrap(~grp)+
+    scale_colour_brewer(palette="Dark2")+
+    theme(legend.pos="bottom")+
+    labs(y="",x="standard deviation of random effect")
+```
+
+## spatial fits
+
+So far ...
+
+```{r spat1,cache=TRUE}
+library(gamm4)
+## add spatial smooth to fixed effect formula
+spatform <- update(formula(best_models[[1]],fixed.only=TRUE),
+                   ## latitude first! as in documentation ...
+                   . ~ . + s(y,x,bs="sos",
+                             m=-1 ## play with smoothing order
+                             ))
+## extract random effect formula and drop LHS
+ranform1 <- formula(best_models[[1]],random.only=TRUE)[-2]
+spat1 <- gamm4(spatform,random=ranform1,
+               data=na.omit(ecoreg))
+class(spat1) <- "gamm4"  ## why list()?
+```
+
+For more information on spherical smooth terms and plotting, see `?smooth.construct.sos.smooth.spec` and `mgcv:::plot.sos.smooth` ...
+
+```{r spat1plot,fig.width=10}
+par(mfrow=c(1,2))
+plot(spat1$gam,theta=0,phi=120,scheme=0,pch=1)
+plot(spat1$gam,scheme=1,pch=1)
+plot(y~x,data=ecoreg)
+```
+
+```{r spatcoefs}
+tidy.gamm4 <- function(x,...) {
+    r <- tidy(x$mer,...)
+    r$term <- gsub("^X","",r$term)
+    return(r)
+}
+spatcoefs <- dplyr::bind_rows(lapply(list(orig=best_models[[1]],
+                             spat=spat1),tidy,effect="fixed"),
+                 .id="model") %>%
+    filter(term!="(Intercept)") %>%
+    mutate(term=reorder(factor(term),estimate))
+ggplot(spatcoefs,aes(estimate,term,
+                     xmin=estimate-1.96*std.error,
+                     xmax=estimate+1.96*std.error,
+                     colour=model))+
+    geom_pointrangeh(position=position_dodgev(height=0.5))+
+    geom_vline(xintercept=0,lty=2)+
+    scale_colour_brewer(palette="Set1")
+```
+
+**n.b.**: for simple models need `random=~(1|biome)`,
+`random=~1|biome` fails with "model frame and formula mismatch in model.matrix()"
+
+## To do
+
+- further examine models without biome/realm interaction?
+- examine models to see when profile CIs can be used; fix profiles?
+- spatial models
+    - automate/run for all cases
+	- extract residuals, re-check autocorr
+	- other info/plotting methods for smooth component? plotting arguments? (see `?smooth.construct.sos.smooth.spec`)
+	- is extracting the `mer` component and doing inference etc. OK?
+	- should this be done from the start?
+
+## To do (fancy)
+
+- More on Bates et al. approach?
+- Try with Julia??
+- Factor-analytic approach (e.g. @plmixed)?
+
+

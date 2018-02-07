@@ -126,7 +126,10 @@ get_best_name <- function(fitlist,allow_sing=FALSE) {
     }
     return(rownames(aa)[which.min(aa$dAIC)])
 }
-
+##' @inheritParams plotfun
+##' @param aux_quantiles (0.1, 0.5, 0.9) quantiles of auxiliary variable to predict
+##' @param pred_lower_lim (-3) : lower cut off values (log scale)
+##' @param re.form (NA) which RE to include in *predictions* (default is none)
 predfun <- function(model=best_model,
                     data = ecoreg,
                     xvar="NPP_log",
@@ -175,6 +178,12 @@ predfun <- function(model=best_model,
     return(pdata)
 }
 
+##' @param model fitted model
+##' @param data (ecoreg)
+##' @param xvar ("NPP_log"): x-variable
+##' @param respvar (equal to model response by default): response variable
+##' @param auxvar ("Feat_cv_sv"): auxiliary variable (e.g. for examining interactions)
+##' @param ... parameters passed through to predfun
 plotfun <- function(model=best_model,
                     data = ecoreg,
                     xvar="NPP_log",
@@ -269,7 +278,7 @@ get_best_pred <- function(x,tt,best=get_best_name(x,tt)) {
 iwh14 <- c("#ff3579","#2ace05","#b90dd3","#00ac42","#4842b6","#e5c400","#1bd4ff","#cf2700","#018e66","#ff64b0","#47591c","#ff9065","#953012","#d5ad7f")
 ##' @param x a model-summary object (lme4_res or gamm4_res)
 ##' @param taxon
-diag_plot <- function(x,tt) {
+diag_plot <- function(x,tt="plants_log") {
     require(cowplot)
     pred_vals <- get_best_pred(x,tt)
     fitres <- ggplot(pred_vals,aes(.fitted,.resid))+geom_point()+
@@ -279,4 +288,29 @@ diag_plot <- function(x,tt) {
         stat_qq_line()+
         scale_colour_manual(values=iwh14)
     cowplot::plot_grid(fitres,qqplot)
+}
+
+get_allcoefs <- function(data,focal_taxon="plants_log") {
+    data$coef %>%
+    ## add summary info (singular, AIC)
+    full_join(select(data$sum,c(taxon,model,singular,AIC)),
+              by=c("taxon","model")) %>%
+    ## pick one taxon; only fixed-effect parameters; drop intercept
+    filter(taxon==focal_taxon,
+           effect=="fixed",
+           term!="(Intercept)") %>%
+    mutate(model=shorten_modelname(model),     ## abbreviate model name
+           model=reorder(model,-AIC),          ## reverse-order by AIC
+           ## reverse-order by magnitude of coefficient for best model
+           term=reorder(term,estimate,function(x) -x[1]))
+}
+
+## utilities for post-processing coefficient tabs
+add_wald_ci <- function(data) {
+    return(data %>%
+           mutate(lwr=estimate-1.96*std.error,upr=estimate+1.96*std.error) %>%
+           select(-c(std.error,statistic)))
+}
+drop_intercept <- function(data) {
+    data %>% filter(term != "(Intercept)")
 }

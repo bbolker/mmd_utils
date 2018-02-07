@@ -11,6 +11,9 @@ logrespvars <- paste0(c("plants","mamph","mbirds","mmamm"),"_log")
 ## pp[!complete.cases(pp),]  ## NA values in predictor
 ## f1 <- fit_all(logrespvars[1],use_gamm4=TRUE,verbose=TRUE)
 
+## this was run earlier with lme4 (use_gamm4=FALSE)
+## and stored in allfits_lmer.RData
+
 allfits <- parallel::mclapply(logrespvars, fit_all,
                               use_gamm4 = TRUE,
                               verbose = TRUE,
