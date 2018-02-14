@@ -61,6 +61,27 @@ strip_gamm4_env <- function(x) {
         environment(slot(x$mer,i)) <- NULL
     }
     ## should strip environment from formula; don't trash formula ...
+    formula <- attr(x$mer@frame,"formula")
+    environment(formula) <- NULL
+    terms <- attr(x$mer@frame,"terms")
+    environment(terms) <- NULL
     x$mer@frame <- as.data.frame(c(x$mer@frame))
+    attr(x$mer@frame,"formula") <- formula
+    attr(x$mer@frame,"terms") <- terms
     return(x)
+}
+
+formula.gamm4 <- function(x,fixed.only=FALSE) {
+    if (fixed.only) return(formula(x$gam))
+}
+
+## https://stats.stackexchange.com/questions/65643/using-a-gamm4-model-to-predict-estimates-in-new-data
+predict.gamm4 <- function(x,re.form=NA,...) {
+    if (!is.na(re.form)) stop("can't make RE predictions with gamm4")
+    fixed <- predict(x$gam,...)
+    return(fixed)
+}
+
+terms.gamm4 <- function(x) {
+    terms(x$gam)
 }

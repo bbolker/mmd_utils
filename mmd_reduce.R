@@ -36,15 +36,18 @@ gg <- function(m) {
 }
 
 get_allsum <- function(allfits) {
+    ## get predictions from all taxa, bind them together
     pred <- (map(allfits,
                      ~ (map(.,aa) %>% bind_rows(.id="model")))
         %>% bind_rows(.id="taxon"))
 
+    ## get summaries from all taxa, bind them together
     sum <- (map(allfits,
                     ~ (map(.,gg) %>% bind_rows(.id="model")))
         %>% bind_rows(.id="taxon")
         %>% select(taxon,model,AIC,singular,df)
         %>% group_by(taxon)
+        ## find delta-AIC and identify best non-singular model
         %>% mutate(AIC=AIC-min(AIC,na.rm=TRUE),
                    AIC_OK=ifelse(singular,NA,AIC),
                    best=!is.na(AIC_OK) & AIC==min(AIC_OK,na.rm=TRUE))
@@ -52,8 +55,7 @@ get_allsum <- function(allfits) {
         %>% select(-AIC_OK)
     )
 
-    ## all_sum %>% filter(best)
-
+    ## get coefficients from all taxa, bind them together
     coefs <- (map(allfits,
                       ~ (map(., tt) %>% bind_rows(.id="model")))
         %>% bind_rows(.id="taxon"))
@@ -72,16 +74,26 @@ if (FALSE) {
 source("mmd_utils.R")
 load("ecoreg.RData")
 
-system.time(load("allfits.RData"))
+system.time(L <- load("allfits.RData"))  ## 25 seconds
+## "allfits": length-4, taxa;
+##                length-27, all models
 gamm4_res <- get_allsum(allfits)
 save(gamm4_res,file="allfits_sum_gamm4.RData")
-rm(allfits)
-gc()
+
+## find best gamm4 model for each taxon,
+taxa <- names(allfits)
+best_names <- map(taxa,get_best_name,x=gamm4_res)
+best_models <- map2(allfits,best_names, ~.x[[.y]])
+best_models_strip <- map(best_models, strip_gamm4_env)
+save(best_models_strip,file="bestmodels_gamm4.RData")
 
 gamm4_allfits <- lapply(allfits,
             function(x) lapply(x,strip_gamm4_env))
 ## save(gamm4_allfits,file="allfits_strip_gamm4.RData")
 ## ugh. "only" 160 M
+
+rm(allfits)
+gc()
 
 ## save test fits, for queries to mailing lists/Simon Wood/etc.
 gamm4_testfits <- gamm4_allfits[[1]][1:8]

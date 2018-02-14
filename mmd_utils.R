@@ -119,7 +119,7 @@ AICtabx <- function(fitlist) {
     return(aa2)
 }
 
-get_best_name <- function(fitlist,allow_sing=FALSE) {
+get_best_name_fitlist <- function(fitlist,allow_sing=FALSE) {
     aa <- AICtabx(fitlist)
     if (!allow_sing) {
         aa <- aa[!aa$singular,]
@@ -140,14 +140,15 @@ predfun <- function(model=best_model,
                     re.form = NA,  ## exclude REs from prediction
                     alpha=0.05
                     ) {
+    ff <- formula(model,fixed.only=TRUE)
     ## get LHS of formula
-    mrespvar <- deparse(formula(best_model)[[2]])
+    mrespvar <- deparse(ff[[2]])
     if (is.null(respvar)) respvar <- mrespvar
     ## extract variables from data set by name
     xx <- data[[xvar]]
     aa <- drop(data[[auxvar]])
     ## add factor equiv of auxvar to data
-    av <- all.vars(formula(model,fixed.only=TRUE))
+    av <- all.vars(ff)
     othervars <- setdiff(av,c(respvar,xvar,auxvar,mrespvar))
     ## construct prediction frame
     pdata <- expand.grid(seq(min(xx),max(xx),length=51),
@@ -160,10 +161,10 @@ predfun <- function(model=best_model,
     }
     fauxvar <- paste0("f",auxvar)
     pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("Q(",aux_quantiles,")"))
-    pdata[[mrespvar]] <- predict(best_model,newdata=pdata,re.form=re.form)
+    pdata[[mrespvar]] <- predict(model,newdata=pdata,re.form=re.form)
     ## confidence intervals (fixed-effects only) on predictions
-    mm <- model.matrix(terms(best_model),pdata)
-    pvar1 <- diag(mm %*% tcrossprod(vcov(best_model),mm))
+    mm <- model.matrix(terms(model),pdata)
+    pvar1 <- diag(mm %*% tcrossprod(vcov(model),mm))
     pdata <- transform(pdata,
                  lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
                  upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
@@ -191,7 +192,7 @@ plotfun <- function(model=best_model,
                     auxvar="Feat_cv_sc",...
                     ) {
     pdata <- predfun(model,data,xvar,respvar,auxvar,...)
-    mrespvar <- deparse(formula(best_model)[[2]])
+    mrespvar <- deparse(formula(model)[[2]])
     if (is.null(respvar)) respvar <- mrespvar
     fauxvar <- paste0("f",auxvar)
     gg0 <- ggplot(data,aes_(x=as.name(xvar)))+

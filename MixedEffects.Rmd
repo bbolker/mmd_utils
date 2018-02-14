@@ -72,6 +72,7 @@ aictab1 <- lme4_res$sum %>%
 pander(select(aictab1,-best),emphasize.strong.rows=which(aictab1$best))
 ```
 
+
 Best (non-singular) models only:
 
 ```{r get_best, results="asis"}
@@ -97,17 +98,26 @@ gamm4_best_pred <- gamm4_res$pred %>%
 ```
 
 Fitted vs residual for all four taxa:
-```{r fr,message=FALSE,warning=FALSE}
+```{r fr,message=FALSE,warning=FALSE,fig.width=8,fig.height=4}
 ggplot(gamm4_best_pred,aes(.fitted,.resid))+
     geom_point()+geom_smooth()+
-    facet_wrap(~taxon,nrow=1)
+    facet_wrap(~taxon,nrow=1)+zmargin
 ```
 
 A little bit heavy-tailed ...
-```{r qq,message=FALSE,warning=FALSE}
-ggplot(gamm4_best_pred,aes(sample=.resid))+
-    stat_qq()+stat_qq_line()+
-    facet_wrap(~taxon,nrow=1)
+```{r qq,message=FALSE,warning=FALSE,fig.width=8,fig.height=4}
+## https://stackoverflow.com/questions/40598011/how-to-customize-hover-information-in-ggplotly-object
+ggqq <- ggplot(gamm4_best_pred,aes(sample=.resid,
+                                   colour=biome,
+                                   flor_realms=flor_realms))+
+    stat_qq()+stat_qq_line(aes(group=taxon))+
+    facet_wrap(~taxon,nrow=1)+zmargin
+## print(ggqq)
+ggplotly(ggqq,tooltip=c("biome","flor_realms"))
+```
+
+```{r}
+plotfun(best_models[[1]]$mer)
 ```
 
 **TO DO**: reconstruct ranef plots
@@ -116,7 +126,7 @@ ggplot(gamm4_best_pred,aes(sample=.resid))+
 
 For example:
 
-```{r}
+```{r all_coefplot}
 gamm4_allcoef <- get_allcoefs(gamm4_res,"plants_log") %>% add_wald_ci
 lme4_allcoef <- get_allcoefs(lme4_res,"plants_log") %>% add_wald_ci
 gg_allcoef <- ggplot(gamm4_allcoef,aes(estimate,model,colour=singular,shape=singular))+
