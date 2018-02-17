@@ -13,6 +13,10 @@ reOnly <- function(f,response=FALSE,bracket=TRUE) {
     return(form)
 }
 
+sumTerms <- function(termList) {
+    Reduce(function(x,y) makeOp(x,y,op=quote(`+`)),termList)
+}
+
 ## combine unary or binary operator + arguments (sugar for 'substitute')
 ## FIXME: would be nice to have multiple dispatch, so
 ## (arg,op) gave unary, (arg,arg,op) gave binary operator
@@ -76,10 +80,24 @@ formula.gamm4 <- function(x,fixed.only=FALSE) {
 }
 
 ## https://stats.stackexchange.com/questions/65643/using-a-gamm4-model-to-predict-estimates-in-new-data
-predict.gamm4 <- function(x,re.form=NA,...) {
-    if (!is.na(re.form)) stop("can't make RE predictions with gamm4")
-    fixed <- predict(x$gam,...)
-    return(fixed)
+predict.gamm4 <- function(x,re.form=NULL,newdata=NULL,...) {
+    if (is.null(newdata) && is.null(re.form)) {
+        ## the easy case: just extracts fitted values
+        return(predict(x$mer,re.form=re.form, ...))
+    }
+    newdata <- data.frame(newdata,Xr=NA)  ## fake column for smooth spline term
+    ## if re.form=NULL (all REs) specified, need to drop 1|Xr term from REs
+    fb <- findbars(formula(x$mer))
+    XrTerm <- sapply(fb,function(x) identical(x,quote(1|Xr)))
+    if (is.null(re.form)) {
+        re.form <- sumTerms(fb[-XrTerm])
+        re.form <- as.formula(makeOp(re.form,quote(`~`)))
+    }
+    ## predict.gam has fixed effects + spatial smooths
+    fixed <- predict(x$gam,newdata=newdata,...)
+    ## predict.random gets *only* non-spatial RE terms (0 if none specified)
+    random <- predict(x$mer,newdata=newdata,random.only=TRUE,re.form=re.form,...)
+    return(fixed+random)
 }
 
 terms.gamm4 <- function(x) {

@@ -1,5 +1,5 @@
 ---
-title: exploring `gamm4` residuals
+title: exploring `gamm4` residuals and predictions
 date: "`r Sys.time()`"
 ---
 
@@ -15,6 +15,8 @@ library(lme4)     ## for simulate()
 library(splines)  ## for ns()
 library(ggplot2); theme_set(theme_bw())
 library(cowplot)  ## for plot_grid()
+library(dplyr)
+source("gamm4_utils.R")
 ```
 
 Set up simulated data with
@@ -58,9 +60,10 @@ print(gg0)
 ```
 
 Fit the `gamm4` model:
-```{r fit}
+```{r fit,cache=TRUE}
 ## n.b. need parentheses around random effect
 m1 <- gamm4(y~z+s(x), random=~(1|f),data=dd)
+class(m1) <- c("gamm4","list")
 ```
 
 Check parameters:
@@ -102,8 +105,9 @@ see that all of the components of the pattern (fixed effect,
 smooth terms, random terms) are incorporated in the prediction:
 
 ```{r plot_res}
+dd_merpred <- mutate(dd,y=predict(m1$mer))
 plot_grid(gg0+ggtitle("sim data"),
-          gg0 %+% transform(dd,y=predict(m1$mer)) + ggtitle("mer predictions"))
+          gg0_merpred <- gg0 %+% dd_merpred + ggtitle("mer predictions"))
 ```
 
 
@@ -114,3 +118,36 @@ all.equal(residuals(m1$mer),dd$y-predict(m1$mer))
 ```
 
 See also: https://stat.ethz.ch/pipermail/r-sig-mixed-models/2011q2/013602.html
+
+## predictions
+
+How can I predict from `gamm4` objects with full flexibility, i.e. allowing predictions with or without random effects and allowing prediction with new data?
+
+Predictions with the `gam` component give fixed effects only.
+
+```{r pred}
+nd <- expand.grid(x=seq(-1,1,length=11),z=0:1,f=levels(dd$f))
+gampred <- mutate(nd,y=predict(m1$gam,newdata=nd))
+plot_grid(gg0_merpred,
+          gg0 %+% gampred +
+          expand_limits(y=range(dd_merpred$y),
+                        x=range(dd_merpred$x)))
+```                                   
+
+Slightly hacked, but we can get this to work ...
+
+```{r}
+merpredND <- mutate(nd,y=gampred$y +
+                           predict(m1$mer,newdata=data.frame(nd,Xr=NA),
+                                   random.only=TRUE,re.form=~1|f))
+plot_grid(gg0_merpred,
+          gg0 %+% merpredND +
+          expand_limits(y=range(dd_merpred$y),
+                        x=range(dd_merpred$x)))
+```
+
+Now should get the same 
+
+```{r}
+merpredND2 <- mutate(nd,y=predict(m1,newdata=nd))
+```
