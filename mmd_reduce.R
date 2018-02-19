@@ -85,7 +85,7 @@ taxa <- names(allfits)
 best_names <- map(taxa,get_best_name,x=gamm4_res)
 best_models <- map2(allfits,best_names, ~.x[[.y]])
 best_models <- map(best_models, strip_gamm4_env)
-save(best_models_strip,file="bestmodels_gamm4.RData")
+save(best_models,file="bestmodels_gamm4.RData")
 
 gamm4_allfits <- lapply(allfits,
             function(x) lapply(x,strip_gamm4_env))

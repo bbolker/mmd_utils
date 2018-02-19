@@ -160,12 +160,15 @@ the wider of the two.
 Pull out coefs from best models for `lme4`, `gamm4` (from `lme4`-best model),
 `gamm4` (from `gamm4`-best model)
 ```{r}
+## lmer-best fits fitted via gamm4
 gamm4_best_coef <- gamm4_res$coef %>%
     right_join(lme4_best_models,by=c("taxon","model")) %>%
     add_wald_ci %>% drop_intercept
+## gamm4-best fits
 gamm4_best2_coef <- gamm4_res$coef %>%
     right_join(gamm4_best_models,by=c("taxon","model")) %>%
     add_wald_ci %>% drop_intercept
+fits ## lmer-best fits
 lme4_best_coef <- lme4_res$coef %>%
     right_join(lme4_best_models,by=c("taxon","model")) %>%
     add_wald_ci %>% drop_intercept
@@ -201,6 +204,26 @@ There are not a lot of effects other than `NPP_log` that are consistently large
 and significant; perhaps main effects of fire for birds and mammals.
 Amphibians have considerably larger effects (the last three: Feat cv and its
 interactions).
+
+Enric and I decided that it was probably best to go with the gamm4-best models,
+with some caution expressed about the effects that were marginal. Here are the final(ish?) results, with NPP effects added back in:
+
+```{r coeftab2_gamm4only,message=FALSE,echo=FALSE}
+ctx <- gamm4_best2_coef %>%
+    filter(effect=="fixed") %>% 
+    mutate(sig=factor((lwr*upr)>0),
+           term=reorder(term,estimate))
+ggplot(ctx,aes(estimate,term,colour=sig))+
+    geom_linerangeh(aes(xmin=lwr,xmax=upr))+
+    geom_point(position=pd,fill="white")+
+    geom_vline(xintercept=0,lty=2)+
+    facet_wrap(~taxon)+  ## ncol=1 might be nice, but too skinny
+    labs(x="",y="")+
+    scale_colour_manual(values=c("black","orange"),guide=FALSE)+
+    zmargin
+```
+
+
 
 ## Plotting functions
 
@@ -249,7 +272,32 @@ if (length(rem1)==nrow(ecoreg)) {
 }
 ```
 
+## $R^2$ across taxa
+
+Only a few effects have partial $R^2$ values of more than a few percent:
+NPP (of course), fire (for mammals and ?birds?), and fire CV (for amphibians).
+Everything else is going to be pretty subtle (provided of course that
+we trust this particular way of estimating $R^2$).
+
+```{r rsq_calc,cache=TRUE}
+all_rsq <- bind_rows(lapply(best_models,
+                            function(x) r2beta(x$mer)),.id="taxon") %>%
+    mutate(Effect=as.character(Effect),
+           Effect=gsub("^X","",Effect),
+           Effect=reorder(factor(Effect),Rsq))           
+```
+
+```{r rsq_plot}
+rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
+    geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
+                   position=position_dodgev(height=0.5))+
+    scale_colour_brewer(palette="Dark2")+
+    scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
+    labs(y="")
+print(rsqplot)
+```
+
 ## to do
 
-- restructure to allow the rest of the stuff (restricted fits, $R^2$, etc.)
-- check on singularity
+- restructure to allow the rest of the stuff (restricted fits)
+- check on singularity calcs
