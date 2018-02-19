@@ -103,3 +103,19 @@ predict.gamm4 <- function(x,re.form=NULL,newdata=NULL,...) {
 terms.gamm4 <- function(x) {
     terms(x$gam)
 }
+
+formula.gamm4 <- function(x,type=c("gam","mer"),drop.smooth=TRUE,fixed.only=FALSE,...) {
+    type <- match.arg(type)
+    ff <- formula(x[[type]])
+    if (drop.smooth) {
+        ff <- glmmTMB:::drop.special2(ff,quote(s))
+    }
+    return(ff)
+}
+    
+
+vcov.gamm4 <- function(x,type=c("mer","gam")) {
+    type <- match.arg(type)
+    vcov(x[[type]])
+}
+    

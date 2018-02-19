@@ -140,7 +140,12 @@ predfun <- function(model=best_model,
                     re.form = NA,  ## exclude REs from prediction
                     alpha=0.05
                     ) {
-    ff <- formula(model,fixed.only=TRUE)
+    if (inherits(model,"gamm4")) {
+        ## need x/y variables
+        ff <- formula(model,fixed.only=TRUE,drop.smooth=FALSE)
+    } else {
+        ff <- formula(model,fixed.only=TRUE)
+    }
     ## get LHS of formula
     mrespvar <- deparse(ff[[2]])
     if (is.null(respvar)) respvar <- mrespvar
@@ -163,7 +168,7 @@ predfun <- function(model=best_model,
     pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("Q(",aux_quantiles,")"))
     pdata[[mrespvar]] <- predict(model,newdata=pdata,re.form=re.form)
     ## confidence intervals (fixed-effects only) on predictions
-    mm <- model.matrix(terms(model),pdata)
+    mm <- model.matrix(formula(model),pdata)
     pvar1 <- diag(mm %*% tcrossprod(vcov(model),mm))
     pdata <- transform(pdata,
                  lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
@@ -228,6 +233,7 @@ pkgList <- c('lme4',      ## lmer etc.
              'lattice',   ## diagnostic plots
              'gridExtra', ## arrange plots
              'ggplot2',
+             'plotly',
              'ggstance',  ## horizontal geoms
              'dplyr',     ## data manipulation
              'tidyr',     ## ditto

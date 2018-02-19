@@ -16,6 +16,7 @@ extract lat/long of centroid of largest polygon (?) (`x`/`y` in the data set) an
 
 ```{r get_utils}
 source("mmd_utils.R")
+source("gamm4_utils.R")
 ```
 
 Packages used/versions:
@@ -28,6 +29,8 @@ library('pander')  ## for tables
 sapply(pkgList,function(x) format(packageVersion(x)))
 ```
 
+Note that you now need the *development* version of `lme4`, i.e.
+`devtools::install_github("lme4/lme4")`.
 
 ```{r knitr_setup,echo=FALSE}
 library(knitr)
@@ -116,12 +119,6 @@ ggqq <- ggplot(gamm4_best_pred,aes(sample=.resid,
 ggplotly(ggqq,tooltip=c("biome","flor_realms"))
 ```
 
-```{r}
-plotfun(best_models[[1]]$mer)
-```
-
-**TO DO**: reconstruct ranef plots
-
 ## coefficient plot of all models tried
 
 For example:
@@ -205,6 +202,54 @@ and significant; perhaps main effects of fire for birds and mammals.
 Amphibians have considerably larger effects (the last three: Feat cv and its
 interactions).
 
-## To do
+## Plotting functions
 
-- restructure to allow the rest of the stuff (prediction plots, restricted fits, etc etc etc)
+Load best non-singular gamm4 fits:
+
+```{r}
+load("bestmodels_gamm4.RData")
+names(best_models)
+```
+
+`plotfun()` takes arguments:
+
+- `model`: fitted model
+- `xvar` ("NPP_log"): x-variable
+- `auxvar` ("Feat_cv_sv"): auxiliary variable (e.g. for examining interactions)
+- `respvar` (equal to model response by default): response variable
+- `aux_quantiles`: (0.1, 0.5, 0.9) quantiles of auxiliary variable to predict
+- `pred_lower_lim` (-3) : lower cut off values (log scale)
+- `data` (ecoreg)
+- `re.form` (NA) which RE to include in *predictions* (default is none)
+
+```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
+ggplot1 <- plotfun(best_models[[1]])
+print(ggplot1)
+```
+
+or via `ggplotly()`:
+```{r ggpredplot,warning=FALSE}
+ggplotly(ggplot1)
+```
+
+Partial residuals (not working yet):
+
+```{r eval=FALSE}
+fix_NAs <- function(rem,model) {
+    if (!is.null(nastuff <- attr(model.frame(model),"na.action"))) {
+        return(napredict(nastuff,rem))
+    } else return(rem)
+}
+rem1 <- fix_NAs(remef(best_models[[1]]$mer,ran="all"),best_models[[1]])
+if (length(rem1)==nrow(ecoreg)) {
+    ## if it worked ...
+    ecoreg$rem1 <- rem1
+    ## update previous plot:
+    plotfun(best_model,respvar="rem1")
+}
+```
+
+## to do
+
+- restructure to allow the rest of the stuff (restricted fits, $R^2$, etc.)
+- check on singularity

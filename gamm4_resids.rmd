@@ -146,8 +146,15 @@ plot_grid(gg0_merpred,
                         x=range(dd_merpred$x)))
 ```
 
-Now should get the same 
+Now should get the same results:
 
 ```{r}
 merpredND2 <- mutate(nd,y=predict(m1,newdata=nd))
+```
+
+```{r}
+source("mmd_utils.R")
+load("ecoreg.RData")
+L <- load("bestmodels_gamm4.RData")
+predfun(best_models[[1]])
 ```
