@@ -27,6 +27,10 @@ zmargin <- theme(panel.spacing=grid::unit(0,"lines"))
 zmarginx <- theme(panel.spacing.x=grid::unit(0,"lines"))
 library('pander')  ## for tables
 sapply(pkgList,function(x) format(packageVersion(x)))
+comb_out <- function(p,fn,...) {
+    print(p)
+    htmlwidgets::saveWidget(ggplotly(p,...),fn)
+}
 ```
 
 Note that you now need the *development* version of `lme4`, i.e.
@@ -115,9 +119,10 @@ ggqq <- ggplot(gamm4_best_pred,aes(sample=.resid,
                                    flor_realms=flor_realms))+
     stat_qq()+stat_qq_line(aes(group=taxon))+
     facet_wrap(~taxon,nrow=1)+zmargin
-## print(ggqq)
-ggplotly(ggqq,tooltip=c("biome","flor_realms"))
+comb_out(ggqq,"ggqq.html",tooltip=c("biome","flor_realms"))
 ```
+
+([dynamic alternative](./ggqq.html))
 
 ## coefficient plot of all models tried
 
@@ -168,7 +173,7 @@ gamm4_best_coef <- gamm4_res$coef %>%
 gamm4_best2_coef <- gamm4_res$coef %>%
     right_join(gamm4_best_models,by=c("taxon","model")) %>%
     add_wald_ci %>% drop_intercept
-fits ## lmer-best fits
+## lmer-best fits
 lme4_best_coef <- lme4_res$coef %>%
     right_join(lme4_best_models,by=c("taxon","model")) %>%
     add_wald_ci %>% drop_intercept
@@ -247,13 +252,10 @@ names(best_models)
 
 ```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
 ggplot1 <- plotfun(best_models[[1]])
-print(ggplot1)
+comb_out(ggplot1,"ggplot1.html")
 ```
 
-or via `ggplotly()`:
-```{r ggpredplot,warning=FALSE}
-ggplotly(ggplot1)
-```
+([dynamic alternative](./ggplot1.html))
 
 Partial residuals (not working yet):
 
