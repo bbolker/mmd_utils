@@ -324,3 +324,29 @@ add_wald_ci <- function(data) {
 drop_intercept <- function(data) {
     data %>% filter(term != "(Intercept)")
 }
+
+
+## generate coefficients relevant to each observation
+merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
+                        extra_vars=c("x","y","eco_id")) {
+    rr <- ranef(model)
+    rr <- rr[names(rr)!="Xr"] ## spatial term from gamm4
+    ff <- fixef(model)
+    ## combine ID vars with replicated fixed effects
+    coefs <- data.frame(data[c(id_vars,extra_vars)],
+                        matrix(ff,
+                               byrow=TRUE,
+                               ncol=length(ff),nrow=nrow(data),
+                               dimnames=list(rownames(data),names(ff))),
+                        check.names=FALSE)
+    for (i in seq_along(rr)) {
+        rrc <- rr[[i]] ## current ranef
+        vars <- names(rrc)
+        rrc[[names(rr)[[i]]]] <- rownames(rrc)
+        dd <- merge(data[id_vars],rrc)
+        for (j in vars) {
+            coefs[,j] <- coefs[,j] + dd[,j]
+        }
+    }
+    return(coefs)
+}
