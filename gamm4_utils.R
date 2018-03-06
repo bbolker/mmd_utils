@@ -3,7 +3,7 @@
 reOnly <- function(f,response=FALSE,bracket=TRUE) {
     ff <- f
     if (bracket)
-        ff <- lapply(findbars(ff),makeOp,quote(`(`)) ## bracket-protect terms
+        ff <- lapply(lme4::findbars(ff),makeOp,quote(`(`)) ## bracket-protect terms
     ff <- Reduce(function(x,y) makeOp(x,y,op=quote(`+`)),ff)
     if (response && length(f)==3) {
         form <- makeOp(f[[2]],ff,quote(`~`))
@@ -118,4 +118,19 @@ vcov.gamm4 <- function(x,type=c("mer","gam")) {
     type <- match.arg(type)
     vcov(x[[type]])
 }
-    
+
+coef.gamm4 <- function(x,type=c("mer","gam")) {
+    type <- match.arg(type)
+    coef(x[[type]])
+}
+
+fixef.gamm4 <- function(x) {
+    ff <- fixef(x$mer)
+    names(ff) <- gsub("^X","",names(ff))
+    return(ff)
+}
+
+ranef.gamm4 <- function(x) {
+    ranef(x$mer)
+}
+

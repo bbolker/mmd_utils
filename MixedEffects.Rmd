@@ -257,22 +257,34 @@ comb_out(ggplot1,"ggplot1.html")
 
 ([dynamic alternative](./ggplot1.html))
 
-Partial residuals (not working yet):
+Partial residuals:
 
-```{r eval=FALSE}
+```{r part_resid,warning=FALSE}
+## fix_NAs needed for remef() results: remef_allran does it automatically
 fix_NAs <- function(rem,model) {
     if (!is.null(nastuff <- attr(model.frame(model),"na.action"))) {
         return(napredict(nastuff,rem))
     } else return(rem)
 }
-rem1 <- fix_NAs(remef(best_models[[1]]$mer,ran="all"),best_models[[1]])
-if (length(rem1)==nrow(ecoreg)) {
-    ## if it worked ...
-    ecoreg$rem1 <- rem1
-    ## update previous plot:
-    plotfun(best_model,respvar="rem1")
-}
+remef_plots <- lapply(best_models,
+      function(m) {
+    rem1 <- remef_allran(m,ecoreg)
+    if (length(rem1)==nrow(ecoreg)) {
+        ## if it worked ...
+        ecoreg$rem1 <- rem1
+        ## update previous plot:
+        plotfun(m,respvar="rem1",data=ecoreg)+theme(legend.position="none")+
+            scale_x_continuous(limits=c(-3,1))
+    }
+})
+do.call(grid.arrange,remef_plots)
 ```
+
+```{r ggplotly_remef,echo=FALSE,warning=FALSE}
+htmlwidgets::saveWidget(ggplotly(remef_plots[[1]]),"plants_remef.html")
+```
+
+[A dynamic version of the plants results](./plants_remef.html)
 
 ## $R^2$ across taxa
 
@@ -298,8 +310,3 @@ rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
     labs(y="")
 print(rsqplot)
 ```
-
-## to do
-
-- restructure to allow the rest of the stuff (restricted fits)
-- check on singularity calcs

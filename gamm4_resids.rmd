@@ -158,3 +158,14 @@ load("ecoreg.RData")
 L <- load("bestmodels_gamm4.RData")
 predfun(best_models[[1]])
 ```
+
+## getting remef to work with gamm4 ...
+
+```{r}
+library(remef)
+remef(best_models[[1]]$mer,ran="all")
+## object 'full_labs' not found
+## debug(partial)
+## terms(object$mer) is hacked, just has y.0 ~ X - 1
+## ...
+```

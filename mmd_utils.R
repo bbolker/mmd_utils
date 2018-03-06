@@ -214,6 +214,7 @@ plotfun <- function(model=best_model,
         scale_linetype_manual(values=c(2,1,3))+
         scale_y_continuous(limits=c(-3,1),oob=scales::squish)+
         theme(legend.box="horizontal")
+    ## print(head(data[[respvar]]))
     return(gg0 + geom_point(aes_(y=as.name(respvar),
                                 colour=~biome,shape=~flor_realms)))
 }
@@ -237,6 +238,7 @@ pkgList <- c('lme4',      ## lmer etc.
              'gridExtra', ## arrange plots
              'ggplot2',
              'plotly',
+             'cowplot',
              'ggstance',  ## horizontal geoms
              'dplyr',     ## data manipulation
              'tidyr',     ## ditto
@@ -325,8 +327,11 @@ drop_intercept <- function(data) {
     data %>% filter(term != "(Intercept)")
 }
 
-
-## generate coefficients relevant to each observation
+##' generate coefficients relevant to each observation
+##' @examples
+##' load("ecoreg.RData")
+##' load("bestmodels_gamm4.RData")
+##' merge_coefs(ecoreg,best_models[[1]])
 merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
                         extra_vars=c("x","y","eco_id")) {
     rr <- ranef(model)
@@ -349,4 +354,23 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
         }
     }
     return(coefs)
+}
+
+remef_allran <- function(x,data,na.action=na.exclude) {
+    require(mgcv) ## for s()
+    if (inherits(x,"gamm4")) {
+        ds <- glmmTMB:::drop.special2
+        dh <- glmmTMB:::dropHead
+        ff <- ds(formula(x$mer,random.only=TRUE),quote((1|Xr)))
+        ff <- ff[-2]
+        resp <- model.frame(x$mer)$y.0
+    } else {
+        stop("not implemented for lme4 yet")
+    }
+    ## gamm4 doesn't keep na.action, ugh
+    na.act <- attr(model.frame(dh(formula(x$gam),quote(s)),
+                     data,na.action=na.action),"na.action")
+    pp <- predict(x$mer,random.only=TRUE,re.form=ff)
+    rem <- napredict(na.act,resp-pp)
+    return(rem)
 }

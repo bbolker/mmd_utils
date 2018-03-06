@@ -1,6 +1,11 @@
 ## To do
 
 - BMB
+    - update Makefile/workflow description
+	- back-transform?
+	- check singularity calcs
+	- re-do partial-effects plots with a single data frame/faceted? ggplotly?
+
     - incorporate the streamlined results into the main document
 	- ?? compare GAMM4-best with lme4-best models ...
  	     - how should I calculate AIC/compare models?
