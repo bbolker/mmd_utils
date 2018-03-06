@@ -173,14 +173,17 @@ predfun <- function(model=best_model,
     pdata <- transform(pdata,
                  lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
                  upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
-    cut_lwr <- function(x,val=NA) {
-        x[x<pred_lower_lim] <- val
-        return(x)
+    if (!is.na(pred_lower_lim)) {
+        ## truncate predictions below, if requested
+        cut_lwr <- function(x,val=NA) {
+            x[x<pred_lower_lim] <- val
+            return(x)
+        }
+        pdata[[mrespvar]] <- cut_lwr(pdata[[mrespvar]])
+        pdata <- transform(pdata,
+                           lwr=cut_lwr(lwr,val=pred_lower_lim),
+                           upr=cut_lwr(upr,val=pred_lower_lim))
     }
-    pdata[[mrespvar]] <- cut_lwr(pdata[[mrespvar]])
-    pdata <- transform(pdata,
-                       lwr=cut_lwr(lwr,val=pred_lower_lim),
-                       upr=cut_lwr(upr,val=pred_lower_lim))
     return(pdata)
 }
 
