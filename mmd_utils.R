@@ -130,11 +130,25 @@ get_best_name_fitlist <- function(fitlist,allow_sing=FALSE) {
 ##' @param aux_quantiles (0.1, 0.5, 0.9) quantiles of auxiliary variable to predict
 ##' @param pred_lower_lim (-3) : lower cut off values (log scale)
 ##' @param re.form (NA) which RE to include in *predictions* (default is none)
+##' @examples
+##' source("gamm4_utils.R")
+##' load("ecoreg.RData")
+##' load("allfits_restr_gamm4.RData")
+##' m1 <- allfits_restr_gamm4$mbirds_log
+##' pp <- predfun(m1)
+##' pp2 <- predfun(m1,auxvar=NULL,grpvar="biome",re.form=~(1+NPP_log|biome))
+##' library(ggplot2)
+##' library(plotly)
+##' gg0 <- ggplot(pp2,aes(NPP_log,mbirds_log,colour=biome))+geom_line(aes(group=biome))+
+##'     geom_point(data=ecoreg,aes(shape=flor_realms))
+##' ggplotly(gg0)
+##' 
 predfun <- function(model=best_model,
                     data = ecoreg,
                     xvar="NPP_log",
                     respvar=NULL,
                     auxvar="Feat_cv_sc",
+                    grpvar=NULL,
                     pred_lower_lim= -3,
                     aux_quantiles=c(0.1,0.5,0.9),
                     re.form = NA,  ## exclude REs from prediction
@@ -151,28 +165,43 @@ predfun <- function(model=best_model,
     if (is.null(respvar)) respvar <- mrespvar
     ## extract variables from data set by name
     xx <- data[[xvar]]
-    aa <- drop(data[[auxvar]])
     ## add factor equiv of auxvar to data
     av <- all.vars(ff)
-    othervars <- setdiff(av,c(respvar,xvar,auxvar,mrespvar))
+    othervars <- setdiff(av,c(respvar,xvar,auxvar,mrespvar,grpvar))
     ## construct prediction frame
-    pdata <- expand.grid(seq(min(xx),max(xx),length=51),
-                         quantile(aa,aux_quantiles))
-    names(pdata) <- c(xvar,auxvar)
-    ## variables other than primary x-variable and aux are set to median
+    if (!is.null(auxvar)) {
+        aa <- drop(data[[auxvar]])
+        pdata <- expand.grid(seq(min(xx),max(xx),length=51),
+                             quantile(aa,aux_quantiles))
+        names(pdata) <- c(xvar,auxvar)
+    } else {
+        if (is.null(grpvar)) stop("please specify a grouping variable")
+        lrange <- lapply(split(xx,data[[grpvar]]),
+                         function(x) if (length(x)==0) NULL else (range(x,na.rm=TRUE)))
+        pdata <- do.call(rbind,Map(function(nm,x) if (is.null(x)) NULL else data.frame(gg=nm,xx=x),
+                                   names(lrange),lrange))
+        names(pdata) <- c(grpvar,xvar)
+    }
+    ## variables other than primary x-variable and aux (and maybe grpvar) are set to median
     ##  (more consistent to set to mean=0)?
     for (i in othervars) {
-        pdata[[i]] <- median(data[[i]])
+        if (is.null(grpvar)) {
+            pdata[[i]] <- median(data[[i]])
+        } else {
+            pdata[[i]] <- aggregate(data[[i]],by=list(data[[grpvar]]),FUN=median)$x
+        }
     }
-    fauxvar <- paste0("f",auxvar)
-    pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("Q(",aux_quantiles,")"))
     pdata[[mrespvar]] <- predict(model,newdata=pdata,re.form=re.form)
-    ## confidence intervals (fixed-effects only) on predictions
-    mm <- model.matrix(formula(model),pdata)
-    pvar1 <- diag(mm %*% tcrossprod(vcov(model),mm))
-    pdata <- transform(pdata,
-                 lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
-                 upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
+    if (!is.null(auxvar)) {
+        fauxvar <- paste0("f",auxvar)
+        pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("Q(",aux_quantiles,")"))
+        ## confidence intervals (fixed-effects only) on predictions
+        mm <- model.matrix(formula(model),pdata)
+        pvar1 <- diag(mm %*% tcrossprod(as.matrix(vcov(model)),mm))
+        pdata <- transform(pdata,
+                           lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
+                           upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
+    }
     if (!is.na(pred_lower_lim)) {
         ## truncate predictions below, if requested
         cut_lwr <- function(x,val=NA) {
@@ -180,9 +209,11 @@ predfun <- function(model=best_model,
             return(x)
         }
         pdata[[mrespvar]] <- cut_lwr(pdata[[mrespvar]])
-        pdata <- transform(pdata,
-                           lwr=cut_lwr(lwr,val=pred_lower_lim),
-                           upr=cut_lwr(upr,val=pred_lower_lim))
+        if ("lwr" %in% names(pdata)) {
+            pdata <- transform(pdata,
+                               lwr=cut_lwr(lwr,val=pred_lower_lim),
+                               upr=cut_lwr(upr,val=pred_lower_lim))
+        }
     }
     return(pdata)
 }
@@ -197,9 +228,11 @@ plotfun <- function(model=best_model,
                     data = ecoreg,
                     xvar="NPP_log",
                     respvar=NULL,
-                    auxvar="Feat_cv_sc",...
+                    auxvar="Feat_cv_sc",
+                    grpvar=NULL,
+                    ...
                     ) {
-    pdata <- predfun(model,data,xvar,respvar,auxvar,...)
+    pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
     mrespvar <- deparse(formula(model)[[2]])
     if (is.null(respvar)) respvar <- mrespvar
     fauxvar <- paste0("f",auxvar)

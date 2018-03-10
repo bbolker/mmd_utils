@@ -5,8 +5,10 @@
 	- back-transform?
 	- check singularity calcs
 	- re-do partial-effects plots with a single data frame/faceted? ggplotly?
-
-    - incorporate the streamlined results into the main document
+	- redo biome/FR-only fits with gamm4
+	- plotting slopes by biome/FR
+	- quadratic??
+	
 	- ?? compare GAMM4-best with lme4-best models ...
  	     - how should I calculate AIC/compare models?
 		 - gamm4-stripping; be more careful removing stuff from $mer@frame

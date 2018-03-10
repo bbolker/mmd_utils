@@ -87,7 +87,7 @@ predict.gamm4 <- function(x,re.form=NULL,newdata=NULL,...) {
     }
     newdata <- data.frame(newdata,Xr=NA)  ## fake column for smooth spline term
     ## if re.form=NULL (all REs) specified, need to drop 1|Xr term from REs
-    fb <- findbars(formula(x$mer))
+    fb <- lme4::findbars(formula(x$mer))
     XrTerm <- sapply(fb,function(x) identical(x,quote(1|Xr)))
     if (is.null(re.form)) {
         re.form <- sumTerms(fb[-XrTerm])

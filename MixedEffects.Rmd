@@ -310,3 +310,27 @@ rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
     labs(y="")
 print(rsqplot)
 ```
+
+## Models fitted with only biome and flor_realms
+
+(from `mmd_fitbatch2.R`): diagonal (independent) random effects
+at the biome and flor realm level.
+
+```{r}
+load("allfits_restr_gamm4.RData")
+predList <- lapply(allfits_restr_gamm4,
+       predfun,
+       auxvar=NULL,grpvar="biome",
+       re.form=~(1+NPP_log|biome))
+set.focal <- function(n,d) { d$focal <- d[[n]]; return(d) }
+predList <- Map(set.focal,names(predList),predList)
+predFrame <- bind_rows(predList,.id="taxon")
+dList <- setNames(replicate(4,ecoreg,simplify=FALSE),names(predList))
+dList <- Map(set.focal,names(dList),dList)
+dFrame <- bind_rows(dList,.id="taxon")
+ggplot(predFrame,aes(x=NPP_log,y=focal,colour=biome))+
+    geom_line(lwd=1.5)+
+    geom_point(data=dFrame,aes(shape=flor_realms),alpha=0.7)+
+    facet_wrap(~taxon)+zmargin+
+    labs(y="log diversity")
+```
