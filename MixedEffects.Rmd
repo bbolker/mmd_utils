@@ -334,3 +334,18 @@ ggplot(predFrame,aes(x=NPP_log,y=focal,colour=biome))+
     facet_wrap(~taxon)+zmargin+
     labs(y="log diversity")
 ```
+
+Extract coefficients:
+
+In this particular case the effect of NPP only varies across floristic realms,
+so the picture isn't especially pretty:
+
+```{r coef_var}
+coefs_plants <- merge_coefs(ecoreg,best_models[[1]])
+hist(coefs_plants$NPP_log)
+ggplot(coefs_plants,aes(x,y,colour=NPP_log))+
+    geom_point()+
+    scale_colour_viridis()
+```
+
+

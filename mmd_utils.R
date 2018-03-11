@@ -270,6 +270,7 @@ pkgList <- c('lme4',      ## lmer etc.
              'lattice',   ## diagnostic plots
              'gridExtra', ## arrange plots
              'ggplot2',
+             'viridis',
              'plotly',
              'cowplot',
              'ggstance',  ## horizontal geoms
@@ -335,7 +336,7 @@ diag_plot <- function(x,tt="plants_log") {
     cowplot::plot_grid(fitres,qqplot)
 }
 
-get_allcoefs <- function(data,focal_taxon="plants_log") {
+get_allcoefs <- function(data,model,focal_taxon="plants_log") {
     data$coef %>%
     ## add summary info (singular, AIC)
     full_join(select(data$sum,c(taxon,model,singular,AIC)),
