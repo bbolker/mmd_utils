@@ -5,8 +5,6 @@
 	- back-transform?
 	- check singularity calcs
 	- re-do partial-effects plots with a single data frame/faceted? ggplotly?
-	- redo biome/FR-only fits with gamm4
-	- plotting slopes by biome/FR
 	- quadratic??
 	
 	- ?? compare GAMM4-best with lme4-best models ...

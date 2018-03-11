@@ -96,7 +96,7 @@ Our current strategy is to (1) take the best non-singular model
 fitted by `lme4`; (2) find the coefficients of the corresponding `gamm4` model.
 (Below, we also try taking the best non-singular `gamm4` model.)
 
-```{r}
+```{r best_models}
 lme4_best_models <- select(lme4_best_sum,c(taxon,model))
 gamm4_best_models <- select(gamm4_best_sum,c(taxon,model))
 ## keep only predictions from best models
@@ -164,7 +164,7 @@ the wider of the two.
 
 Pull out coefs from best models for `lme4`, `gamm4` (from `lme4`-best model),
 `gamm4` (from `gamm4`-best model)
-```{r}
+```{r best_model_coefs}
 ## lmer-best fits fitted via gamm4
 gamm4_best_coef <- gamm4_res$coef %>%
     right_join(lme4_best_models,by=c("taxon","model")) %>%
@@ -234,7 +234,7 @@ ggplot(ctx,aes(estimate,term,colour=sig))+
 
 Load best non-singular gamm4 fits:
 
-```{r}
+```{r load_bestmodels_gamm4}
 load("bestmodels_gamm4.RData")
 names(best_models)
 ```
@@ -319,7 +319,7 @@ One of the keys here is that the line for each biome is estimated
 based on the median values of the other predictors (fire, NPP CV,
 area, etc.) for that *particular* biome, not the global median ...
 
-```{r predfun_biome,warning=FALSE}
+```{r predfun_biome_construct}
 load("allfits_restr_gamm4.RData")
 predList <- lapply(allfits_restr_gamm4,
        predfun,
@@ -331,11 +331,15 @@ predFrame <- bind_rows(predList,.id="taxon")
 dList <- setNames(replicate(4,ecoreg,simplify=FALSE),names(predList))
 dList <- Map(set.focal,names(dList),dList)
 dFrame <- bind_rows(dList,.id="taxon")
+```
+
+```{r predfun_biome_plot,warning=FALSE,fig.width=10,fig.height=8}
 ggplot(predFrame,aes(x=NPP_log,y=focal,colour=biome))+
     geom_line(lwd=1.5)+
     geom_point(data=dFrame,aes(shape=flor_realms),alpha=0.7)+
     facet_wrap(~taxon)+zmargin+
-    labs(y="log diversity")
+    labs(y="log diversity")+
+    theme(legend.position="bottom")
 ```
 
 Extract coefficients:
