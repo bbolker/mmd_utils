@@ -342,6 +342,27 @@ ggplot(predFrame,aes(x=NPP_log,y=focal,colour=biome))+
     theme(legend.position="bottom")
 ```
 
+Feat_log version:
+
+```{r predList_fire}
+predList_fire <- lapply(allfits_restr_gamm4,
+       predfun,
+       xvar="Feat_log",
+       auxvar=NULL,grpvar="biome",
+       re.form=~(1+Feat_log|biome))
+predList_fire <- Map(set.focal,names(predList_fire),predList_fire)
+predFrame_fire <- bind_rows(predList_fire,.id="taxon")
+```
+
+```{r predfun_biome_plot_fire,warning=FALSE,fig.width=10,fig.height=8}
+ggplot(predFrame_fire,aes(x=Feat_log,y=focal,colour=biome))+
+    geom_line(lwd=1.5)+
+    geom_point(data=dFrame,aes(shape=flor_realms),alpha=0.7)+
+    facet_wrap(~taxon)+zmargin+
+    labs(y="log diversity")+
+    theme(legend.position="bottom")
+```
+
 Extract coefficients:
 
 In this particular case the effect of NPP only varies across floristic realms,
