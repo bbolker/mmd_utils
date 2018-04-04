@@ -3,11 +3,12 @@
 ### BMB
 
 #### high
-  
-  - redo among-biome plots with Feat_log instead of NPP_log (etc.)
+
+  - plots with actual values: unscaling/unlogging
+  - remove fixed effects as well as random effects in remef plots?
+  - standard errors on biome & FR random effects in restricted models
   - plot random effects for biome/FR models, especially with CIs ???
   - try stuff with `brms` (Bayesian) ???
-  - nicer version of coefplot (with only `gamm4_2`)
   
 #### medium
 

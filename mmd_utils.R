@@ -152,8 +152,11 @@ predfun <- function(model=best_model,
                     pred_lower_lim= -3,
                     aux_quantiles=c(0.1,0.5,0.9),
                     re.form = NA,  ## exclude REs from prediction
-                    alpha=0.05
+                    alpha=0.05,
+                    npts = 51,
+                    lty=c(2,1,3)
                     ) {
+    
     if (inherits(model,"gamm4")) {
         ## need x/y variables
         ff <- formula(model,fixed.only=TRUE,drop.smooth=FALSE)
@@ -171,16 +174,22 @@ predfun <- function(model=best_model,
     ## construct prediction frame
     if (!is.null(auxvar)) {
         aa <- drop(data[[auxvar]])
-        pdata <- expand.grid(seq(min(xx),max(xx),length=51),
+        pdata <- expand.grid(seq(min(xx),max(xx),length=npts),
                              quantile(aa,aux_quantiles))
         names(pdata) <- c(xvar,auxvar)
     } else {
-        if (is.null(grpvar)) stop("please specify a grouping variable")
-        lrange <- lapply(split(xx,data[[grpvar]]),
-                         function(x) if (length(x)==0) NULL else (range(x,na.rm=TRUE)))
-        pdata <- do.call(rbind,Map(function(nm,x) if (is.null(x)) NULL else data.frame(gg=nm,xx=x),
-                                   names(lrange),lrange))
-        names(pdata) <- c(grpvar,xvar)
+        if (!is.null(grpvar)) {
+            ## grouped values
+            lrange <- lapply(split(xx,data[[grpvar]]),
+                             function(x) if (length(x)==0) NULL else (range(x,na.rm=TRUE)))
+            pdata <- do.call(rbind,Map(function(nm,x) if (is.null(x)) NULL else data.frame(gg=nm,xx=x),
+                                       names(lrange),lrange))
+            names(pdata) <- c(grpvar,xvar)
+        } else {
+            ## xvar only
+            pdata <- data.frame(seq(min(xx),max(xx),length=npts))
+            names(pdata) <- xvar
+        }
     }
     ## variables other than primary x-variable and aux (and maybe grpvar) are set to median
     ##  (more consistent to set to mean=0)?
@@ -195,13 +204,14 @@ predfun <- function(model=best_model,
     if (!is.null(auxvar)) {
         fauxvar <- paste0("f",auxvar)
         pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("Q(",aux_quantiles,")"))
-        ## confidence intervals (fixed-effects only) on predictions
-        mm <- model.matrix(formula(model),pdata)
-        pvar1 <- diag(mm %*% tcrossprod(as.matrix(vcov(model)),mm))
-        pdata <- transform(pdata,
-                           lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
-                           upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
     }
+    ## confidence intervals (fixed-effects only) on predictions
+    mm <- model.matrix(formula(model),pdata)
+    pvar1 <- diag(mm %*% tcrossprod(as.matrix(vcov(model)),mm))
+    pdata <- transform(pdata,
+                       lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
+                       upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
+    
     if (!is.na(pred_lower_lim)) {
         ## truncate predictions below, if requested
         cut_lwr <- function(x,val=NA) {
@@ -224,30 +234,47 @@ predfun <- function(model=best_model,
 ##' @param respvar (equal to model response by default): response variable
 ##' @param auxvar ("Feat_cv_sv"): auxiliary variable (e.g. for examining interactions)
 ##' @param ... parameters passed through to predfun
+##' @examples
+##' source("gamm4_utils.R")
+##' load("ecoreg.RData")
+##' load("allfits_restr_gamm4.RData")
+##' m1 <- allfits_restr_gamm4$mbirds_log
+##' plotfun(m1)
+##' plotfun(m1,auxvar=NULL)
 plotfun <- function(model=best_model,
                     data = ecoreg,
                     xvar="NPP_log",
                     respvar=NULL,
                     auxvar="Feat_cv_sc",
                     grpvar=NULL,
+                    ylim=c(-3,1),
                     ...
                     ) {
     pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
     mrespvar <- deparse(formula(model)[[2]])
     if (is.null(respvar)) respvar <- mrespvar
-    fauxvar <- paste0("f",auxvar)
-    gg0 <- ggplot(data,aes_(x=as.name(xvar)))+
+    gg0 <- ggplot(data,aes_(x=as.name(xvar)))
+    if (!is.null(auxvar)) {
+        fauxvar <- paste0("f",auxvar)
         ## geom_encircle(aes(group=biome_FR),expand=0)+  ## ugly ...
         ## use model respvar for predicted values
-        geom_line(data=pdata,aes_(y=as.name(mrespvar),linetype=as.name(fauxvar))) +
-        geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr,
-                                    group=as.name(fauxvar)),
-                    colour=NA,fill="black",alpha=0.1) +
-        ## FIXME (don't hard-code line types)
-        scale_linetype_manual(values=c(2,1,3))+
-        scale_y_continuous(limits=c(-3,1),oob=scales::squish)+
-        theme(legend.box="horizontal")
-    ## print(head(data[[respvar]]))
+        gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar),
+                                               linetype=as.name(fauxvar))) +
+            geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr,
+                                        group=as.name(fauxvar)),
+                        colour=NA,fill="black",alpha=0.1)+
+            scale_linetype_manual(values=lty)
+    } else {
+        gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar))) +
+                   geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr),
+                        colour=NA,fill="black",alpha=0.1)
+    }
+    ## finish
+    if (!is.null(ylim)) {
+        gg0 <- gg0 +
+            scale_y_continuous(limits=ylim,oob=scales::squish)
+    }
+    gg0 <- gg0 + theme(legend.box="horizontal")
     return(gg0 + geom_point(aes_(y=as.name(respvar),
                                 colour=~biome,shape=~flor_realms)))
 }
@@ -408,3 +435,93 @@ remef_allran <- function(x,data,na.action=na.exclude) {
     rem <- napredict(na.act,resp-pp)
     return(rem)
 }
+
+
+#' convert a list of matrices (n, pxp blocks) to 
+#' a pxpxn array
+mlist_to_array <- function(m) {
+    p <- nrow(m[[1]])
+    n <- length(m)
+    array(unlist(lapply(m,as.matrix)),dim=c(p,p,n))
+}
+#' @inheritParams bdiag_to_array
+bdiag_to_mlist <- function(m,n) {
+    if (length(n)==1 && n<nrow(m)) {
+        n <- rep(n,nrow(m)%/%n)
+    }
+    mm <- list()
+    k <- 1
+    for (i in seq_along(n)) {
+        mm[[i]] <- m[k:(k+n[i]-1),k:(k+n[i]-1),drop=FALSE]
+        k <- k + n[i]
+    }
+    return(mm)
+}
+##' convert a block-diagonal matrix to a pxpxn array
+##' @param m a block-diagonal matrix (typically sparse)
+##' @param n vector of block sizes (if length-1, will be replicated to be consistent
+##' with the matrix dimensions)
+##' @examples
+##' mm <- Matrix::bdiag(matrix(1:4,2,2),matrix(2:5,2,2),matrix(3:6,2,2))
+##' mm2 <- blkmatrix_to_matrixlist(mm,2)
+##' bdiag_to_array(mm,2)
+##' array_to_bdiag(bdiag_to_array(mm,2))
+bdiag_to_array <- function(m,n) {
+    mlist_to_array(
+        bdiag_to_mlist(m,n))
+}
+array_to_bdiag <- function(a) {
+    stopifnot(length(dim(a))==3,dim(a)[1]==dim(a)[2])
+    p <- dim(a)[1]
+    mlist <- split(a,slice.index(a,3))
+    mlist <- lapply(mlist,matrix,nrow=p,ncol=p)
+    return(.bdiag(mlist))
+}
+
+
+augment.RE <- function(object,rr=ranef(object)) {
+    alist <- arrange.condVar(object,myCondVar(object))
+    for (i in seq_along(rr)) {
+        attr(rr[[i]],"postVar") <- alist[[i]]
+    }
+    class(rr) <- "ranef.mer"
+    rr
+}
+       
+## reorganize condVar matrix into appropriate list of arrays/lists of arrays
+arrange.condVar <- function(object,cv) {
+    rP <- rePos$new(object)
+    trms <- rP$terms      ## mapping between grouping vars and RE terms
+    n <- diff(rP$offsets) ## total number of modes per term
+    cv2 <- bdiag_to_mlist(cv,n)
+    cv3 <- Map(bdiag_to_array,cv2,rP$ncols)
+    names(cv3) <- rP$cnms
+    res <- list()
+    for (i in seq_along(trms)) {
+        tt <- trms[[i]]
+        if (length(tt)==1) {
+            ## keep single-term-per-factor condVar structures
+            ## as naked arrays (not list containing a single array)
+            ## for back-compatibility
+            res[[i]] <- cv3[[tt]]
+        } else {
+            ## list of arrays
+            res[[i]] <- cv3[tt]
+        }
+    }
+    return(res)
+}
+
+## conditional variance as one large matrix
+myCondVar <- function (object) {
+    ## same as lme4:::condVar
+    s2 <- sigma(object)^2
+    Lamt <- getME(object, "Lambdat")
+    L <- getME(object, "L")
+    LL <- solve(L, Lamt, system = "A")
+    ## The default, ‘"A"’, is to solve Ax = b for x
+    ##   where ‘A’ is sparse, positive-definite matrix that was
+    ##   factored to produce ‘a’.
+    s2 * crossprod(Lamt, LL)
+}
+

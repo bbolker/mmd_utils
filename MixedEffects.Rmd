@@ -138,7 +138,7 @@ gg_allcoef <- ggplot(gamm4_allcoef,aes(estimate,model,colour=singular,shape=sing
     facet_wrap(~term,scale="free_x")+
     geom_vline(xintercept=0,lty=2)+
     scale_colour_brewer(palette="Set1")+
-    zmarginx
+    zmargin
 ```
 
 All `gamm4` coefs for plants:
@@ -306,9 +306,14 @@ rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
     geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
                    position=position_dodgev(height=0.5))+
     scale_colour_brewer(palette="Dark2")+
-    scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
+    ## scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
     labs(y="")
 print(rsqplot)
+```
+
+```{r rsqplot2}
+all_rsq$upper <- with(all_rsq,!Effect %in% c("Model","NPP_log","log(area_km2)"))
+rsqplot %+% all_rsq +facet_wrap(~upper,ncol=1,scales="free")
 ```
 
 ## Models fitted with only biome and flor_realms
@@ -342,7 +347,7 @@ ggplot(predFrame,aes(x=NPP_log,y=focal,colour=biome))+
     theme(legend.position="bottom")
 ```
 
-Feat_log version:
+Version with `Feat_log` (main effect of fire) as focal predictor:
 
 ```{r predList_fire}
 predList_fire <- lapply(allfits_restr_gamm4,
@@ -363,7 +368,12 @@ ggplot(predFrame_fire,aes(x=Feat_log,y=focal,colour=biome))+
     theme(legend.position="bottom")
 ```
 
-Extract coefficients:
+```{r coefplots}
+gg1 <- allfits_restr_gamm4[[1]]
+obj <- allfits_restr_gamm4[[1]]$mer
+```
+
+## Extract coefficients
 
 In this particular case the effect of NPP only varies across floristic realms,
 so the picture isn't especially pretty:
