@@ -155,6 +155,7 @@ predfun <- function(model=best_model,
                     alpha=0.05,
                     npts = 51,
                     lty=c(2,1,3)
+                    backtrans=FALSE
                     ) {
     
     if (inherits(model,"gamm4")) {
@@ -224,6 +225,8 @@ predfun <- function(model=best_model,
                                lwr=cut_lwr(lwr,val=pred_lower_lim),
                                upr=cut_lwr(upr,val=pred_lower_lim))
         }
+    }
+    if (backtrans) {
     }
     return(pdata)
 }
@@ -436,92 +439,40 @@ remef_allran <- function(x,data,na.action=na.exclude) {
     return(rem)
 }
 
-
-#' convert a list of matrices (n, pxp blocks) to 
-#' a pxpxn array
-mlist_to_array <- function(m) {
-    p <- nrow(m[[1]])
-    n <- length(m)
-    array(unlist(lapply(m,as.matrix)),dim=c(p,p,n))
-}
-#' @inheritParams bdiag_to_array
-bdiag_to_mlist <- function(m,n) {
-    if (length(n)==1 && n<nrow(m)) {
-        n <- rep(n,nrow(m)%/%n)
-    }
-    mm <- list()
-    k <- 1
-    for (i in seq_along(n)) {
-        mm[[i]] <- m[k:(k+n[i]-1),k:(k+n[i]-1),drop=FALSE]
-        k <- k + n[i]
-    }
-    return(mm)
-}
-##' convert a block-diagonal matrix to a pxpxn array
-##' @param m a block-diagonal matrix (typically sparse)
-##' @param n vector of block sizes (if length-1, will be replicated to be consistent
-##' with the matrix dimensions)
+##' undo the effects of scale()
+##' @param x primary variable to unscale
+##' @param y optionally: variable containing unscaling information
 ##' @examples
-##' mm <- Matrix::bdiag(matrix(1:4,2,2),matrix(2:5,2,2),matrix(3:6,2,2))
-##' mm2 <- blkmatrix_to_matrixlist(mm,2)
-##' bdiag_to_array(mm,2)
-##' array_to_bdiag(bdiag_to_array(mm,2))
-bdiag_to_array <- function(m,n) {
-    mlist_to_array(
-        bdiag_to_mlist(m,n))
-}
-array_to_bdiag <- function(a) {
-    stopifnot(length(dim(a))==3,dim(a)[1]==dim(a)[2])
-    p <- dim(a)[1]
-    mlist <- split(a,slice.index(a,3))
-    mlist <- lapply(mlist,matrix,nrow=p,ncol=p)
-    return(.bdiag(mlist))
-}
-
-
-augment.RE <- function(object,rr=ranef(object)) {
-    alist <- arrange.condVar(object,myCondVar(object))
-    for (i in seq_along(rr)) {
-        attr(rr[[i]],"postVar") <- alist[[i]]
+##' x <- 1:3
+##' x <- drop(scale(1:3))
+##' y <- 2:4
+##' backtrans(x)
+##' backtrans(y,x)
+backtrans <- function(x,y=NULL) {
+    
+## if only x is specified, x is both the target and has unscaling info
+    ## if x and y are specified, x is the target and y has unscaling info
+    scvar <- if (is.null(y)) x else y
+    ctr <- attr(scvar,"scaled:center")
+    sc <- attr(scvar,"scaled:scale")
+    if (is.null(sc) || is.null(ctr)) {
+        stop("can't retrieve scaling information")
     }
-    class(rr) <- "ranef.mer"
-    rr
+    ## remove scaling information from result
+    ret <- x*sc+ctr
+    attr(ret,"scaled:scale") <- NULL
+    attr(ret,"scaled:center") <- NULL
+    return(ret)
 }
-       
-## reorganize condVar matrix into appropriate list of arrays/lists of arrays
-arrange.condVar <- function(object,cv) {
-    rP <- rePos$new(object)
-    trms <- rP$terms      ## mapping between grouping vars and RE terms
-    n <- diff(rP$offsets) ## total number of modes per term
-    cv2 <- bdiag_to_mlist(cv,n)
-    cv3 <- Map(bdiag_to_array,cv2,rP$ncols)
-    names(cv3) <- rP$cnms
-    res <- list()
-    for (i in seq_along(trms)) {
-        tt <- trms[[i]]
-        if (length(tt)==1) {
-            ## keep single-term-per-factor condVar structures
-            ## as naked arrays (not list containing a single array)
-            ## for back-compatibility
-            res[[i]] <- cv3[[tt]]
-        } else {
-            ## list of arrays
-            res[[i]] <- cv3[tt]
-        }
+
+## back-transform a variable by exponentiating
+## *or* unscaling, depending on its name
+backtrans_magic <- function(x,xname,y=NULL) {
+    if (grepl("_log$",xname)) {
+        return(exp(x))
     }
-    return(res)
+    if (grepl("_sc$",xname)) {
+        return(backtrans(x,y))
+    }
 }
-
-## conditional variance as one large matrix
-myCondVar <- function (object) {
-    ## same as lme4:::condVar
-    s2 <- sigma(object)^2
-    Lamt <- getME(object, "Lambdat")
-    L <- getME(object, "L")
-    LL <- solve(L, Lamt, system = "A")
-    ## The default, ‘"A"’, is to solve Ax = b for x
-    ##   where ‘A’ is sparse, positive-definite matrix that was
-    ##   factored to produce ‘a’.
-    s2 * crossprod(Lamt, LL)
-}
-
+        

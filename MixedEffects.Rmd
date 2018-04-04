@@ -371,6 +371,7 @@ ggplot(predFrame_fire,aes(x=Feat_log,y=focal,colour=biome))+
 ```{r coefplots}
 gg1 <- allfits_restr_gamm4[[1]]
 obj <- allfits_restr_gamm4[[1]]$mer
+tidy(obj,effects="ran_modes")
 ```
 
 ## Extract coefficients
