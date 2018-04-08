@@ -431,22 +431,34 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
     return(coefs)
 }
 
-remef_allran <- function(x,data,na.action=na.exclude) {
+remef_allran <- function(x, data,
+                         fixed_keep=NULL,
+                         na.action=na.exclude) {
     require(mgcv) ## for s()
-    if (inherits(x,"gamm4")) {
-        ds <- glmmTMB:::drop.special2
-        dh <- glmmTMB:::dropHead
-        ff <- ds(formula(x$mer,random.only=TRUE),quote((1|Xr)))
-        ff <- ff[-2]
-        resp <- model.frame(x$mer)$y.0
-    } else {
-        stop("not implemented for lme4 yet")
-    }
+    if (!inherits(x,"gamm4")) stop("only implemented for gamm4")
+    ds <- glmmTMB:::drop.special2
+    dh <- glmmTMB:::dropHead
+    ff <- ds(formula(x$mer,random.only=TRUE),quote((1|Xr)))
+    ff <- ff[-2]
+    resp <- model.frame(x$mer)$y.0
     ## gamm4 doesn't keep na.action, ugh
-    na.act <- attr(model.frame(dh(formula(x$gam),quote(s)),
-                     data,na.action=na.action),"na.action")
-    pp <- predict(x$mer,random.only=TRUE,re.form=ff)
-    rem <- napredict(na.act,resp-pp)
+    ## drop smooth terms from prediction
+    ff_fixed <- dh(formula(x$gam),quote(s))
+    mf_fixed <- model.frame(ff_fixed,data,na.action=na.action)
+    na.act <- attr(mf_fixed,"na.action")
+    ## predict *all* ranef
+    pp_ran <- predict(x$mer,random.only=TRUE,re.form=ff)
+    pp_fixed <- rep(0,length(pp_ran))
+    mm_fixed <- model.matrix(ff_fixed[-2],data)
+    mm_fixed <- mm_fixed[,names(mm_fixed)!="y"] ## hack
+    cc <- coef(x$gam)
+    cc <- cc[intersect(names(cc),colnames(mm_fixed))]
+    if (length(fixed_keep)>0) {
+        mm_fixed[,setdiff(colnames(mm_fixed),fixed_keep)] <- 0
+        pp_fixed <- mm_fixed %*% cc
+        pp_fixed <- pp_fixed[-(na.act)]
+    }
+    rem <- napredict(na.act,resp-pp_ran-pp_fixed)
     return(rem)
 }
 

@@ -5,9 +5,7 @@
 #### high
 
   - plots with actual values: unscaling/unlogging
-  - remove fixed effects as well as random effects in remef plots?
-  - standard errors on biome & FR random effects in restricted models
-  - plot random effects for biome/FR models, especially with CIs ???
+  - remove fixed effects as well as random effects in remef plots? (done, not tested)
   - try stuff with `brms` (Bayesian) ???
   
 #### medium
