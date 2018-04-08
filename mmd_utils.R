@@ -154,7 +154,6 @@ predfun <- function(model=best_model,
                     re.form = NA,  ## exclude REs from prediction
                     alpha=0.05,
                     npts = 51,
-                    lty=c(2,1,3)
                     backtrans=FALSE
                     ) {
     
@@ -251,11 +250,23 @@ plotfun <- function(model=best_model,
                     auxvar="Feat_cv_sc",
                     grpvar=NULL,
                     ylim=c(-3,1),
+                    backtrans=FALSE,
+                    lty=c(2,1,3),
                     ...
                     ) {
     pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
     mrespvar <- deparse(formula(model)[[2]])
     if (is.null(respvar)) respvar <- mrespvar
+    if (backtrans) {
+        ## back-transform predicted variables wrt original var info
+        pdata[[respvar]] <- backtrans_magic(pdata[[respvar]],respvar,
+                                            data[[respvar]])
+        pdata[[xvar]] <- backtrans_magic(pdata[[xvar]],xvar,
+                                         data[[xvar]])
+        ## back-transform original vars
+        data[[respvar]] <- backtrans_magic(data[[respvar]],respvar)
+        data[[xvar]] <- backtrans_magic(data[[xvar]],xvar)
+    }
     gg0 <- ggplot(data,aes_(x=as.name(xvar)))
     if (!is.null(auxvar)) {
         fauxvar <- paste0("f",auxvar)
@@ -456,7 +467,8 @@ backtrans <- function(x,y=NULL) {
     ctr <- attr(scvar,"scaled:center")
     sc <- attr(scvar,"scaled:scale")
     if (is.null(sc) || is.null(ctr)) {
-        stop("can't retrieve scaling information")
+        warn("can't retrieve scaling information: returning original values")
+        return(x)
     }
     ## remove scaling information from result
     ret <- x*sc+ctr

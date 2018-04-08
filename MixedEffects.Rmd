@@ -368,10 +368,23 @@ ggplot(predFrame_fire,aes(x=Feat_log,y=focal,colour=biome))+
     theme(legend.position="bottom")
 ```
 
-```{r coefplots}
+Plot random effects estimates
+with $\pm$ 2 SE (these effects do *not* include the effects of
+the variation of levels of NPP and fire across biomes/realms; they
+represent deviations from the expectation based on the population-level
+effects ...)
+
+```{r coefplots, echo=FALSE}
 gg1 <- allfits_restr_gamm4[[1]]
 obj <- allfits_restr_gamm4[[1]]$mer
-tidy(obj,effects="ran_modes")
+tt <- tidy(obj,effects="ran_modes") %>%
+    filter(group!="Xr") %>%
+    select(-effect)
+ggplot(tt,aes(x=estimate,y=level))+
+    facet_grid(group~term,scale="free_y")+
+    geom_pointrangeh(aes(xmin=estimate-2*std.error,
+                         xmax=estimate+2*std.error))+
+    geom_vline(xintercept=0,lty=2,colour="red")
 ```
 
 ## Extract coefficients
