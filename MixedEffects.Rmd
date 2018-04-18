@@ -311,9 +311,32 @@ rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
 print(rsqplot)
 ```
 
+Plot in two panels:
+
 ```{r rsqplot2}
-all_rsq$upper <- with(all_rsq,!Effect %in% c("Model","NPP_log","log(area_km2)"))
-rsqplot %+% all_rsq +facet_wrap(~upper,ncol=1,scales="free")
+all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP_log","log(area_km2)"))
+r1 <- rsqplot %+% subset(all_rsq,upper)
+r2 <- rsqplot %+% subset(all_rsq,!upper)
+## facet_wrap doesn't have 'space' argument ...
+## rsqplot %+% all_rsq +facet_wrap(~upper,ncol=1,scales="free")
+## facet_grid doesn't use axes for all facets ...
+## rsqplot %+% all_rsq +facet_grid(upper~.,scales="free",space="free") +
+##    theme(strip.text=element_blank())
+## https://cran.r-project.org/web/packages/cowplot/vignettes/shared_legends.html
+L <- get_legend(r1)
+## stack facets
+p1 <- plot_grid(r1
+                +labs(x="")
+                ## rectangle indicating scale of lower box w/in upper
+                + geom_rect(xmin=0,xmax=0.125,ymin=-Inf,ymax=Inf,
+                            fill="black",
+                            colour=NA,alpha=0.02)
+                + theme(legend.position="none"),
+                r2+theme(legend.position="none"),
+                ncol=1,
+                align="v",rel_heights=c(0.3,0.7),axis="b")
+## add legend
+plot_grid(p1,L,rel_widths=c(2,0.4))
 ```
 
 ## Models fitted with only biome and flor_realms
@@ -384,7 +407,8 @@ ggplot(tt,aes(x=estimate,y=level))+
     facet_grid(group~term,scale="free_y")+
     geom_pointrangeh(aes(xmin=estimate-2*std.error,
                          xmax=estimate+2*std.error))+
-    geom_vline(xintercept=0,lty=2,colour="red")
+    geom_vline(xintercept=0,lty=2,colour="red")+
+    theme(panel.spacing.x=grid::unit(0,"lines"))
 ```
 
 ## Extract coefficients

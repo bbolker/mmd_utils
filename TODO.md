@@ -4,7 +4,10 @@
 
 #### high
 
-  - plots with actual values: unscaling/unlogging
+- 
+- conditional coefficient plots with uncertainties
+- plots with actual values: unscaling/unlogging
+  - test
   - remove fixed effects as well as random effects in remef plots? (done, not tested)
   - try stuff with `brms` (Bayesian) ???
   
