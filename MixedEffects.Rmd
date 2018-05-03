@@ -44,7 +44,7 @@ opts_chunk$set(error=FALSE)
 Data from Enric (includes area and lat/long coordinates):
 ```{r get_data,cache=TRUE}
 L <- load("ecoreg.RData")
-```
+````
 
 Limit all observations with all predictor variables > 0 and no biome 98/99; set `biome` as factor. Log and scale/center variables as appropriate. This leaves us with `r ncol(ecoreg)` variables and
 `r nrow(ecoreg)` observations.
@@ -253,6 +253,17 @@ names(best_models)
 ```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
 ggplot1 <- plotfun(best_models[[1]])
 comb_out(ggplot1,"ggplot1.html")
+```
+
+Testing back-transformation:
+```{r}
+rem1 <- remef_allran(best_models[[2]],ecoreg)
+plotfun(best_models[[2]],
+        xvar="Feat_log",respvar="rem1",
+        auxvar="NPP_cv_sc",
+        data=ecoreg,
+        backtrans=TRUE)+
+    scale_x_log10()
 ```
 
 ([dynamic alternative](./ggplot1.html))

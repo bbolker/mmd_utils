@@ -235,6 +235,7 @@ predfun <- function(model=best_model,
 ##' @param xvar ("NPP_log"): x-variable
 ##' @param respvar (equal to model response by default): response variable
 ##' @param auxvar ("Feat_cv_sv"): auxiliary variable (e.g. for examining interactions)
+##' @param backtrans attempt to back-transform x and y variables?
 ##' @param ... parameters passed through to predfun
 ##' @examples
 ##' source("gamm4_utils.R")
@@ -479,7 +480,7 @@ backtrans <- function(x,y=NULL) {
     ctr <- attr(scvar,"scaled:center")
     sc <- attr(scvar,"scaled:scale")
     if (is.null(sc) || is.null(ctr)) {
-        warn("can't retrieve scaling information: returning original values")
+        warning("can't retrieve scaling information: returning original values")
         return(x)
     }
     ## remove scaling information from result
