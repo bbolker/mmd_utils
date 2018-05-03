@@ -1,3 +1,6 @@
+## biome code and names
+## http://web.mit.edu/11.951/ecoplan/data/ecoregions/wwf_terr_ecos.htm
+## (except 98 and 99)
 code,name,abbrev
 1,'Trop. & Subtrop. Moist Broadleaf Forests', 'Trop/Subtrop Moist'
 2,'Trop. & Subtrop. Dry Broadleaf Forests', 'Trop/Subtrop Dry'

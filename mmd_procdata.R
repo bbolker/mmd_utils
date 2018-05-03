@@ -1,21 +1,73 @@
-## setwd('D:/Enric/8.Fire_Biodiversity/3.Mixed_Effects')
+## Enric Batllori, 2018/05/04
 
-load("ecoreg_means.RData")
-## labels: biome.code.name, short.biome.names, flor.code, zoor.code
-## "bindex" ?
-## "db.land", "db.islands"
-## "ecoreg"
-## "fd" ?
+## simplified version of "pipeline_full_Enric.R" that starts from a matrix (full_data) with the RAW data for each pixel
+## matrix with 343429 rows that was generated/saved in the first part of "pipeline_full_Enric.R"
+## 1. generate the initial 'ecoreg' dataset (including biome, ecoreg, biodiversity, NPP, Feat)
+## 2. generate the working datset 'ecoreg' (log and scale transformation of original variables)
+## 3. incorporate the x-y coordinates of each ecoregion
 
-## read area definitions: this replicates some information
-## found in ecoreg_means.RData ...
+## FIXME: cull needed packages?
+library(SDMTools)
+library(raster)
+library(rgdal)
+library(sp)
+library(fields)
+library(gdalUtils)
+library(data.table)
+library(maptools)
+library(rhdf5)
+library(plyr)
+
+## --------------------------------------------------------------------------------
+#   compute ECOREGION MEANS -- working data set
+### -------------------------------------------------------------------------------------
+
+load("full_data.RData")
+full_data <- data.table(full_data)
+
+## !!! NOTE !!! only data from land masses is retained! 
+db_land = full_data[land == 1,]
+## sorting the data set by ecoregion id ('eco_id')
+setkey(db_land,eco_id)
+db_land = db_land[!biomes %in% c('98','99'),] ## remove rock, ice, water
+
+## 1. ecoregion-level mean or model values
+ecoreg = db_land[,list(Ncells = .N,	## total number of cells per ecoregion
+                       Area = sum(AREA_cell),       # total AREA of each ecoregion
+                       biome = as.numeric(modal(biomes,na.rm=TRUE, ties ='random')),
+                       ## modal value for Biome (Olson et al. 2001)
+                       flor_realms = as.numeric(modal(FlorRealms, na.rm=TRUE, ties ='random')),
+                       ## modal value for biogeographical realms (Olson et al. 2001)
+                       mamph = mean(amph,na.rm=TRUE),   ## mean AMPHIBIAN diversity - GLOBAL
+                       mbirds = mean(birds,na.rm=TRUE), ## mean BIRDS diversity - GLOBAL
+                       mmamm = mean(mamm,na.rm=TRUE),  	## mean MAMMALS diversity - GLOBAL                                
+                       NPP_mean = mean(NPP_mean,na.rm=TRUE),	## (inter-annual) mean of yearly sum of NPP
+                       NPP_cv_inter = mean(NPP_cv_inter,na.rm=TRUE),	## inter-annual)CV of yearly sum of NPP
+                       Feat_mean = mean(Feat_mean,na.rm=TRUE),		## (inter-annual) mean of FRACTION of NPP eaten by fire (Emissions/NPP)
+                       Feat_cv_inter = mean(Feat_cv_inter,na.rm=TRUE),	## inter-annual CV of FRACTION of NPP eaten by fire
+                       area_k = mean(area,na.rm=TRUE),			## Kier et al. 2005 data - cell area
+                       plants = mean(sp_wfig,na.rm=TRUE)),		## Kier et al. 2005 data - plant richness
+                 by = eco_id]
+
+## convert the data.table to a data.frame
+ecoreg = as.data.frame(ecoreg)
+
+## matrix with biogeographical realms name and code - from Olson et al. 2001
+## flor_code = matrix(cbind(c(1:8), c('Australasia','Antarctic','Afrotropics','Indo-Malay','Neartic','Neotropics','Oceania','Paleartic'),c('AA','AN','AT','IM','NA','NT','OC','PA')),ncol=3)
+
+### ------------------------------------------------------------------------------
+#   log/scale/center variables
+### -------------------------------------------------------------------------------
+
+## read realm/biome definitions
 read_fun <- function(x) read.csv(x,quote="'",stringsAsFactors=FALSE,
                                  strip.white=TRUE,
+                                 comment="#",
                                  ## treat 'NA' in abbrevs as a real value!
                                  na.strings="")
 
 biome_defs <- read_fun("biome_defs.csv")
-flor_defs <- read_fun("olson_flor.csv")
+flor_defs <- read_fun("olson_defs.csv")
 
 ## predictors (must be non-zero)
 predvars <- c("NPP_mean","NPP_cv_inter","Feat_mean","Feat_cv_inter")
@@ -32,8 +84,6 @@ ecoreg <- ecoreg[c('eco_id','Ncells','Area',respvars,predvars,grpvars)]
 for (v in predvars) {
     ecoreg <- ecoreg[ecoreg[[v]]>0,]
 }
-## eliminate rock & ice, lakes
-ecoreg <- ecoreg[ecoreg$biome<98,]
 ## convert to factors
 for (v in grpvars) {
     ecoreg[[v]] <- factor(ecoreg[[v]])
@@ -52,11 +102,14 @@ ecoreg$flor_realms <- factor(ecoreg$flor_realms,
 ecoreg$biome_FR <- factor(paste(flor_defs$abbrev[ecoreg$flor_realms],
                             ecoreg$biome,sep=":"))
 
-## log-scale all non-CV predictors
+## log-scale all non-CV predictors; center (after logging)
 log_vars <- c(respvars,grep("_cv_inter",predvars,invert=TRUE,value=TRUE))
 for (v in log_vars) {
     scv <- gsub("(_inter|_mean)","",paste0(v,"_log"))
-    ecoreg[[scv]] <- log(ecoreg[[v]]/mean(ecoreg[[v]],na.rm=TRUE))
+    tmpvar <- log(ecoreg[[v]])
+    ecoreg[[scv]] <- drop(scale(tmpvar,
+                           scale=1,
+                           center=mean(tmpvar,na.rm=TRUE)))
 }
 
 ## center *and* scale CVs
@@ -66,4 +119,59 @@ for (v in ctr_vars) {
     ## drop() so we can use tidyverse later if we want ...
     ecoreg[[scv]] <- drop(scale(ecoreg[[v]],scale=TRUE,center=TRUE))
 }
+
+## COMPUTING "centroids" of each Ecoregion -- XY coordinates of the largest polygon in each ecoregion (from the original wwf_terr_ecos shapefile)
+# !! this needs to be done after mmd_procdata.R or the x-y coordinates are removed... 
+
+## extract biggest from existing/old ecoreg ... stopgap.
+if (FALSE) {
+    biggest <- subset(ecoreg,select=c(x,y,eco_id,area_km2))
+    saveRDS(biggest,file="biggest.rds")
+}
+
+if (file.exists("biggest.rds")) {
+    biggest <- readRDS("biggest.rds")
+} else {
+    ## load ecoregions shapefile
+    teow <- readOGR('D:/Camellia_BackUp_20170717/8.Fire_Biodiversity/official_teow/official','wwf_terr_ecos', verbose = FALSE)
+    ## selecting only ecoregions within the dataset within the shapefile
+    teow_all <- teow[teow$ECO_ID %in% ecoreg$eco_id,]
+    ## computing centroids (does not differ significantly from gCentroid function from rgeos)
+    xy_ecoreg <- coordinates(teow_all)
+    ## matrix with eco_id, area_km2, x, y 
+    xy_area_teow <- data.table(cbind(teow_all@data[,c('ECO_ID','area_km2','Shape_Area')],
+                                     xy_ecoreg))
+    setnames(xy_area_teow,c('eco_id','area_km2','Shape_Area','x','y'))
+    ## selecting bigger 'Shape_Area' by ecoregion -- using data.table
+    ## rationale to select unique rows from a data table 
+    ## in data.table .I represents the row number in the original data set
+    biggest <- xy_area_teow[xy_area_teow[, .I[Shape_Area == max(Shape_Area)],
+                                         by=c('eco_id')]$V1]
+    saveRDS(biggest,file="biggest.rds")
+}
+
+## merging ecoreg dataset computed above with xy dataset
+## (note that Shape_Area is discarded)
+# ecoreg <- join(ecoreg, as.data.frame(biggest[,c('eco_id','area_km2','x','y')]), by='eco_id')
+## !!!! the join function was removing the attributes !!!
+
+chksc <- function(x) {
+    all(names(attributes(x))==c("scaled:center","scaled:scale"))
+}
+## check that attributes are preserved
+stopifnot(chksc(ecoreg$NPP_log))
+
+## issues with dplyr::join() dropping attributes, but OK with merge() ...
+ecoreg <- merge(ecoreg,biggest,by="eco_id")
+stopifnot(chksc(ecoreg$NPP_log))
+
 save("ecoreg", file="ecoreg.RData")
+
+
+
+
+
+
+
+
+

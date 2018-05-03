@@ -1,0 +1,11 @@
+## Olson et al 2001
+## http://www.bioone.org/doi/abs/10.1641/0006-3568(2001)051[0933:TEOTWA]2.0.CO;2
+code, name,     abbrev
+1,'Australasia','AA'
+2,'Antarctic',  'AN'
+3,'Afrotropics','AT'
+4,'Indo-Malay', 'IM'
+5,'Nearctic',   'NA'
+6,'Neotropics', 'NT'
+7,'Oceania',    'OC'
+8,'Palearctic', 'PA'
