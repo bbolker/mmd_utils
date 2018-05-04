@@ -233,6 +233,9 @@ predfun <- function(model=best_model,
 ##' @param respvar (equal to model response by default): response variable
 ##' @param auxvar ("Feat_cv_sv"): auxiliary variable (e.g. for examining interactions)
 ##' @param backtrans back-transform x and y variables?
+##' @param log character string, as in \code{\link{plot.default}}, that specifies
+##' whether to log-scale the x and y axes ("xy"), one or the other ("x" or "y"),
+##' or neither ("")
 ##' @param ... parameters passed through to predfun
 ##' @examples
 ##' source("gamm4_utils.R")
@@ -250,27 +253,23 @@ plotfun <- function(model=best_model,
                     ylim=c(-3,1),
                     backtrans=FALSE,
                     lty=c(2,1,3),
+                    log=""
                     ...
                     ) {
     pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
+    ## response variable from model (may not be the same as respvar,
+    ##  e.g. in partial residuals plots)
     mrespvar <- deparse(formula(model)[[2]])
     if (is.null(respvar)) respvar <- mrespvar
     if (backtrans) {
-        ## back-transform predicted variables wrt original var info
-        r1 <- backtrans_magic(pdata[[respvar]],respvar,
-                              data[[respvar]])
-        ## extract new name, store in data
-        newrespvar <- attr(r1,"name")
-        pdata[[newrespvar]] <- r1
-        x1 <- backtrans_magic(pdata[[xvar]],xvar,
-                              data[[xvar]])
-        newxvar <- attr(x1,"name")
-        pdata[[newxvar]] <- x1
-        ## back-transform original vars
-        data[[newrespvar]] <- backtrans_magic(data[[respvar]],respvar)
-        data[[newxvar]] <- backtrans_magic(data[[xvar]],xvar)
-        respvar <- newrespvar
-        xvar <- newxvar
+        pdata <- backtrans_var(pdata,mrespvar,data,
+                               othervars=c("lwr","upr"),log=TRUE)
+        mrespvar <- attr(pdata,"transvar")
+        pdata <- backtrans_var(pdata,xvar,data)
+        data <- backtrans_var(data,respvar)
+        respvar <- attr(data,"transvar")
+        data <- backtrans_var(data,xvar)
+        xvar <- attr(data,"transvar")
     }
     gg0 <- ggplot(data,aes_(x=as.name(xvar)))
     if (!is.null(auxvar)) {
@@ -289,9 +288,21 @@ plotfun <- function(model=best_model,
                         colour=NA,fill="black",alpha=0.1)
     }
     ## finish
-    if (!is.null(ylim)) {
-        gg0 <- gg0 +
-            scale_y_continuous(limits=ylim,oob=scales::squish)
+    ## sort out y limits, with or without log-axes
+    ysc <- if (grepl("y",log)) {
+               if (!is.null(ylim)) {
+                   scale_y_log10(limits=exp(ylim),oob=scales::squish)
+               } else {
+                   scale_y_log10()
+               }
+           } else (!is.null(ylim)) {
+               scale_y_continuous(limits=ylim,oob=scales::squish)
+           } else {
+               scale_y_continuous()
+           }
+    gg0 <- gg0 + ysc
+    if (grepl("x",log) {
+        gg0 <- gg0 + scale_x_log10()
     }
     gg0 <- gg0 + theme(legend.box="horizontal")
     return(gg0 + geom_point(aes_(y=as.name(respvar),
@@ -476,12 +487,17 @@ remef_allran <- function(x, data,
 ##' y <- 2:4
 ##' backtrans(x)
 ##' backtrans(y,x)
-backtrans <- function(x,y=NULL) {
+backtrans <- function(x,y=NULL,warn.noscale=FALSE) {
     ## if only x is specified, x is both the target and has unscaling info
     ## if x and y are specified, x is the target and y has unscaling info
     scvar <- if (is.null(y)) x else y
     ctr <- attr(scvar,"scaled:center")
     sc <- attr(scvar,"scaled:scale")
+    ## no scaling information: (silently) return original value
+    if (is.null(ctr) || is.null(sc)) {
+        if (warn.noscale) warning("no scaling info, returning original var")
+        return(x)
+    }
     ## remove scaling information from result
     ret <- x*sc+ctr
     attr(ret,"scaled:scale") <- NULL
@@ -492,9 +508,9 @@ backtrans <- function(x,y=NULL) {
 ## back-transform a variable by exponentiating
 ## attempt to unscale (only effective if unscaling info
 ##  is stored in x or y)
-backtrans_magic <- function(x,xname,y=NULL) {
-    ## exponentiate if var is logged
-    if (grepl("_log$",xname)) {
+backtrans_magic <- function(x,xname,y=NULL,log=NULL) {
+    ## exponentiate if var is logged or if forced
+    if (isTRUE(log) || grepl("_log$",xname)) {
         x <- exp(x)
     }
     ## attempt 
@@ -503,3 +519,21 @@ backtrans_magic <- function(x,xname,y=NULL) {
     return(r)
 }
         
+
+backtrans_var <- function(data,xname,otherdata=NULL,othervars=NULL,...) {
+    r1 <- backtrans_magic(data[[xname]],xname,
+                          otherdata[[xname]],...)
+    ## other variables (e.g. lower/upper CIs);
+    ##  transform in place, using same scaling info
+    for (v in othervars) {
+        data[[v]] <- backtrans_magic(data[[v]],v,
+                                     otherdata[[xname]],...)
+    }
+    ## extract new name, store in data
+    new_var <- attr(r1,"name")
+    data[[new_var]] <- r1
+    ## attach info about transformed var
+    attr(data,"transvar") <- new_var
+    return(data)
+}
+    

@@ -7,16 +7,8 @@
 ## 3. incorporate the x-y coordinates of each ecoregion
 
 ## FIXME: cull needed packages?
-library(SDMTools)
-library(raster)
-library(rgdal)
-library(sp)
-library(fields)
-library(gdalUtils)
+library(raster) ## for modal()
 library(data.table)
-library(maptools)
-library(rhdf5)
-library(plyr)
 
 ## --------------------------------------------------------------------------------
 #   compute ECOREGION MEANS -- working data set
@@ -51,9 +43,6 @@ ecoreg = db_land[,list(Ncells = .N,	## total number of cells per ecoregion
 
 ## convert the data.table to a data.frame
 ecoreg = as.data.frame(ecoreg)
-
-## matrix with biogeographical realms name and code - from Olson et al. 2001
-## flor_code = matrix(cbind(c(1:8), c('Australasia','Antarctic','Afrotropics','Indo-Malay','Neartic','Neotropics','Oceania','Paleartic'),c('AA','AN','AT','IM','NA','NT','OC','PA')),ncol=3)
 
 ### ------------------------------------------------------------------------------
 #   log/scale/center variables
@@ -123,37 +112,28 @@ for (v in ctr_vars) {
 ## COMPUTING "centroids" of each Ecoregion -- XY coordinates of the largest polygon in each ecoregion (from the original wwf_terr_ecos shapefile)
 # !! this needs to be done after mmd_procdata.R or the x-y coordinates are removed... 
 
-## extract biggest from existing/old ecoreg ... stopgap.
 if (FALSE) {
-    biggest <- subset(ecoreg,select=c(x,y,eco_id,area_km2))
-    saveRDS(biggest,file="biggest.rds")
+    ## Original code to compute centroids for each polygon in the original wwf_terr_ecos shapefile
+  ## load ecoregions shapefile
+    teow <- readOGR('...','wwf_terr_ecos', verbose = FALSE)
+    ## computing centroids (does not differ significantly from gCentroids function from rgeos)
+    xy_teow <- coordinates(teow)
+    ## generating a matrix with original teow polygon-level data (teow@data) + x,y coordinates
+    teow_data <- cbind(teow@data,x=xy_teow[,1],y=xy_teow[,2])
+    ## data output -- this data set will be loaded below to add x,y to 'ecoreg'
+    save(teow_data,file='.../teow_data.RData')
 }
 
-if (file.exists("biggest.rds")) {
-    biggest <- readRDS("biggest.rds")
-} else {
-    ## load ecoregions shapefile
-    teow <- readOGR('D:/Camellia_BackUp_20170717/8.Fire_Biodiversity/official_teow/official','wwf_terr_ecos', verbose = FALSE)
-    ## selecting only ecoregions within the dataset within the shapefile
-    teow_all <- teow[teow$ECO_ID %in% ecoreg$eco_id,]
-    ## computing centroids (does not differ significantly from gCentroid function from rgeos)
-    xy_ecoreg <- coordinates(teow_all)
-    ## matrix with eco_id, area_km2, x, y 
-    xy_area_teow <- data.table(cbind(teow_all@data[,c('ECO_ID','area_km2','Shape_Area')],
-                                     xy_ecoreg))
-    setnames(xy_area_teow,c('eco_id','area_km2','Shape_Area','x','y'))
-    ## selecting bigger 'Shape_Area' by ecoregion -- using data.table
-    ## rationale to select unique rows from a data table 
-    ## in data.table .I represents the row number in the original data set
-    biggest <- xy_area_teow[xy_area_teow[, .I[Shape_Area == max(Shape_Area)],
-                                         by=c('eco_id')]$V1]
-    saveRDS(biggest,file="biggest.rds")
-}
-
-## merging ecoreg dataset computed above with xy dataset
-## (note that Shape_Area is discarded)
-# ecoreg <- join(ecoreg, as.data.frame(biggest[,c('eco_id','area_km2','x','y')]), by='eco_id')
-## !!!! the join function was removing the attributes !!!
+load('teow_data.RData')
+## selecting only ecoregions within the dataset within the shapefile
+## keep only eco_id, area_km2, x, y 
+xy_area_teow <- data.table(subset(teow_data,ECO_ID %in% ecoreg$eco_id,
+                                  select=c(ECO_ID,area_km2,Shape_Area,x,y)))
+setnames(xy_area_teow,c('eco_id','area_km2','Shape_Area','x','y'))
+## selecting bigger 'Shape_Area' by ecoregion -- using data.table
+## rationale to select unique rows from a data table 
+## in data.table .I represents the row number in the original data set
+biggest <- xy_area_teow[xy_area_teow[, .I[Shape_Area == max(Shape_Area)], by=c('eco_id')]$V1]
 
 chksc <- function(x) {
     all(names(attributes(x))==c("scaled:center","scaled:scale"))
@@ -163,7 +143,7 @@ stopifnot(chksc(ecoreg$NPP_log))
 
 ## issues with dplyr::join() dropping attributes, but OK with merge() ...
 ecoreg <- merge(ecoreg,biggest,by="eco_id")
-stopifnot(chksc(ecoreg$NPP_log))
+stopifnot(chksc(ecoreg$NPP_log),chksc(ecoreg$mamph_log))
 
 save("ecoreg", file="ecoreg.RData")
 

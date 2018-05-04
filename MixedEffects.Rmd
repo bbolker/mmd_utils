@@ -11,9 +11,6 @@ Some parts of the analysis have been moved into separate `.R` files: the overall
 
 ![](make.png)
 
-(`mmd_procdata` is out of date: Enric has processing machinery to
-extract lat/long of centroid of largest polygon (?) (`x`/`y` in the data set) and area ...)
-
 ```{r get_utils}
 source("mmd_utils.R")
 source("gamm4_utils.R")
@@ -251,7 +248,9 @@ names(best_models)
 - `re.form` (NA) which RE to include in *predictions* (default is none)
 
 ```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
-ggplot1 <- plotfun(best_models[[1]])
+ggplot1 <- plotfun(best_models[[1]],backtrans=TRUE,log="xy")+
+    scale_y_log10(limits=c(3e-2,1))+
+    scale_x_log10()
 comb_out(ggplot1,"ggplot1.html")
 ```
 
@@ -262,8 +261,8 @@ plotfun(best_models[[2]],
         xvar="Feat_log",respvar="rem1",
         auxvar="NPP_cv_sc",
         data=ecoreg,
-        backtrans=TRUE)+
-    scale_x_log10()
+        backtrans=TRUE)
+##    scale_x_log10()
 ```
 
 ([dynamic alternative](./ggplot1.html))
