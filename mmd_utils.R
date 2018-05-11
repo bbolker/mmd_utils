@@ -1,10 +1,15 @@
 source("gamm4_utils.R")
 
-## basic check for singular random effects (i.e. overfitted)
+##' basic check for singular random effects (i.e. overfitted)
+##' @param fit fitted \code{merMod} object (from \code{lme4}, or
+##' \code{$mer} component of a \code{gamm4} model)
 is.singular <- function(fit,tol=1e-4) {
     any(abs(lme4::getME(fit,"theta"))<tol)
 }
-## pretty-print model summary
+
+##' pretty-print model summary
+##' @keywords internal
+##' @param x a model
 pfun <- function(x) print(summary(x),correlation=FALSE)
 ##
 cplot <- function(x) {
@@ -155,8 +160,9 @@ predfun <- function(model=best_model,
                     alpha=0.05,
                     npts = 51
                     ) {
-    
+
     if (inherits(model,"gamm4")) {
+        require(gamm4)
         ## need x/y variables
         ff <- formula(model,fixed.only=TRUE,drop.smooth=FALSE)
     } else {
@@ -253,14 +259,15 @@ plotfun <- function(model=best_model,
                     ylim=c(-3,1),
                     backtrans=FALSE,
                     lty=c(2,1,3),
-                    log=""
+                    log="",
                     ...
                     ) {
-    pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
+    require("ggplot2")
     ## response variable from model (may not be the same as respvar,
     ##  e.g. in partial residuals plots)
     mrespvar <- deparse(formula(model)[[2]])
     if (is.null(respvar)) respvar <- mrespvar
+    pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
     if (backtrans) {
         pdata <- backtrans_var(pdata,mrespvar,data,
                                othervars=c("lwr","upr"),log=TRUE)
@@ -295,13 +302,13 @@ plotfun <- function(model=best_model,
                } else {
                    scale_y_log10()
                }
-           } else (!is.null(ylim)) {
+           } else if (!is.null(ylim)) {
                scale_y_continuous(limits=ylim,oob=scales::squish)
            } else {
                scale_y_continuous()
            }
     gg0 <- gg0 + ysc
-    if (grepl("x",log) {
+    if (grepl("x",log)) {
         gg0 <- gg0 + scale_x_log10()
     }
     gg0 <- gg0 + theme(legend.box="horizontal")
@@ -447,6 +454,12 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
     return(coefs)
 }
 
+
+##' @param x model
+##' @param data original data
+##' @param fixed_keep which fixed effects should be \strong{retained}
+##' (\code{NULL} means to keep all fixed effects
+##' @param na.action what to do with NA values
 remef_allran <- function(x, data,
                          fixed_keep=NULL,
                          na.action=na.exclude) {
@@ -466,13 +479,16 @@ remef_allran <- function(x, data,
     pp_ran <- predict(x$mer,random.only=TRUE,re.form=ff)
     pp_fixed <- rep(0,length(pp_ran))
     mm_fixed <- model.matrix(ff_fixed[-2],data)
-    mm_fixed <- mm_fixed[,names(mm_fixed)!="y"] ## hack
+    mm_fixed <- mm_fixed[,colnames(mm_fixed)!="y"] ## hack
     cc <- coef(x$gam)
     cc <- cc[intersect(names(cc),colnames(mm_fixed))]
     if (length(fixed_keep)>0) {
-        mm_fixed[,setdiff(colnames(mm_fixed),fixed_keep)] <- 0
+        ## want to NOT predict for fixed_keep vars!
+        mm_fixed[,fixed_keep] <- 0
         pp_fixed <- mm_fixed %*% cc
-        pp_fixed <- pp_fixed[-(na.act)]
+        if (length(na.act)>0)  {
+            pp_fixed <- pp_fixed[-(na.action)]
+        }
     }
     rem <- napredict(na.act,resp-pp_ran-pp_fixed)
     return(rem)
@@ -487,6 +503,7 @@ remef_allran <- function(x, data,
 ##' y <- 2:4
 ##' backtrans(x)
 ##' backtrans(y,x)
+##' head(backtrans(ecoreg$mmamm_log))
 backtrans <- function(x,y=NULL,warn.noscale=FALSE) {
     ## if only x is specified, x is both the target and has unscaling info
     ## if x and y are specified, x is the target and y has unscaling info
@@ -505,16 +522,22 @@ backtrans <- function(x,y=NULL,warn.noscale=FALSE) {
     return(ret)
 }
 
-## back-transform a variable by exponentiating
-## attempt to unscale (only effective if unscaling info
-##  is stored in x or y)
+##' back-transform a variable by exponentiating
+##' attempt to unscale (only effective if unscaling info
+##'  is stored in x or y)
+##' @note data are logged before scaling; to invert this
+##' we need to unscale \strong{before} exponentiating ...
+##' @examples
+##' head(ecoreg$mmmamm_log)
+##' head(ecoreg$mmamm)
+##' backtrans_magic(ecoreg$mmamm_log,"mmamm_log")
 backtrans_magic <- function(x,xname,y=NULL,log=NULL) {
+    r <- backtrans(x,y)
     ## exponentiate if var is logged or if forced
     if (isTRUE(log) || grepl("_log$",xname)) {
-        x <- exp(x)
+        r <- exp(r)
     }
     ## attempt 
-    r <- backtrans(x,y)
     attr(r,"name") <- gsub("_(log|sc)$","",xname)
     return(r)
 }

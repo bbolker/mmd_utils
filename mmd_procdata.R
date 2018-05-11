@@ -136,14 +136,21 @@ setnames(xy_area_teow,c('eco_id','area_km2','Shape_Area','x','y'))
 biggest <- xy_area_teow[xy_area_teow[, .I[Shape_Area == max(Shape_Area)], by=c('eco_id')]$V1]
 
 chksc <- function(x) {
-    all(names(attributes(x))==c("scaled:center","scaled:scale"))
+    all(c("scaled:center","scaled:scale") %in% names(attributes(x)))
 }
 ## check that attributes are preserved
-stopifnot(chksc(ecoreg$NPP_log))
+stopifnot(chksc(ecoreg$NPP_log),chksc(ecoreg$mamph_log),
+          chksc(ecoreg$mmamm_log))
 
-## issues with dplyr::join() dropping attributes, but OK with merge() ...
-ecoreg <- merge(ecoreg,biggest,by="eco_id")
-stopifnot(chksc(ecoreg$NPP_log),chksc(ecoreg$mamph_log))
+## https://stackoverflow.com/questions/20306853/maintain-attributes-of-data-frame-columns-after-merge
+## issues with dplyr::join() and merge() dropping attributes,
+## but OK with merge.data.table() ...
+ecoreg <- merge(data.table(ecoreg),data.table(biggest),by="eco_id")
+
+ecoreg <- as.data.frame(ecoreg)
+## check that attributes are preserved
+stopifnot(chksc(ecoreg$NPP_log),chksc(ecoreg$mamph_log),
+          chksc(ecoreg$mmamm_log))
 
 save("ecoreg", file="ecoreg.RData")
 
