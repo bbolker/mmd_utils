@@ -5,7 +5,6 @@
 #### high
 
 - effect of fixed_keep="NPP_log" on rem1 with mammals
-- check backtransforming: why does backtransforming not recover Feat?
 - conditional coefficient plots with uncertainties
 - plots with actual values: unscaling/unlogging
   - test
