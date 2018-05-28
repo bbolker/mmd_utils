@@ -460,37 +460,58 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
 ##' @param fixed_keep which fixed effects should be \strong{retained}
 ##' (\code{NULL} means to keep all fixed effects
 ##' @param na.action what to do with NA values
+##' @param return_components
+##
+## NOTE: see gamm4_predict.{rmd,html} for more info about which
+##  components (fixed, random, smooth) are included in which bits
+##  of a gamm4 model, how to access them via predict/residuals
+##
+## I think I could use that information to get partial residuals
+##   for a subcomponent (i.e. using newdata=), but for now I'm
+##   going to use residuals (which subtracts everything (fixed/random/smooth)
+##   and add specified fixed effects back in ...
 remef_allran <- function(x, data,
                          fixed_keep=NULL,
-                         na.action=na.exclude) {
+                         na.action=na.exclude,
+                         return_components=FALSE) {
     require(mgcv) ## for s()
     if (!inherits(x,"gamm4")) stop("only implemented for gamm4")
     ds <- glmmTMB:::drop.special2
     dh <- glmmTMB:::dropHead
     ff <- ds(formula(x$mer,random.only=TRUE),quote((1|Xr)))
     ff <- ff[-2]
-    resp <- model.frame(x$mer)$y.0
-    ## gamm4 doesn't keep na.action, ugh
-    ## drop smooth terms from prediction
     ff_fixed <- dh(formula(x$gam),quote(s))
     mf_fixed <- model.frame(ff_fixed,data,na.action=na.action)
     na.act <- attr(mf_fixed,"na.action")
-    ## predict *all* ranef
+    ## resp <- model.frame(x$mer)$y.0  ## not really needed
+    rr <- residuals(x$mer)
+    ## predict *all* ranef (not really necessary except for return_components)
     pp_ran <- predict(x$mer,random.only=TRUE,re.form=ff)
-    pp_fixed <- rep(0,length(pp_ran))
+    ## predict only specified FE
+    pp_fixed <- rep(0,nrow(data))
     mm_fixed <- model.matrix(ff_fixed[-2],data)
-    mm_fixed <- mm_fixed[,colnames(mm_fixed)!="y"] ## hack
+    ## hack/remove response var (delete.response() ?)
+    mm_fixed <- mm_fixed[,colnames(mm_fixed)!="y"]
     cc <- coef(x$gam)
     cc <- cc[intersect(names(cc),colnames(mm_fixed))]
     if (length(fixed_keep)>0) {
-        ## want to NOT predict for fixed_keep vars!
-        mm_fixed[,fixed_keep] <- 0
+        if (!all(is.na(fixed_keep))) {
+            ## if NA, don't zero out any variables (="keep none")
+            ## NULL = "keep all"
+            ## want to NOT predict for fixed_keep vars!
+            mm_fixed[,fixed_keep] <- 0
+        } 
         pp_fixed <- mm_fixed %*% cc
         if (length(na.act)>0)  {
+            ## drop NA values (even those in response), in order for preds to match residuals
             pp_fixed <- pp_fixed[-(na.action)]
         }
     }
-    rem <- napredict(na.act,resp-pp_ran-pp_fixed)
+    ## rem <- napredict(na.act,resp-pp_ran-pp_fixed)
+    rem <- napredict(na.act,rr + pp_fixed)
+    if (return_components) {
+        return(data.frame(rem,pp_ran,pp_fixed))
+    }
     return(rem)
 }
 

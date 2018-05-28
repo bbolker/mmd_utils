@@ -4,7 +4,10 @@
 
 #### high
 
+- ggpairs?
+- stop hard-coding y limits?
 - effect of fixed_keep="NPP_log" on rem1 with mammals
+     - make sure to remove smooth term involved?
 - conditional coefficient plots with uncertainties
 - plots with actual values: unscaling/unlogging
   - test
