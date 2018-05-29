@@ -23,9 +23,15 @@ plotfun(bb,xvar="Feat_log",backtrans=TRUE,log="xy",ylim=NULL)
 ## test remef
 ecoreg$rem1 <- drop(remef_allran(best_models[["mmamm_log"]],
                      data=ecoreg,
-                     fixed_keep="NPP_log"))
+                     fixed_keep=c("(Intercept)","NPP_log")))
 plotfun(bb,respvar="rem1",ylim=c(-1,0.5))+theme(legend.position="none")+
     geom_smooth(method="lm",aes(group=1,y=rem1))
+plotfun(bb,respvar="rem1",ylim=c(-1,0.5),auxvar=NULL)+
+    theme(legend.position="none")+
+    geom_smooth(method="lm",aes(group=1,y=rem1))
+
+plotfun(bb)+theme(legend.position="none")
+plotfun(bb,auxvar=NULL,grpvar="biome")+theme(legend.position="none")
 ## by hand
 ggplot(ecoreg,aes(NPP_log,rem1,colour=biome))+geom_point()+
     geom_smooth(method="lm",aes(group=1))
@@ -35,7 +41,13 @@ ggplot(ecoreg,aes(NPP_log,rem1,colour=biome))+geom_point()+
 ## is it just (overall intercept + overall slope) ?
 ##
 ## experiment with a simpler example from remef()??
-##
+
+dd <- data.frame(x1=rnorm(100))
+dd$x2 <- -0.5*x1+rnorm(100)
+dd$y <-
+
+
+###
 rr <- remef_allran(best_models[["mmamm_log"]],data=ecoreg,
                    fixed_keep=NA,return_components=TRUE)
 pred2 <- with(rr,pp_ran+pp_fixed)
@@ -44,6 +56,5 @@ par(mfrow=c(1,2))
 plot(ecoreg$NPP_log,pred1-pred2)
 plot(ecoreg$NPP_log,rr$rem)
 dd <- data.frame(ecoreg,rr)
-dd %>%
-ggplot(gather(rr),
+
        
