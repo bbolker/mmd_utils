@@ -22,9 +22,11 @@ plotfun(bb,xvar="Feat_log",backtrans=TRUE,log="xy",ylim=NULL)
 ## STOPPED HERE
 ## test remef
 ecoreg$rem1 <- drop(remef_allran(best_models[["mmamm_log"]],
-                     data=ecoreg,
-                     fixed_keep=c("(Intercept)","NPP_log")))
-plotfun(bb,respvar="rem1",ylim=c(-1,0.5))+theme(legend.position="none")+
+                                 data=ecoreg,
+                                 set_other="median",
+                                 fixed_keep=c("(Intercept)","NPP_log")))
+plotfun(bb,respvar="rem1",ylim=c(-1,0.5))+
+    theme(legend.position="none")+
     geom_smooth(method="lm",aes(group=1,y=rem1))
 plotfun(bb,respvar="rem1",ylim=c(-1,0.5),auxvar=NULL)+
     theme(legend.position="none")+

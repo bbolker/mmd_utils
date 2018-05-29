@@ -472,8 +472,10 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
 ##   and add specified fixed effects back in ...
 remef_allran <- function(x, data,
                          fixed_keep=NULL,
+                         set_other=c("median","zero"),
                          na.action=na.exclude,
                          return_components=FALSE) {
+    set_other <- match.arg(set_other)
     require(mgcv) ## for s()
     if (!inherits(x,"gamm4")) stop("only implemented for gamm4")
     ds <- glmmTMB:::drop.special2
@@ -498,8 +500,14 @@ remef_allran <- function(x, data,
         if (!all(is.na(fixed_keep))) {
             ## if NA, don't zero out any variables (="keep none")
             ## NULL = "keep all"
-            ## want to NOT predict for fixed_keep vars!
-            mm_fixed[,fixed_keep] <- 0
+            ## DO want to predict
+            ## mm_fixed[,!colnames(mm_fixed) %in% fixed_keep] <- 0
+            ## set to median or mean, not zero ... ?
+            for (col in setdiff(colnames(mm_fixed),fixed_keep)) {
+                mm_fixed[,col] <- switch(set_other,
+                         median=median(mm_fixed[,col],na.rm=TRUE),
+                         zero=0)                
+            }
         } 
         pp_fixed <- mm_fixed %*% cc
         if (length(na.act)>0)  {
