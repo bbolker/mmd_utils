@@ -3,7 +3,7 @@ L <- load("ecoreg.RData")
 source("mmd_utils.R")
 library(brms)
 library(parallel)
-options(mc.cores=3)
+options(mc.cores=1)  ## use only 1 core for debugging; 3+ for prod
 
 ## pick out all response variables
 respvars <- c("mamph","plants","mmamm","mbirds")
