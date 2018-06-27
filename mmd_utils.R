@@ -110,7 +110,7 @@ fit_all <- function(response="mbirds_log",
         }
         suppressWarnings(time <- system.time(res <- try(do.call(fitfun,argList))))
         attr(res,"time") <- time
-        return(time)
+        return(res)
     }
     dd <- expand.grid(seq_along(forms),seq_along(forms),seq_along(forms))
     ## For example, use RE #1 (intercept) for biome, RE #2 (diag) for realm, RE #3 (full) for biome $\times$ realm interaction ...
