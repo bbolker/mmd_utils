@@ -9,7 +9,7 @@ respvars <- c("mamph","plants","mmamm","mbirds")
 logrespvars <- paste0(respvars,"_log")
 tmpf <- function(r) fit_all(response=r,
                             single_fit=c(2,2),
-                            use_gamm4=TRUE,
+                            platform="gamm4",
                             rterms=c("biome","flor_realms"))
 allfits_restr_gamm4 <- parallel::mclapply(logrespvars,
                               tmpf,

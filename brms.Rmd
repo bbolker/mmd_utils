@@ -1,0 +1,71 @@
+---
+title: "diversity analyses with brm/full data set etc."
+---
+
+```{r pkgs}
+source("mmd_utils.R")
+source("gamm4_utils.R")
+L <- load("ecoreg.RData")
+library(broom)
+library(broom.mixed)
+library(brms)
+library(corrplot)
+library(dplyr)
+library(ggplot2); theme_set(theme_bw())
+```
+
+
+## getting brms to run (original data set)
+
+`brms` (actually the underlying `Stan` platform may complain about "divergent steps". There is quite a bit of discussion about how to fix this, e.g. [brms github issues](https://github.com/paul-buerkner/brms/issues/128), but it seems that using `adapt_delta=0.99` takes care of problems that we have.
+
+from `?set_prior`:
+
+- default prior on SDs is half-Student with 3 df, scale parameter based on std dev of response (>=10) e.g. `set_prior("<prior>", class="sd", group="<group>")` (is this going to regularize enough??)
+- default correlation priors `lkj_(eta)`: `eta=1` - flat; `eta > 1` extreme correlations less likely
+
+Looks like the default priors might be OK.
+
+## basic results
+
+```{r}
+load("brms_batch.RData")
+## 11 "non-varying"
+## 375 "varying"
+## 45 "hierarchical"
+tt <- (rbind(tidy(b1,par_type="hierarchical"),
+             tidy(b1,par_type="non-varying"))
+    %>% mutate(cat=case_when(grepl("^cor",term) ~ "cor",
+                             grepl("^sd",term) ~ "sd",
+                             TRUE ~ "fixed"),
+               ## reorder
+               cat=factor(cat,levels=c("fixed","sd","cor")))
+    %>% filter(term!="Intercept")
+    ## reorder term by estimate *within* categories -- fussy ...
+    %>% arrange(cat,estimate)
+    %>% mutate(term=factor(term,levels=term))
+)
+ggplot(tt,aes(estimate,term))+
+    ggstance::geom_pointrangeh(aes(xmin=lower,xmax=upper))+
+    facet_wrap(~cat,scale="free",ncol=1)+
+    geom_vline(xintercept=0,lty=2)
+```
+
+What do we conclude?
+
+```{r}
+vv <- VarCorr(b1)
+## vv$biome$cor[,"Estimate",]
+## vv$biome$cor[,"Est.Error",]
+```
+
+## Markov random field stuff
+
+- `corsar(W, type=c("lag","error"))`; "lag" = SAR on response values; "error" = SAR on residuals
+- [CrossValidated](https://stats.stackexchange.com/questions/277/spatial-statistics-models-car-vs-sar)
+     - non-spatial: "My House Value is a function of my home Gardening Investment"
+     - SAR: "My House Value is a function of the House Values of my neighbours."
+     - CAR: "My House Value is a function of the Gardening Investment of my neighbours"
+	 - [issue describing mrf smooth](https://github.com/paul-buerkner/brms/issues/128)
+	 - `?mgcv::mrf`: can give polygons (`polys`), or neighborhood structure (`nb`)
+

@@ -15,7 +15,7 @@ logrespvars <- paste0(c("plants","mamph","mbirds","mmamm"),"_log")
 ## and stored in allfits_lmer.RData
 
 allfits <- parallel::mclapply(logrespvars, fit_all,
-                              use_gamm4 = TRUE,
+                              platform = "gamm4",
                               verbose = TRUE,
                               mc.cores = 2  ## change as available
                               )

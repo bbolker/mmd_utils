@@ -28,7 +28,10 @@ cplot <- function(x) {
 ##' @param interax include (2-way) interactions among fixed effects?
 ##' @param data data frame
 ##' @param single_fit fit a single specified model instead of all combinations?
-##' @param use_gamm4 fit a spatial model?
+##' Argument is a vector passed to mform() specifying which of forms to use
+##' (1=intercept; 2=diag; 3=full)
+##' @param platform which fitting package to use?
+##' @param add_sos add spherical smooth to model?
 ##' 
 ##' @examples
 ##' # two equivalent ways to fit a single model with diagonal terms
@@ -52,9 +55,11 @@ fit_all <- function(response="mbirds_log",
                     interax=TRUE,
                     data=ecoreg,
                     single_fit=NULL,
-                    use_gamm4=FALSE,
+                    platform=c("lme4","gamm4","brms"),
+                    add_sos=TRUE,
                     verbose=FALSE) {
-    if (use_gamm4) {
+    platform <- match.arg(platform)
+    if (add_sos && platform!="lme4") {
         ## add spherical smoothing term
         ## ?smooth.construct.sos.smooth.spec:
         ##  s(latitude,longitude,bs='sos') [lat first!]
@@ -85,24 +90,33 @@ fit_all <- function(response="mbirds_log",
         environment(ff) <- parent.frame() ## ugh
         return(ff)
     }
-    ## g4fit() is our wrapper that calls gamm4 and assigns class "gamm4"
-    ##  to the result
-    fitfun <- if (use_gamm4) g4fit else lmer
+    ## g4fit() just calls gamm4 and assigns class "gamm4" to the result
+    fitfun <- switch(platform,gamm4=g4fit,lme4=lmer,
+                     brms=brm)
     ctrl <- lmerControl(optimizer=nloptwrap,
                         optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12))
     ## run just one model
     if (!is.null(single_fit)) {
         ff <- mform(single_fit,extra_pred_vars=extra_pred_vars)
-        return(try(suppressWarnings(
-            fitfun(ff,data=data,
-                 na.action=na.exclude,
-                 control=ctrl))))
+        argList <- list(ff,data=data,na.action=na.exclude)
+        if (platform %in% c("gamm4","lme4")) {
+            argList <- c(argList,list(control=ctrl))
+        } else if (platform=="brms") {
+            argList <- c(argList,
+                         list(control=list(adapt_delta=0.99),
+                              family=gaussian))
+        }
+        time <- system.time(res <- try(suppressWarnings(do.call(fitfun,argList))))
+        attr(res,"time") <- time
+        return(time)
     }
     dd <- expand.grid(seq_along(forms),seq_along(forms),seq_along(forms))
     ## For example, use RE #1 (intercept) for biome, RE #2 (diag) for realm, RE #3 (full) for biome $\times$ realm interaction ...
     ## mform(c(1,2,3))
     results <- list()
     for (i in seq(nrow(dd))) {
+        ## FIXME? if doing factorial stuff with brms (which we shouldn't
+        ##  ever being doing), need to exclude ctrl from argList as above
         w <- unlist(dd[i,])
         nm <- paste(rterms,"=",names(forms)[w],sep="",collapse="/")
         if (verbose) cat(i,w,nm,"\n")
