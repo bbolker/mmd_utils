@@ -93,14 +93,14 @@ fit_all <- function(response="mbirds_log",
     ## g4fit() just calls gamm4 and assigns class "gamm4" to the result
     fitfun <- switch(platform,gamm4=g4fit,lme4=lmer,
                      brms=brm)
-    ctrl <- lmerControl(optimizer=nloptwrap,
-                        optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12))
     ## run just one model
     if (!is.null(single_fit)) {
         ff <- mform(single_fit,extra_pred_vars=extra_pred_vars)
         argList <- list(ff,data=data,na.action=na.exclude)
         if (platform %in% c("gamm4","lme4")) {
-            argList <- c(argList,list(control=ctrl))
+            argList <- c(argList,
+                list(control=lmerControl(optimizer=nloptwrap,
+                        optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12))))
         } else if (platform=="brms") {
             argList <- c(argList,
                          list(control=list(adapt_delta=0.99),
