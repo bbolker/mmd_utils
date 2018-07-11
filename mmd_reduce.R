@@ -11,6 +11,8 @@ get_data <- function(x,data) {
     if (inherits(x,"merMod")) {
         ## include x/y vars for future ref even though not in formula
         av <- c(all.vars(formula(x)),"x","y")
+    } else if (inherits(x,"brmsfit")) {
+        av <- c(all.vars(formula(x$formula)),"x","y")
     } else {  ## gamm4/list
         av <- union(all.vars(formula(x$mer)),all.vars(formula(x$gam)))
     }

@@ -8,6 +8,7 @@ source("gamm4_utils.R")
 L <- load("ecoreg.RData")
 library(broom)
 library(broom.mixed)
+library(stringr)
 library(brms)
 library(corrplot)
 library(dplyr)
@@ -29,12 +30,24 @@ Looks like the default priors might be OK.
 ## basic results
 
 ```{r}
-load("brms_batch.RData")
+L <- load("allfits_sum_gamm4.RData") ## 4 taxa x 27 fits, using gamm4
+L <- load("brms_batch.RData")
+gamm4_coefs <- (gamm4_res$coef
+    %>% inner_join(filter(gamm4_res$sum,best))
+    %>% select(-c(AIC,singular,df,best)))
 ## 11 "non-varying"
 ## 375 "varying"
 ## 45 "hierarchical"
-tt <- (rbind(tidy(b1,par_type="hierarchical"),
+tt0 <- rbind(tidy(b1,par_type="hierarchical"),
              tidy(b1,par_type="non-varying"))
+unique(tt0$term)
+unique(gamm4_coefs$term)
+tt1 <- (tt0
+    %>% mutate(term=str_replace(term,"Intercept","(Intercept)"),
+               ## https://stackoverflow.com/questions/35804379/r-stringr-str-extract-how-to-do-postive-lookbehind/35804399
+               ## extract group from term name. FRAGILE if group names contain "_" ...
+               grp=str_match(term,"^sd_([^_]+)")[,2]))
+                         
     %>% mutate(cat=case_when(grepl("^cor",term) ~ "cor",
                              grepl("^sd",term) ~ "sd",
                              TRUE ~ "fixed"),

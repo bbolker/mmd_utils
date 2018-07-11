@@ -58,11 +58,15 @@ both with `lme4` and with `gamm4`.  `mmd_reduce.R` has reduced
 these to lists with components `sum` (summaries: AIC, singularity, etc.);
 `coef` (coefficients); and `pred` (fitted, residuals, etc.).
 
-Load data:
+Load data: summaries containing
+
+- `coefs`: coefficients for all models
+- `sum`: summaries for all models: `taxon`, `model`, `AIC`, `singular` (singular fit or not?), `df` (number of parameters), `best` is this the "best" (min-AIC non-singular fit for each taxon) model?
+- `pred`: predictions for all models
 
 ```{r load_data}
-load("allfits_sum_lmer.RData")  ## 4 taxa x 27 fits, using lmer
-load("allfits_sum_gamm4.RData") ## 4 taxa x 27 fits, using gamm4
+L <- load("allfits_sum_lmer.RData")  ## 4 taxa x 27 fits, using lmer
+L <- load("allfits_sum_gamm4.RData") ## 4 taxa x 27 fits, using gamm4
 ```
 
 Table of models with AIC<10:
