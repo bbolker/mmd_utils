@@ -102,15 +102,15 @@ fit_all <- function(response="mbirds_log",
                 list(control=lmerControl(optimizer=nloptwrap,
                      optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12)),
                      ## brms doesn't know about na.action ... ?
-                     na.action=na.exclude)
+                     na.action=na.exclude))
         } else if (platform=="brms") {
             argList <- c(argList,
                          list(control=list(adapt_delta=0.99),
                               family=gaussian))
         }
-        time <- system.time(res <- try(suppressWarnings(do.call(fitfun,argList))))
+        suppressWarnings(time <- system.time(res <- try(do.call(fitfun,argList))))
         attr(res,"time") <- time
-        return(time)
+        return(res)
     }
     dd <- expand.grid(seq_along(forms),seq_along(forms),seq_along(forms))
     ## For example, use RE #1 (intercept) for biome, RE #2 (diag) for realm, RE #3 (full) for biome $\times$ realm interaction ...
