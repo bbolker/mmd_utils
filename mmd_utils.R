@@ -4,7 +4,8 @@ source("gamm4_utils.R")
 ##' @param fit fitted \code{merMod} object (from \code{lme4}, or
 ##' \code{$mer} component of a \code{gamm4} model)
 is.singular <- function(fit,tol=1e-4) {
-    any(abs(lme4::getME(fit,"theta"))<tol)
+    if (inherits(fit,"brmsfit")) return(FALSE)
+    return(any(abs(lme4::getME(fit,"theta"))<tol))
 }
 
 ##' pretty-print model summary

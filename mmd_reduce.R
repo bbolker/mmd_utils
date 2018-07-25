@@ -3,6 +3,8 @@ library(purrr)
 library(dplyr)
 library(broom)
 library(broom.mixed)
+library(gamm4)
+library(brms)
 
 ## augment needs data, but will fail if data contains NAs in columns
 ##  not used in the model - extract formulas from model, use these
@@ -31,22 +33,31 @@ tt <- function(m) {
 ## extract:
 ## model table - is.singular, glance() output
 gg <- function(m) {
-    m0 <- if (inherits(m,"merMod")) m else m$mer
-    data.frame(glance(m),
-               singular=is.singular(m0),
-               df=lme4:::npar.merMod(m0))
+    m0 <- if (inherits(m,"gamm4")) m$mer else m 
+    singular <- if (inherits(m,"brmsfit")) NA else is.singular(m0)
+    df <- if (inherits(m,"brmsfit")) NA else lme4:::npar.merMod(m0)
+    data.frame(glance(m),singular,df)
 }
 
-get_allsum <- function(allfits) {
+get_allsum <- function(allfits, nested=TRUE) {
+    ## FIXME: would like to use purrr::map but don't know enough about NSE
+    if (nested) {
+         mm <- function(FUN) {
+             lapply(allfits,
+                 function(z) (lapply(z,FUN) %>% bind_rows(.id="model")))
+         }
+     ## map(allfits, ~ (map(.,FUN)) %>% bind_rows(.id="model"))
+    } else {
+       mm <-function(FUN) {
+             lapply(allfits, FUN)
+       }
+    }
     ## get predictions from all taxa, bind them together
-    pred <- (map(allfits,
-                     ~ (map(.,aa) %>% bind_rows(.id="model")))
-        %>% bind_rows(.id="taxon"))
-
+    ## FIXME: what are ending *_log columns (all NA)?
+    pred <- mm(aa) %>% bind_rows(.id="taxon")
     ## get summaries from all taxa, bind them together
-    sum <- (map(allfits,
-                    ~ (map(.,gg) %>% bind_rows(.id="model")))
-        %>% bind_rows(.id="taxon")
+    sum <- (mm(gg) 
+    	%>% bind_rows(.id="taxon")
         %>% select(taxon,model,AIC,singular,df)
         %>% group_by(taxon)
         ## find delta-AIC and identify best non-singular model
@@ -58,9 +69,9 @@ get_allsum <- function(allfits) {
     )
 
     ## get coefficients from all taxa, bind them together
-    coefs <- (map(allfits,
-                      ~ (map(., tt) %>% bind_rows(.id="model")))
-        %>% bind_rows(.id="taxon"))
+    coefs <- (mm(tt) 
+        %>% bind_rows(.id="taxon")
+    )
 
     return(lme4:::namedList(coefs,sum,pred))
 }
@@ -76,7 +87,7 @@ if (FALSE) {
 source("mmd_utils.R")
 load("ecoreg.RData")
 
-system.time(L <- load("allfits.RData"))  ## 25 seconds
+system.time(L <- load("allfits.RData"))  ## ~ 18 seconds
 ## "allfits": length-4, taxa;
 ##                length-27, all models
 gamm4_res <- get_allsum(allfits)
@@ -104,5 +115,9 @@ save(gamm4_testfits,file="testfits.RData")  ## down to 11M
 system.time(load("allfits_lmer.RData"))
 lme4_res <- get_allsum(allfits)
 save(lme4_res,file="allfits_sum_lmer.RData")
+
+system.time(L <- load("allfits_brms.RData")) ## 6 seconds
+brms_res <- get_allsum(allfits_brms,nested=FALSE)
+save(brms_res, file="allfits_sum_brms.RData")
 rm(allfits)
 
