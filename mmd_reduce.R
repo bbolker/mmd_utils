@@ -58,10 +58,10 @@ get_allsum <- function(allfits, nested=TRUE, debug=FALSE) {
     pred <- mfun(aa) %>% bind_rows(.id="taxon")
     ## get summaries from all taxa, bind them together
     if (debug) cat("extracting summaries\n")
-    sum0 <- (mfun(gg) 
+    sum0 <- suppressWarnings(mfun(gg) 
     	%>% bind_rows(.id="taxon")
-        ## %>% select(taxon,model,AIC,singular,df)
-        %>% select(-c(pss,nobs))
+        %>% select(one_of(c("taxon","model","AIC","singular","df")))
+        ## %>% select(-c(pss,nobs))
         %>% group_by(taxon))
     if ("AIC" %in% names(sum0)) {
         sum0 <- (sum0 
