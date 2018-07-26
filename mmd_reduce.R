@@ -39,41 +39,48 @@ gg <- function(m) {
     data.frame(glance(m),singular,df)
 }
 
-get_allsum <- function(allfits, nested=TRUE) {
+get_allsum <- function(allfits, nested=TRUE, debug=FALSE) {
     ## FIXME: would like to use purrr::map but don't know enough about NSE
     if (nested) {
-         mm <- function(FUN) {
+         mfun <- function(FUN) {
              lapply(allfits,
                  function(z) (lapply(z,FUN) %>% bind_rows(.id="model")))
          }
      ## map(allfits, ~ (map(.,FUN)) %>% bind_rows(.id="model"))
     } else {
-       mm <-function(FUN) {
-             lapply(allfits, FUN)
-       }
+        mfun <-function(FUN) {
+            lapply(allfits, FUN)
+        }
     }
     ## get predictions from all taxa, bind them together
     ## FIXME: what are ending *_log columns (all NA)?
-    pred <- mm(aa) %>% bind_rows(.id="taxon")
+    if (debug) cat("extracting predictions\n")
+    pred <- mfun(aa) %>% bind_rows(.id="taxon")
     ## get summaries from all taxa, bind them together
-    sum <- (mm(gg) 
+    if (debug) cat("extracting summaries\n")
+    sum0 <- (mfun(gg) 
     	%>% bind_rows(.id="taxon")
-        %>% select(taxon,model,AIC,singular,df)
-        %>% group_by(taxon)
-        ## find delta-AIC and identify best non-singular model
-        %>% mutate(AIC=AIC-min(AIC,na.rm=TRUE),
-                   AIC_OK=ifelse(singular,NA,AIC),
-                   best=!is.na(AIC_OK) & AIC==min(AIC_OK,na.rm=TRUE))
-        %>% arrange(AIC)
-        %>% select(-AIC_OK)
-    )
+        ## %>% select(taxon,model,AIC,singular,df)
+        %>% select(-c(pss,nobs))
+        %>% group_by(taxon))
+    if ("AIC" %in% names(sum0)) {
+        sum0 <- (sum0 
+            ## find delta-AIC and identify best non-singular model
+            %>% mutate(AIC=AIC-min(AIC,na.rm=TRUE),
+                       AIC_OK=ifelse(singular,NA,AIC),
+                       best=!is.na(AIC_OK) & AIC==min(AIC_OK,na.rm=TRUE))
+            %>% arrange(AIC)
+            %>% select(-AIC_OK)
+        )
+    }
 
     ## get coefficients from all taxa, bind them together
-    coefs <- (mm(tt) 
+    if (debug) cat("extracting coefficients\n")
+    coefs <- (mfun(tt) 
         %>% bind_rows(.id="taxon")
     )
 
-    return(lme4:::namedList(coefs,sum,pred))
+    return(lme4:::namedList(coefs,sum=sum0,pred))
 }
 
 if (FALSE) {
@@ -87,7 +94,7 @@ if (FALSE) {
 source("mmd_utils.R")
 load("ecoreg.RData")
 
-system.time(L <- load("allfits.RData"))  ## ~ 18 seconds
+system.time(L <- load("allfits.RData"))  ## ~ 18 seconds on collywobbles,
 ## "allfits": length-4, taxa;
 ##                length-27, all models
 gamm4_res <- get_allsum(allfits)
