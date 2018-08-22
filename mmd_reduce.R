@@ -1,7 +1,6 @@
 ## extract useful/necessary information
 library(purrr)
 library(dplyr)
-library(broom)
 library(broom.mixed)
 library(gamm4)
 library(brms)
