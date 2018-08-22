@@ -27,7 +27,7 @@ aa <- function(m,data=ecoreg) {
 }
 
 tt <- function(m) {
-    tidy(m)
+    tidy(m,conf.int=TRUE)
 }
 ## extract:
 ## model table - is.singular, glance() output
