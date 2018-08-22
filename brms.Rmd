@@ -6,7 +6,6 @@ title: "diversity analyses with brm/full data set etc."
 source("mmd_utils.R")
 source("gamm4_utils.R")
 L <- load("ecoreg.RData")
-library(broom)
 library(broom.mixed)
 library(stringr)
 library(dplyr)
@@ -32,40 +31,43 @@ Looks like the default priors might be OK.
 
 ```{r}
 L <- load("allfits_sum_gamm4.RData") ## 4 taxa x 27 fits, using gamm4
-L <- load("brms_batch.RData")
+L <- load("allfits_sum_brms.RData")
 gamm4_coefs <- (
-  gamm4_res$coef
-    %>% inner_join(filter(gamm4_res$sum,best))
+    gamm4_res$coef
+    ## take just best model
+    %>% inner_join(filter(gamm4_res$sum,best),by=c("taxon","model"))
     %>% select(-c(AIC,singular,df,best)))
-## 11 "non-varying"
-## 375 "varying"
-## 45 "hierarchical"
-tt0 <- rbind(tidy(b1,par_type="hierarchical"),
-             tidy(b1,par_type="non-varying"))
-unique(tt0$term)
+unique(brms_res$coefs$term)
 unique(gamm4_coefs$term)
-tt1 <- (tt0
-    %>% mutate(term=str_replace(term,"Intercept","(Intercept)"),
-               ## https://stackoverflow.com/questions/35804379/r-stringr-str-extract-how-to-do-postive-lookbehind/35804399
-               ## extract group from term name. FRAGILE if group names contain "_" ...
-               grp=str_match(term,"^sd_([^_]+)")[,2])
-                         
+brms_res$coefs <- (brms_res$coefs
+    %>% mutate(term=str_replace(term,"Intercept","(Intercept)"))
+    %>% mutate(term=str_replace(term,"logarea_km2","log(area_km2)"))
+    %>% filter(!grepl("^.?Intercept.?$",term))
     %>% mutate(cat=case_when(grepl("^cor",term) ~ "cor",
                              grepl("^sd",term) ~ "sd",
                              TRUE ~ "fixed"),
                ## reorder
                cat=factor(cat,levels=c("fixed","sd","cor")))
-    %>% filter(term!="Intercept")
     ## reorder term by estimate *within* categories -- fussy ...
     %>% arrange(cat,estimate)
-    %>% mutate(term=factor(term,levels=term))
+    %>% mutate(term=factor(term,levels=unique(term)))
 )
-ggplot(tt1,aes(estimate,term))+
-    ggstance::geom_pointrangeh(aes(xmin=lower,xmax=upper))+
+ggplot(brms_res$coefs,aes(estimate,term,colour=taxon))+
+    ggstance::geom_pointrangeh(aes(xmin=conf.low,xmax=conf.high))+
     facet_wrap(~cat,scale="free",ncol=1)+
     geom_vline(xintercept=0,lty=2)
 ```
 
+```{r}
+comb <- bind_rows(brms=brms_res$coefs,gamm4=gamm4_coefs,
+                  .id="platform")
+comb_fixed <- comb %>% filter(effect=="fixed") %>%
+    mutate(term=reorder(term,estimate))
+ggplot(comb_fixed,aes(estimate,term,colour=platform))+
+    ggstance::geom_pointrangeh(aes(xmin=conf.low,xmax=conf.high))+
+    facet_wrap(~taxon,scale="free")+
+    geom_vline(xintercept=0,lty=2)
+```
 What do we conclude?
 
 ```{r}
