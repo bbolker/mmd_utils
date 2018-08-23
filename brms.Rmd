@@ -2,7 +2,7 @@
 title: "diversity analyses with brm/full data set etc."
 ---
 
-```{r pkgs}
+```{r pkgs,message=FALSE}
 source("mmd_utils.R")
 source("gamm4_utils.R")
 L <- load("ecoreg.RData")
@@ -15,6 +15,9 @@ library(dplyr)
 library(ggplot2); theme_set(theme_bw())
 ```
 
+```{r opts}
+knitr::opts_chunk$set(echo=FALSE)
+```
 
 ## getting brms to run (original data set)
 
@@ -29,7 +32,8 @@ Looks like the default priors might be OK.
 
 ## basic results
 
-```{r}
+```{r arrange,warning=FALSE}
+## FIXME: eliminate warning in bind_rows by making factors <-> characters
 L <- load("allfits_sum_gamm4.RData") ## 4 taxa x 27 fits, using gamm4
 L <- load("allfits_sum_brms.RData")
 gamm4_coefs <- (
@@ -37,11 +41,17 @@ gamm4_coefs <- (
     ## take just best model
     %>% inner_join(filter(gamm4_res$sum,best),by=c("taxon","model"))
     %>% select(-c(AIC,singular,df,best)))
-unique(brms_res$coefs$term)
-unique(gamm4_coefs$term)
+
+## remove fixed-effect intercept (only)
+noint <- . %>% filter(!grepl("^.?Intercept.?$",term))
+## unique(brms_res$coefs$term)
+## unique(gamm4_coefs$term)
 brms_res$coefs <- (brms_res$coefs
-    %>% mutate(term=str_replace(term,"Intercept","(Intercept)"))
-    %>% mutate(term=str_replace(term,"logarea_km2","log(area_km2)"))
+    %>% noint()
+    ## replace missing parens
+    %>% mutate(term=str_replace(term,"Intercept","(Intercept)"),
+               term=str_replace(term,"logarea_km2","log(area_km2)"))
+    ## don't want intercept anyway ...
     %>% filter(!grepl("^.?Intercept.?$",term))
     %>% mutate(cat=case_when(grepl("^cor",term) ~ "cor",
                              grepl("^sd",term) ~ "sd",
@@ -52,29 +62,55 @@ brms_res$coefs <- (brms_res$coefs
     %>% arrange(cat,estimate)
     %>% mutate(term=factor(term,levels=unique(term)))
 )
-ggplot(brms_res$coefs,aes(estimate,term,colour=taxon))+
-    ggstance::geom_pointrangeh(aes(xmin=conf.low,xmax=conf.high))+
-    facet_wrap(~cat,scale="free",ncol=1)+
-    geom_vline(xintercept=0,lty=2)
 ```
 
-```{r}
-comb <- bind_rows(brms=brms_res$coefs,gamm4=gamm4_coefs,
-                  .id="platform")
-comb_fixed <- comb %>% filter(effect=="fixed") %>%
-    mutate(term=reorder(term,estimate))
-ggplot(comb_fixed,aes(estimate,term,colour=platform))+
+Random-effects coefficients:
+
+```{r brms_all_coefs,fig.width=10,fig.height=8}
+## FIXME: adjust vertical spacing?
+## https://stackoverflow.com/questions/31572239/set-space-in-facet-wrap-like-in-facet-grid
+cc <- (brms_res$coefs
+    %>% filter(cat != "fixed", group!="Residual"))
+g0 <- ggplot(cc,aes(estimate,term,colour=taxon,shape=taxon))+
     ggstance::geom_pointrangeh(aes(xmin=conf.low,xmax=conf.high))+
+    facet_grid(.~group,scale="free")+
+    geom_vline(xintercept=0,lty=2)+
+    labs(y="")+
+    scale_colour_brewer(palette="Set1")
+res <- list()
+for (i in c("sd","cor")) {
+    res[[i]] <- g0 %+% filter(cc,cat==i)
+}
+cowplot::plot_grid(plotlist=res,ncol=1,align="v")
+```
+
+Comparing `brms` models to "best" `gamm4` model:
+
+```{r arrange2, warning=FALSE}
+comb <- bind_rows(brms=brms_res$coefs,
+                  gamm4=noint(gamm4_coefs),.id="platform")
+comb_fixed <- (comb
+    %>% filter(effect=="fixed")
+    %>% mutate(term=reorder(term,estimate))
+)
+```
+
+```{r brms_gamm4_comp,fig.width=9,fig.height=7}
+pd <- ggstance::position_dodgev(height=0.35)
+ggplot(comb_fixed,aes(estimate,term,colour=platform,shape=platform))+
+    scale_colour_brewer(palette="Dark2")+
+    ggstance::geom_pointrangeh(aes(xmin=conf.low,xmax=conf.high),
+                               size=0.5,
+                               position=pd)+
     facet_wrap(~taxon,scale="free")+
     geom_vline(xintercept=0,lty=2)
 ```
-What do we conclude?
 
-```{r}
-vv <- VarCorr(b1)
-## vv$biome$cor[,"Estimate",]
-## vv$biome$cor[,"Est.Error",]
-```
+What do we conclude? A few confidence intervals are wider (especially, `NPP_log` for `plants_log`)
+
+
+## Spatial
+
 
 ## Markov random field stuff
 
