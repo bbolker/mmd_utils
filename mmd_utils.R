@@ -178,7 +178,10 @@ predfun <- function(model=best_model,
                     npts = 51
                     ) {
 
-    if (inherits(model,"gamm4")) {
+    if (inherits(model,"brmsfit")) {
+        require(brms)
+        ff <- lme4::nobars(formula(model)$formula)
+    } else if (inherits(model,"gamm4")) {
         require(gamm4)
         ## need x/y variables
         ff <- formula(model,fixed.only=TRUE,drop.smooth=FALSE)
@@ -222,18 +225,30 @@ predfun <- function(model=best_model,
             pdata[[i]] <- aggregate(data[[i]],by=list(data[[grpvar]]),FUN=median)$x
         }
     }
-    pdata[[mrespvar]] <- predict(model,newdata=pdata,re.form=re.form)
+    mArgs <- list(model,newdata=pdata)
+    lastArg <- list(re.form)
+    names(lastArg) <- if (inherits(model,"brmsfit")) "re_formula" else "re.form"
+    mArgs <- c(mArgs,lastArg)
+    pp <- do.call(predict,mArgs)
     if (!is.null(auxvar)) {
         fauxvar <- paste0("f",auxvar)
         pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("Q(",aux_quantiles,")"))
     }
-    ## confidence intervals (fixed-effects only) on predictions
-    mm <- model.matrix(formula(model),pdata)
-    pvar1 <- diag(mm %*% tcrossprod(as.matrix(vcov(model)),mm))
-    pdata <- transform(pdata,
-                       lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
-                       upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
+    if (inherits(model,"brmsfit")) {
+        pred <- pp[,"Estimate"]
+        pdata <- transform(pdata, lwr=pp[,"Q2.5"],  upr=pp[,"Q97.5"])
+    } else {
+        pred <- pp
+        ## confidence intervals (fixed-effects only) on predictions
+        mm <- model.matrix(formula(model),pdata)
+        pvar1 <- diag(mm %*% tcrossprod(as.matrix(vcov(model)),mm))
+        pdata <- transform(pdata,
+                           lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
+                           upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
     
+
+    }
+    pdata[[mrespvar]] <- pred
     if (!is.na(pred_lower_lim)) {
         ## truncate predictions below, if requested
         cut_lwr <- function(x,val=NA) {
@@ -282,7 +297,11 @@ plotfun <- function(model=best_model,
     require("ggplot2")
     ## response variable from model (may not be the same as respvar,
     ##  e.g. in partial residuals plots)
-    mrespvar <- deparse(formula(model)[[2]])
+    form <- formula(model)
+    if (inherits(model,"brmsfit")) {
+        form <- form$formula
+    }
+    mrespvar <- deparse(form[[2]])
     if (is.null(respvar)) respvar <- mrespvar
     pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
     if (backtrans) {
@@ -346,8 +365,8 @@ if (FALSE) {
 pkgList <- c('lme4',      ## lmer etc.
              'gamm4',     ## spatial fits
              'bbmle',     ## AICtab, cosmetic
-             'broom',     ## coef tables
              'broom.mixed', ## better coef tables
+             'brms',
              'lattice',   ## diagnostic plots
              'gridExtra', ## arrange plots
              'ggplot2',

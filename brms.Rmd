@@ -108,6 +108,14 @@ ggplot(comb_fixed,aes(estimate,term,colour=platform,shape=platform))+
 
 What do we conclude? A few confidence intervals are wider (especially, `NPP_log` for `plants_log`)
 
+## plotting functions
+
+Do they work with `brms`? How much adjustment is required?
+
+```{r}
+L <- load("allfits_brms.RData")
+plotfun(allfits_brms[[1]])
+```
 
 ## Spatial
 

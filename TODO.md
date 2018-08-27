@@ -4,6 +4,12 @@
 
 #### high
 
+- check `Enric/Figures_Ms20180523.html`
+- figure 1: screwed up?
+bird/feat_cv_sc slope
+mammals top 4 effects
+
+
 - ggpairs?
 - stop hard-coding y limits?
 - effect of fixed_keep="NPP_log" on rem1 with mammals
@@ -12,7 +18,6 @@
 - plots with actual values: unscaling/unlogging
   - test
   - remove fixed effects as well as random effects in remef plots? (done, not tested)
-  - try stuff with `brms` (Bayesian) ???
   
 #### medium
 
