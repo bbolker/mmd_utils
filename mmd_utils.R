@@ -225,20 +225,17 @@ predfun <- function(model=best_model,
             pdata[[i]] <- aggregate(data[[i]],by=list(data[[grpvar]]),FUN=median)$x
         }
     }
-    mArgs <- list(model,newdata=pdata)
-    lastArg <- list(re.form)
-    names(lastArg) <- if (inherits(model,"brmsfit")) "re_formula" else "re.form"
-    mArgs <- c(mArgs,lastArg)
-    pp <- do.call(predict,mArgs)
     if (!is.null(auxvar)) {
         fauxvar <- paste0("f",auxvar)
         pdata[[fauxvar]] <- factor(pdata[[auxvar]],labels=paste0("Q(",aux_quantiles,")"))
     }
     if (inherits(model,"brmsfit")) {
+        ## use fitted(), not predict(); leave out measurement error term
+        pp <- fitted(model,newdata=pdata,re.form=re.form)
         pred <- pp[,"Estimate"]
         pdata <- transform(pdata, lwr=pp[,"Q2.5"],  upr=pp[,"Q97.5"])
     } else {
-        pred <- pp
+        pred <- predict(model,newdata=pdata,re.form=re.form)
         ## confidence intervals (fixed-effects only) on predictions
         mm <- model.matrix(formula(model),pdata)
         pvar1 <- diag(mm %*% tcrossprod(as.matrix(vcov(model)),mm))
