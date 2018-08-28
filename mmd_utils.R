@@ -231,6 +231,10 @@ predfun <- function(model=best_model,
     }
     if (inherits(model,"brmsfit")) {
         ## use fitted(), not predict(); leave out measurement error term
+        ## brms needs all parameters specified
+        if (is.na(re.form)) {
+            pdata$biome <- pdata$flor_realms <- pdata$biome_FR <- NA
+        }
         pp <- fitted(model,newdata=pdata,re.form=re.form)
         pred <- pp[,"Estimate"]
         pdata <- transform(pdata, lwr=pp[,"Q2.5"],  upr=pp[,"Q97.5"])
@@ -285,7 +289,7 @@ plotfun <- function(model=best_model,
                     respvar=NULL,
                     auxvar="Feat_cv_sc",
                     grpvar=NULL,
-                    ylim=c(-3,1),
+                    ylim=if (!backtrans) c(-3,1) else NULL,
                     backtrans=FALSE,
                     lty=c(2,1,3),
                     log="",

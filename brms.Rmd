@@ -115,6 +115,7 @@ Do they work with `brms`? How much adjustment is required?
 ```{r}
 L <- load("allfits_brms.RData")
 plotfun(allfits_brms[[1]])
+plotfun(allfits_brms[[1]],backtrans=TRUE,log="xy")
 ```
 
 ## Spatial
