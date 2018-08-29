@@ -2,6 +2,9 @@
 title: "Diversity analysis"
 date: "`r Sys.time()`"
 bibliography: mixed.bib
+output:
+  html_document:
+    toc: true
 ---
 
 This is an attempt at a streamlined and yet complete, relatively *a priori*/non-
@@ -252,20 +255,20 @@ names(best_models)
 - `re.form` (NA) which RE to include in *predictions* (default is none)
 
 ```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
-ggplot1 <- plotfun(best_models[[1]],backtrans=TRUE,log="xy")+
-    scale_y_log10(limits=c(3e-2,1))+
-    scale_x_log10()
+ggplot1 <- plotfun(best_models[[1]],backtrans=TRUE,log="xy")
 comb_out(ggplot1,"ggplot1.html")
 ```
 
 Testing back-transformation:
 ```{r}
-rem1 <- remef_allran(best_models[[2]],ecoreg)
+ecoreg$rem1 <- remef_allran(best_models[[2]],ecoreg)
 plotfun(best_models[[2]],
-        xvar="Feat_log",respvar="rem1",
+        xvar="Feat_log",
+        respvar="rem1",
         auxvar="NPP_cv_sc",
         data=ecoreg,
         backtrans=TRUE)
+
 ##    scale_x_log10()
 ```
 

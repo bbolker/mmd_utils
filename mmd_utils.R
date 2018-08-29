@@ -237,19 +237,23 @@ predfun <- function(model=best_model,
         }
         pp <- fitted(model,newdata=pdata,re.form=re.form)
         pred <- pp[,"Estimate"]
-        pdata <- transform(pdata, lwr=pp[,"Q2.5"],  upr=pp[,"Q97.5"])
+        pdata <- transform(pdata,
+                           lwr=pp[,"Q2.5"],  upr=pp[,"Q97.5"])
+        pdata[[mrespvar]] <- pred
     } else {
         pred <- predict(model,newdata=pdata,re.form=re.form)
+        pdata[[mrespvar]] <- pred
         ## confidence intervals (fixed-effects only) on predictions
         mm <- model.matrix(formula(model),pdata)
         pvar1 <- diag(mm %*% tcrossprod(as.matrix(vcov(model)),mm))
         pdata <- transform(pdata,
-                           lwr = qnorm(alpha/2,    mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
-                           upr = qnorm(1-alpha/2,mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
+                           lwr = qnorm(alpha/2,
+                                       mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
+                           upr = qnorm(1-alpha/2,
+                                       mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
     
 
     }
-    pdata[[mrespvar]] <- pred
     if (!is.na(pred_lower_lim)) {
         ## truncate predictions below, if requested
         cut_lwr <- function(x,val=NA) {
@@ -306,12 +310,18 @@ plotfun <- function(model=best_model,
     if (is.null(respvar)) respvar <- mrespvar
     pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
     if (backtrans) {
+        ## back-transform response variable from model,
+        ##  with CIs
         pdata <- backtrans_var(pdata,mrespvar,data,
                                othervars=c("lwr","upr"),log=TRUE)
+        ## change name to transformed name (e.g. minus "_log")
         mrespvar <- attr(pdata,"transvar")
+        ## back-transform x-variable
         pdata <- backtrans_var(pdata,xvar,data)
+        ## back-tranform respvar in data
         data <- backtrans_var(data,respvar)
         respvar <- attr(data,"transvar")
+        ## back-transform xvar in data
         data <- backtrans_var(data,xvar)
         xvar <- attr(data,"transvar")
     }
@@ -527,7 +537,7 @@ remef_allran <- function(x, data,
     ## predict *all* ranef (not really necessary except for return_components)
     pp_ran <- predict(x$mer,random.only=TRUE,re.form=ff)
     ## predict only specified FE
-    pp_fixed <- rep(0,nrow(data))
+    pp_fixed <- rep(0,length(rr))
     mm_fixed <- model.matrix(ff_fixed[-2],data)
     ## hack/remove response var (delete.response() ?)
     mm_fixed <- mm_fixed[,colnames(mm_fixed)!="y"]
@@ -563,6 +573,7 @@ remef_allran <- function(x, data,
 ##' undo the effects of scale()
 ##' @param x primary variable to unscale
 ##' @param y optionally: variable containing unscaling information
+##' @param warn.noscale warn if there is no scaling info?
 ##' @examples
 ##' x <- 1:3
 ##' x <- drop(scale(1:3))
@@ -609,9 +620,16 @@ backtrans_magic <- function(x,xname,y=NULL,log=NULL) {
 }
         
 
+##' back-transform one or more variables
+##' @param data  data frame to back-transform
+##' @param xname response variable
+##' @param otherdata original data set containing variables with scaling info
+##' @param othervars other variables to transform with the same scaling
 backtrans_var <- function(data,xname,otherdata=NULL,othervars=NULL,...) {
-    r1 <- backtrans_magic(data[[xname]],xname,
-                          otherdata[[xname]],...)
+    if (xname %in% names(data)) {
+        r1 <- backtrans_magic(data[[xname]],xname,
+                              otherdata[[xname]],...)
+    }
     ## other variables (e.g. lower/upper CIs);
     ##  transform in place, using same scaling info
     for (v in othervars) {
