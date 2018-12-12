@@ -417,16 +417,27 @@ effects ...)
 ```{r coefplots, echo=FALSE}
 gg1 <- allfits_restr_gamm4[[1]]
 obj <- allfits_restr_gamm4[[1]]$mer
-tt <- tidy(obj,effects="ran_modes") %>%
+tt <- tidy(obj,effects="ran_vals") %>%
     filter(group!="Xr") %>%
     select(-effect)
-ggplot(tt,aes(x=estimate,y=level))+
+gg2 <- ggplot(tt,aes(x=estimate,y=level))+
     facet_grid(group~term,scale="free_y")+
     geom_pointrangeh(aes(xmin=estimate-2*std.error,
                          xmax=estimate+2*std.error))+
     geom_vline(xintercept=0,lty=2,colour="red")+
     theme(panel.spacing.x=grid::unit(0,"lines"))
 ```
+
+```{r}
+tt2 <- filter(tt, term !="(Intercept)", group!="flor_realms")
+gg2 <- ggplot(tt2,aes(x=estimate,y=level))+
+    facet_grid(.~term,scale="free")+
+    geom_pointrangeh(aes(xmin=estimate-2*std.error,
+                         xmax=estimate+2*std.error))+
+    geom_vline(xintercept=0,lty=2,colour="red")+
+    theme(panel.spacing.x=grid::unit(0,"lines"))
+
+gg2 %+% filter(tt,term!="(Intercept)")
 
 ## Extract coefficients
 

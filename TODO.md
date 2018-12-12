@@ -4,14 +4,18 @@
 
 #### high
 
-- check `Enric/Figures_Ms20180523.html`
-- figure 1: screwed up?
-bird/feat_cv_sc slope
-mammals top 4 effects
+- redo with zero-fire values set to sensible minima
+- figure out partial residuals plots (!!!)
 
+- clean up intercepts (make sure they're adjusted properly)
+- "top 4" plots
+- interactions as panel plots; for each panel, show
+    - points in the range
+    - predicted line for *overall* median aux var
+	- predicted line for median of aux var in the plot (e.g. 0.2 quantile
+	  for the low-range plot)
 
 - ggpairs?
-- stop hard-coding y limits?
 - effect of fixed_keep="NPP_log" on rem1 with mammals
      - make sure to remove smooth term involved?
 - conditional coefficient plots with uncertainties

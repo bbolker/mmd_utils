@@ -97,13 +97,19 @@ comb_fixed <- (comb
 
 ```{r brms_gamm4_comp,fig.width=9,fig.height=7}
 pd <- ggstance::position_dodgev(height=0.35)
-ggplot(comb_fixed,aes(estimate,term,colour=platform,shape=platform))+
+ggcom <- ggplot(comb_fixed,aes(estimate,term,colour=platform,shape=platform))+
     scale_colour_brewer(palette="Dark2")+
     ggstance::geom_pointrangeh(aes(xmin=conf.low,xmax=conf.high),
                                size=0.5,
                                position=pd)+
     facet_wrap(~taxon,scale="free")+
     geom_vline(xintercept=0,lty=2)
+print(ggcom)
+```
+
+Birds only
+```{r}
+ggcom %+% filter(comb_fixed,taxon=="mbirds_log")
 ```
 
 What do we conclude? A few confidence intervals are wider (especially, `NPP_log` for `plants_log`)

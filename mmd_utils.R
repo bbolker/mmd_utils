@@ -175,9 +175,11 @@ predfun <- function(model=best_model,
                     aux_quantiles=c(0.1,0.5,0.9),
                     re.form = NA,  ## exclude REs from prediction
                     alpha=0.05,
-                    npts = 51
+                    npts = 51,
+                    adjust_othervars=c("median","zero")
                     ) {
 
+    adjust_othervars <- match.arg(adjust_othervars)
     if (inherits(model,"brmsfit")) {
         require(brms)
         ff <- lme4::nobars(formula(model)$formula)
@@ -216,13 +218,16 @@ predfun <- function(model=best_model,
             names(pdata) <- xvar
         }
     }
-    ## variables other than primary x-variable and aux (and maybe grpvar) are set to median
-    ##  (more consistent to set to mean=0)?
+    ## variables other than primary x-variable and aux (and maybe grpvar) are set to median, or zero
     for (i in othervars) {
-        if (is.null(grpvar)) {
-            pdata[[i]] <- median(data[[i]])
+        if (adjust_othervars=="zero") {
+            pdata[[i]] <- 0
         } else {
-            pdata[[i]] <- aggregate(data[[i]],by=list(data[[grpvar]]),FUN=median)$x
+            if (is.null(grpvar)) {
+                pdata[[i]] <- median(data[[i]])
+            } else {
+                pdata[[i]] <- aggregate(data[[i]],by=list(data[[grpvar]]),FUN=median)$x
+            }
         }
     }
     if (!is.null(auxvar)) {
@@ -297,6 +302,7 @@ plotfun <- function(model=best_model,
                     backtrans=FALSE,
                     lty=c(2,1,3),
                     log="",
+                    adjust_othervar=if (respvar=="rem1") "zero" else "median",
                     ...
                     ) {
     require("ggplot2")
@@ -519,20 +525,24 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
 ##   and add specified fixed effects back in ...
 remef_allran <- function(x, data,
                          fixed_keep=NULL,
+                         keep_intercept=TRUE,
                          set_other=c("median","zero"),
                          na.action=na.exclude,
                          return_components=FALSE) {
     set_other <- match.arg(set_other)
     require(mgcv) ## for s()
     if (!inherits(x,"gamm4")) stop("only implemented for gamm4")
+    ## construct fixed-effect model frame
     ds <- glmmTMB:::drop.special2
     dh <- glmmTMB:::dropHead
+    ## random-effects formula, minus artificial parts
     ff <- ds(formula(x$mer,random.only=TRUE),quote((1|Xr)))
+    ## RHS only
     ff <- ff[-2]
+    ## fixed term, minus smooth terms
     ff_fixed <- dh(formula(x$gam),quote(s))
     mf_fixed <- model.frame(ff_fixed,data,na.action=na.action)
     na.act <- attr(mf_fixed,"na.action")
-    ## resp <- model.frame(x$mer)$y.0  ## not really needed
     rr <- residuals(x$mer)
     ## predict *all* ranef (not really necessary except for return_components)
     pp_ran <- predict(x$mer,random.only=TRUE,re.form=ff)
@@ -541,6 +551,9 @@ remef_allran <- function(x, data,
     mm_fixed <- model.matrix(ff_fixed[-2],data)
     ## hack/remove response var (delete.response() ?)
     mm_fixed <- mm_fixed[,colnames(mm_fixed)!="y"]
+    ## want to KEEP intercept in partial residuals, so *remove*
+    ##  it from model matrix
+    if (keep_intercept) mm_fixed <- mm_fixed[,colnames(mm_fixed)!="(Intercept)"]
     cc <- coef(x$gam)
     cc <- cc[intersect(names(cc),colnames(mm_fixed))]
     if (length(fixed_keep)>0) {
@@ -559,7 +572,7 @@ remef_allran <- function(x, data,
         pp_fixed <- mm_fixed %*% cc
         if (length(na.act)>0)  {
             ## drop NA values (even those in response), in order for preds to match residuals
-            pp_fixed <- pp_fixed[-(na.action)]
+            pp_fixed <- pp_fixed[-na.act]
         }
     }
     ## rem <- napredict(na.act,resp-pp_ran-pp_fixed)
@@ -569,6 +582,26 @@ remef_allran <- function(x, data,
     }
     return(rem)
 }
+
+
+## 1. compute residuals
+## 2. compute prediction with *only* 'keep' variables
+##   (predict(.,terms=...) if we had it)
+##  remove intercept???
+## 3. add pred back to residuals
+
+## or:
+
+## compute prediction with all *but* 'keep' variables
+## subtract from observed values
+remef_2 <- function(x,data,response,
+                       fixed_keep="NPP_log") {
+    ## predict everything *but*
+    data[,fixed_keep] <- 0
+    pp <- predict(x,newdata=data) ## or fitted()
+    return(response-pp)
+}    
+
 
 ##' undo the effects of scale()
 ##' @param x primary variable to unscale

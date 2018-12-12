@@ -1,0 +1,254 @@
+---
+title: "Ori + Trans + Top 4 vars"
+date: "`r Sys.time()`"
+output: html_document
+---
+Get random effects coefficients and partial residuals from gamm4_2 models
+
+```{r get utlis}
+source("mmd_utils.R")
+source("gamm4_utils.R")
+```
+
+```{r load_packages,message=FALSE}
+# devtools::install_github("glmmTMB/glmmTMB/glmmTMB")
+# devtools::install_github("bbolker/broom.mixed")
+# devtools::install_github("lme4/lme4")
+    # I needed to manually install 'tidyr' before to succeed with 'broom.mixed' installation
+load_all_pkgs() 
+theme_set(theme_bw())
+zmargin <- theme(panel.spacing=grid::unit(0,"lines"))
+zmarginx <- theme(panel.spacing.x=grid::unit(0,"lines"))
+library('pander')  ## for tables
+sapply(pkgList,function(x) format(packageVersion(x)))
+comb_out <- function(p,fn,...) {
+    print(p)
+    htmlwidgets::saveWidget(ggplotly(p,...),fn)
+}
+# additional libraries
+# library(plyr); library(rgdal);library(raster); library(sp); library(fields); library(plotrix)
+```
+
+```{r knitr_setup,echo=FALSE}
+library(knitr)
+opts_chunk$set(error=FALSE)
+```
+
+
+```{r source files}
+load("bestmodels_gamm4.RData")
+load("allfits_sum_lmer.RData") 
+load("allfits_sum_gamm4.RData")
+load("allfits_restr_gamm4.RData")
+```
+
+
+Data from Enric (includes area and lat/long coordinates):
+
+```{r get_data}
+L <- load("ecoreg.RData")
+ecoreg <- ecoreg
+```
+
+
+#### Partial residuals:
+
+```{r part_resid,warning=FALSE}
+## fix_NAs needed for remef() results: remef_allran does it automatically
+fix_NAs <- function(rem,model) {
+    if (!is.null(nastuff <- attr(model.frame(model),"na.action"))) {
+        return(napredict(nastuff,rem))
+    } else return(rem)
+}
+```
+  
+
+### Plots of the original variables: 
+
+```{r plots_ori_vars,warning=FALSE}
+resplabs <- c(NPP_mean="NPP (g*C/m2*year)",
+             NPP_cv_inter="CV of NPP",
+             Feat_mean="Feat (% of NPP)",
+             Feat_cv_inter="CV of feat")
+taxvars <- c(b="mbirds",a="mamph",m="mmamm")
+taxlabs <- c(mbirds="Birds",mamph="Amphibians",mmamm="Mammals")
+respvars <- c("npp","nppcv","feat","featcv")
+pfun <- function(taxon,respvar) {
+    (ggplot(ecoreg,aes_string(x=respvar,y=taxon,colour="biome"))
+            + geom_point()
+            + theme(legend.position="none")
+        + labs(y="N sp/(100 km2)",x=resplabs[[respvar]],title=taxlabs[[taxon]]))
+}
+
+plist <- lapply(taxvars,
+       function(tax) {
+    L <- lapply(names(resplabs),function(r) pfun(tax,r))
+    return(setNames(L,respvars))
+})
+names(plist) <- names(taxvars)
+grid.arrange(grobs=plist$b,ncol=2,nrow=2)
+```
+
+### Plots of the transformed variables (log and scaled)
+
+```{r plots_trans_vars,warning=FALSE}
+tbnpp <- (ggplot(ecoreg,aes(NPP_log,mbirds_log,colour=biome))
+    + geom_point()
+    + theme(legend.position="none") + labs(x = "log NPP", y = "log Birds")
+tbnppcv <- ggplot(ecoreg,aes(NPP_cv_sc,mbirds_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "scaled CV of NPP", y = "log Birds")
+tbfeat <- ggplot(ecoreg,aes(Feat_log,mbirds_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "log Feat", y = "log Birds")
+tbfeatcv <- ggplot(ecoreg,aes(Feat_cv_sc,mbirds_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "scaled CV of Feat", y = "log Birds")
+
+tanpp <- ggplot(ecoreg,aes(NPP_log,mamph_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "log NPP", y = "log Amphibians")
+tanppcv <- ggplot(ecoreg,aes(NPP_cv_sc,mamph_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "scaled CV of NPP", y = "log Amphibians")
+tafeat <- ggplot(ecoreg,aes(Feat_log,mamph_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "log Feat", y = "log Amphibians")
+tafeatcv <- ggplot(ecoreg,aes(Feat_cv_sc,mamph_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "scaled CV of Feat", y = "log Amphibians")
+
+tmnpp <- ggplot(ecoreg,aes(NPP_log,mmamm_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "log NPP", y = "log Mammals")
+tmnppcv <- ggplot(ecoreg,aes(NPP_cv_sc,mmamm_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "scaled CV of NPP", y = "log Mammals")
+tmfeat <- ggplot(ecoreg,aes(Feat_log,mmamm_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "log Feat", y = "log Mammals")
+tmfeatcv <- ggplot(ecoreg,aes(Feat_cv_sc,mmamm_log,colour=biome)) + geom_point() + theme(legend.position="none") + labs(x = "scaled CV of Feat", y = "log Mammals")
+
+grid.arrange(bnpp,bnppcv,bfeat,bfeatcv,tbnpp,tbnppcv,tbfeat,tbfeatcv,ncol=4,nrow=2)
+```
+  
+  
+### Plots of residuals  
+  
+I generated several "lists" of plots (using `plotfun`) with the lapply function following Ben's code. In each case, I changed the `xvar` and `auxvar` to plot the 4 top most variables for each taxa (aside from NPP)  
+
+**Amph:** NPP_log:Feat_cv_sc, NPP_log:Feat_log, Feat_log:NPP_cv_sc, Feat_log  
+  
+**Birds:** Feat_log, NPP_log:Feat_cv_sc, NPP_cv_sc, Feat_cv_sc  
+  
+**Mammals:** Feat_cv_sc, Feat_log, NPP_log:Feat_cv_sc, Feat_log:NPP_cv_sc  
+  
+
+```{r }
+# trying to backtrans
+plotfun(best_models[[3]],respvar='mbirds_log',xvar='Feat_log',auxvar=NULL,data=ecoreg,backtrans=TRUE,log="xy")
+
+##plotfun(best_models[[3]],respvar='mbirds_log',xvar='Feat_log',auxvar=NULL,data=ecoreg,backtrans_magic('mbirds_log','mbrids','Feat_log'))
+```  
+  
+
+```{r lists_of_plots,warning=FALSE}
+dd <- list(x=c("NPP_log","NPP_log","NPP_log","Feat_log",
+               "NPP_cv_sc","Feat_cv_sc"),
+           aux=list(NULL,"Feat_cv_sc","NPP_cv_sc",NULL,NULL,NULL))
+dd$lab <- Map(function(x,v) if (is.null(v)) x else paste(x,v,sep=":"), dd$x,dd$aux)
+
+## get partial residuals, plot
+rp_fun <- function(x,v,lab) {
+    lapply(best_models,
+           function(m) {
+        ## FIXME: for interactions, keep both + interaction;
+        ##  split into facets, etc
+        ecoreg$rem1 <- remef_allran(m,ecoreg,fixed_keep=lab)
+        plotfun(m,xvar=x,
+                respvar="rem1",auxvar=v,data=ecoreg,ylim=NULL)+
+            theme(legend.position="none")+
+            ggtitle(lab)
+    })
+}
+
+rp <- Map(rp_fun, dd$x,dd$aux, dd$lab)
+## what is wrong with intercept etc.?
+pp <- plotfun(best_models[[1]],auxvar=NULL,
+              ylim=c(-2.5,4))+theme(legend.position="none")
+grid.arrange(rp[[1]][[1]],pp,nrow=1)
+
+```
+
+# **Graphical outputs** --------------------------------------------------------------------------------------
+.
+
+### Graphic example to see the color of each biome in the plots below
+```{r example_plot,,warning=FALSE,fig.width=8,fig.height=6,echo=FALSE}
+ggplot(ecoreg,aes(NPP_mean,mbirds,colour=biome)) + geom_point() + labs(x = "NPP (g*C/m2*year)", y = "Birds (N sp/km2)")
+```
+  
+.
+. 
+
+## **NPP effects** for all taxa ------------------------------------------------------------------------  
+  
+### Original + transformed values (xy plot)    
+```{r NPP_ori_trans,warning=FALSE,fig.width=10,fig.height=6.5, echo=FALSE}
+grid.arrange(anpp,bnpp,mnpp,tanpp,tbnpp,tmnpp,ncol=3,nrow=2)
+```
+
+
+### Predicted values (plotfun)
+```{r NPP_log,warning=FALSE,fig.width=10,fig.height=3.8, echo=FALSE}
+grid.arrange(rp[[1]]$mamph_log,rp[[1]]$mbirds_log,
+             rp[[1]]$mmamm_log,ncol=3,nrow=1)
+```
+
+  
+  
+## **Amphibians** ----------------------------------------------------------------------------------------
+  
+### Amphibians Original + transformed values (xy plot)    
+```{r amph_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+grid.arrange(anpp,anppcv,afeat,afeatcv,tanpp,tanppcv,tafeat,tafeatcv,ncol=4,nrow=2)
+```
+
+### Amphibians 4 top most effects (plotfun)
+```{r amph_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+grid.arrange(rp[[2]]$mamph_log,rp[[3]]$mamph_log,rp[[4]]$mamph_log,rp[[5]]$mamph_log,ncol=2,nrow=2)
+```
+  
+  
+## **Birds** ----------------------------------------------------------------------------------------------
+  
+### Birds Original + transformed values (xy plot)    
+```{r birds_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+grid.arrange(bnpp,bnppcv,bfeat,bfeatcv,tbnpp,tbnppcv,tbfeat,tbfeatcv,ncol=4,nrow=2)
+```    
+    
+### Birds 4 top most effects (plotfun)    
+```{r birds_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+grid.arrange(rp[[5]]$mbirds_log,rp[[2]]$mbirds_log,rp[[6]]$mbirds_log,rp[[7]]$mbirds_log,ncol=2,nrow=2)
+```
+  
+  
+## **Mammals** -------------------------------------------------------------------------------------------
+  
+### Mammals Original + transformed values (xy plot)    
+```{r mamm_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+grid.arrange(mnpp,mnppcv,mfeat,mfeatcv,tmnpp,tmnppcv,tmfeat,tmfeatcv,ncol=4,nrow=2)
+```     
+    
+### Mammals 4 top mos effects (plotfun)    
+```{r mamm_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+grid.arrange(rp[[7]]$mmamm_log,rp[[5]]$mmamm_log,rp[[2]]$mmamm_log,rp[[4]]$mmamm_log,ncol=2,nrow=2)
+```
+
+
+
+
+
+
+
+```{r}
+m <- best_models$mbirds_log
+rem1 <- remef_allran(m,ecoreg,c(fixed_keep="NPP_log","Feat_log",
+                                "NPP_log:Feat_log"))
+ecoreg$rem1 <- rem1
+qq <- c(1/3,2/3)
+## qq <- c(0.1,0.5,0.9)
+ecoreg$feat_cut <- cut(ecoreg$Feat_log,
+                       c(-Inf,quantile(ecoreg$Feat_log,qq),Inf))
+plotfun(m,xvar="NPP_log",
+        respvar="rem1",
+        auxvar=NULL,
+        ##auxvar="Feat_log",
+        data=ecoreg,ylim=c(-1,0.5))+
+    theme(legend.position="none")+
+    facet_wrap(~feat_cut,labeller=label_both)
+## geom_point(aes(size=Feat_log,y=rem1,colour=biome,shape=flor_realms))+
+##    scale_size_continuous(range=c(0.1,8))
+    
+
+

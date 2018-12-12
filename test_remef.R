@@ -1,33 +1,41 @@
 load("ecoreg.RData")
 L <- load("bestmodels_gamm4.RData")
+L <- load("allfits_brms.RData")
 
 library(gamm4)
 library(tidyr)
 library(dplyr)
+library(ggplot2); theme_set(theme_bw())
 source("mmd_utils.R")
 
 bb <- best_models[["mmamm_log"]]
 head(residuals(bb$mer))
+bbr <- allfits_brms[["mmamm_log"]]
+
 
 ## plain
-plotfun(bb)
-plotfun(bb,xvar="NPP_log")
-plotfun(bb,xvar="NPP_log",ylim=NULL)
-
-##
-plotfun(bb,backtrans=TRUE,ylim=NULL)
-plotfun(bb,backtrans=TRUE,log="xy",ylim=NULL)
-plotfun(bb,xvar="Feat_log",backtrans=TRUE,log="xy",ylim=NULL)
+no_legend <- theme(legend.position="none")
+plotfun(bb,backtrans=TRUE,log="xy",xvar="Feat_log")
+plotfun(bb,backtrans=TRUE,xvar="Feat_log")
+plotfun(bb,xvar="Feat_log",backtrans=TRUE,log="xy")+ no_legend
+## brms prediction
+plotfun(bbr,backtrans=TRUE,log="xy",ylim=log(c(8,250)))+ no_legend
+## all looks reasonable
 
 ## STOPPED HERE
 ## test remef
 ecoreg$rem1 <- drop(remef_allran(best_models[["mmamm_log"]],
                                  data=ecoreg,
                                  set_other="median",
-                                 fixed_keep=c("(Intercept)","NPP_log")))
+                                 fixed_keep=c("(Intercept)","NPP_log")
+                                 ## fixed_keep=c("NPP_log")
+                                 ))
+
 plotfun(bb,respvar="rem1",ylim=c(-1,0.5))+
     theme(legend.position="none")+
-    geom_smooth(method="lm",aes(group=1,y=rem1))
+    geom_smooth(method="lm",aes(group=1,y=rem1),
+                formula=y~x-1)
+
 plotfun(bb,respvar="rem1",ylim=c(-1,0.5),auxvar=NULL)+
     theme(legend.position="none")+
     geom_smooth(method="lm",aes(group=1,y=rem1))
