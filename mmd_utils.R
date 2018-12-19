@@ -176,7 +176,7 @@ predfun <- function(model=best_model,
                     re.form = NA,  ## exclude REs from prediction
                     alpha=0.05,
                     npts = 51,
-                    adjust_othervars=c("median","zero")
+                    adjust_othervars=c("median","zero","mean")
                     ) {
 
     adjust_othervars <- match.arg(adjust_othervars)
@@ -221,12 +221,17 @@ predfun <- function(model=best_model,
     ## variables other than primary x-variable and aux (and maybe grpvar) are set to median, or zero
     for (i in othervars) {
         if (adjust_othervars=="zero") {
-            pdata[[i]] <- 0
-        } else {
-            if (is.null(grpvar)) {
+            ## HACK: area_km2 is used in the formula as log(...)
+            if (i=="area_km2") {
                 pdata[[i]] <- median(data[[i]])
+            } else pdata[[i]] <- 0
+        } else {
+            mfun <- get(adjust_othervars) ## mean, or median
+            if (is.null(grpvar)) {
+                pdata[[i]] <- mfun(data[[i]])
             } else {
-                pdata[[i]] <- aggregate(data[[i]],by=list(data[[grpvar]]),FUN=median)$x
+                pdata[[i]] <- aggregate(data[[i]],by=list(data[[grpvar]]),
+                                        FUN=mfun)$x
             }
         }
     }
@@ -302,7 +307,7 @@ plotfun <- function(model=best_model,
                     backtrans=FALSE,
                     lty=c(2,1,3),
                     log="",
-                    adjust_othervar=if (respvar=="rem1") "zero" else "median",
+                    adjust_othervar=if (respvar=="rem1") "mean" else "median",
                     ...
                     ) {
     require("ggplot2")
@@ -314,7 +319,8 @@ plotfun <- function(model=best_model,
     }
     mrespvar <- deparse(form[[2]])
     if (is.null(respvar)) respvar <- mrespvar
-    pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,...)
+    pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,
+                     adjust_othervar=adjust_othervar,...)
     if (backtrans) {
         ## back-transform response variable from model,
         ##  with CIs

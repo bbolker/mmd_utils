@@ -26,21 +26,44 @@ plotfun(bbr,backtrans=TRUE,log="xy",ylim=log(c(8,250)))+ no_legend
 ## test remef
 ecoreg$rem1 <- drop(remef_allran(best_models[["mmamm_log"]],
                                  data=ecoreg,
-                                 set_other="median",
-                                 fixed_keep=c("(Intercept)","NPP_log")
-                                 ## fixed_keep=c("NPP_log")
+                                 ## set_other="median",
+                                 set_other="zero",
+                                 keep_intercept=TRUE,
+                                 ##fixed_keep=c("(Intercept)","NPP_log")
+                                 fixed_keep=c("NPP_log")
                                  ))
 
-plotfun(bb,respvar="rem1",ylim=c(-1,0.5))+
+## raw/simple
+rem2 <- residuals(bb$mer)+cc[1]+cc[2]*ecoreg$NPP_log
+plot(rem1~NPP_log,data=ecoreg)
+plot(rem2~NPP_log,data=ecoreg)
+cc <- coef(bb$gam)[c("(Intercept)","NPP_log")]
+abline(a=cc[1],b=cc[2])
+## looks OK ?
+
+## remef_allran
+plotfun(bb,respvar="rem1",ylim=c(-1,0.8))+
     theme(legend.position="none")+
     geom_smooth(method="lm",aes(group=1,y=rem1),
                 formula=y~x-1)
+## why have regression/predicted lines disappeared now?
+## x,y set to zero??
 
-plotfun(bb,respvar="rem1",ylim=c(-1,0.5),auxvar=NULL)+
+
+## something about intercepts: centering/ 0 values?
+
+plotfun(bb,respvar="rem1",ylim=c(-1,0.8),auxvar=NULL,
+        adjust_othervar="mean")+
     theme(legend.position="none")+
     geom_smooth(method="lm",aes(group=1,y=rem1))
 
+plotfun(bb,respvar="rem1",ylim=c(-1,0.8))+
+    theme(legend.position="none")+
+    geom_smooth(method="lm",aes(group=1,y=rem1))
+## doesn't match exactly, but close
+
 plotfun(bb)+theme(legend.position="none")
+## ????
 plotfun(bb,auxvar=NULL,grpvar="biome")+theme(legend.position="none")
 ## by hand
 ggplot(ecoreg,aes(NPP_log,rem1,colour=biome))+geom_point()+
