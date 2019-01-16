@@ -4,10 +4,6 @@
 
 #### high
 
-- redo with zero-fire values set to sensible minima
-- figure out partial residuals plots (!!!)
-
-- clean up intercepts (make sure they're adjusted properly)
 - "top 4" plots
 - interactions as panel plots; for each panel, show
     - points in the range

@@ -1,0 +1,232 @@
+---
+title: "Original, transformed, & partial residuals plots"
+date: "`r Sys.time()`"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r get utlis}
+source("mmd_utils.R")
+source("gamm4_utils.R")
+```
+
+```{r load_packages,message=FALSE}
+load_all_pkgs() 
+theme_set(theme_bw())
+zmargin <- theme(panel.spacing=grid::unit(0,"lines"))
+zmarginx <- theme(panel.spacing.x=grid::unit(0,"lines"))
+library('pander')  ## for tables
+sapply(pkgList,function(x) format(packageVersion(x)))
+comb_out <- function(p,fn,...) {
+    print(p)
+    htmlwidgets::saveWidget(ggplotly(p,...),fn)
+}
+```
+
+```{r knitr_setup,echo=FALSE}
+library(knitr)
+opts_chunk$set(error=FALSE)
+```
+
+
+```{r source files}
+load("bestmodels_gamm4.RData")
+load("allfits_sum_lmer.RData") 
+load("allfits_sum_gamm4.RData")
+load("allfits_restr_gamm4.RData")
+```
+
+
+Data from Enric (includes area and lat/long coordinates):
+
+```{r get_data}
+L <- load("ecoreg.RData")
+ecoreg <- ecoreg
+```
+
+### Plots of the original variables: 
+
+```{r plots_ori_vars,warning=FALSE}
+
+pred_names <- c(NPP_mean="NPP g*C/m2*year",
+                NPP_cv_inter="CV of NPP",
+                Feat_mean="Feat (% of NPP)",
+                Feat_cv_inter = "CV of Feat")
+taxon_names <- paste(c("Birds","Amphibians","Mammals"),
+                    "N sp/km2")
+names(taxon_names) <- c("mbirds","mamph","mmamm")
+do_plots_1 <- function(taxon="mbirds",pred="NPP_mean",
+                       s_names=taxon_names,
+                       p_names=pred_names) {
+    ggplot(ecoreg,aes_string(x=pred,y=taxon,colour="biome")) +
+        geom_point() +
+        theme(legend.position="none") +
+        labs(y=s_names[taxon], x=p_names[pred])
+}
+orig_plots <- list()
+for (tt in names(taxon_names)) {
+    orig_plots[[tt]] <- list()
+    for (pp in names(pred_names)) {
+        orig_plots[[tt]][[pp]] <- do_plots_1(tt,pp)
+    }
+}
+do.call(grid.arrange,c(orig_plots[["mbirds"]],list(nrow=2)))
+```
+
+### Plots of the transformed variables (log and scaled)
+
+```{r plots_trans_vars,warning=FALSE}
+sc_pred_names <- c(NPP_log="log NPP g*C/m2*year",
+                   NPP_cv_sc="scaled CV of NPP",
+                   Feat_log="log Feat (% of NPP)",
+                   Feat_cv_sc = "scaled CV of Feat")
+
+sc_taxon_names <- paste("log",taxon_names)
+names(sc_taxon_names) <- paste0(names(taxon_names),"_log")
+
+sc_plots <- list()
+for (tt in names(sc_taxon_names)) {
+    sc_plots[[tt]] <- list()
+    for (pp in names(sc_pred_names)) {
+        sc_plots[[tt]][[pp]] <- do_plots_1(tt,pp,
+                                           p_names=sc_pred_names,
+                                           s_names=sc_taxon_names)
+    }
+}
+both_plots <- function(taxon) {
+    do.call(grid.arrange,c(orig_plots[[taxon]],
+                           sc_plots[[paste0(taxon,"_log")]],
+                           list(nrow=2)))
+}
+```
+
+FIXME: y-axis names
+  
+### Plots of residuals  
+  
+I generated several "lists" of plots (using `plotfun`) with the lapply function following Ben's code. In each case, I changed the `xvar` and `auxvar` to plot the 4 top most variables for each taxa (aside from NPP)  
+
+**Amph:** NPP_log:Feat_cv_sc, NPP_log:Feat_log, Feat_log:NPP_cv_sc, Feat_log  
+  
+**Birds:** Feat_log, NPP_log:Feat_cv_sc, NPP_cv_sc, Feat_cv_sc  
+  
+**Mammals:** Feat_cv_sc, Feat_log, NPP_log:Feat_cv_sc, Feat_log:NPP_cv_sc  
+  
+```{r backtrans}
+plotfun(best_models[[3]],respvar='mbirds_log',xvar='Feat_log',auxvar=NULL,data=ecoreg,backtrans=TRUE,log="xy")
+```  
+  
+
+```{r lists_of_plots,warning=FALSE}
+remef_plot <- function(taxon="mbirds_log",predvar="NPP_log",
+                       auxvar=NULL,title=NULL) {
+    m <- best_models[[taxon]]
+    if (is.null(title)) {
+        title <- if (is.null(auxvar)) predvar else {
+             paste(predvar,auxvar,sep=":")                                     
+                                              }
+    }
+    rem1 <- remef_allran(m,ecoreg,
+                         set_other="zero",
+                         keep_intercept=TRUE,
+                         fixed_keep=predvar)
+    if (length(rem1)==nrow(ecoreg)) {
+        ## if it worked ...
+        ecoreg$rem1 <- rem1
+        pp <- plotfun(m,xvar=predvar,respvar="rem1",
+                      auxvar=auxvar,data=ecoreg,ylim=NULL)+
+            theme(legend.position="none")+
+            ggtitle(title)
+    }
+    return(pp)
+}
+
+## rp1: NPP_log
+## rp2: NPP_log:Feat_cv_sc
+## rp3: NPP_log:Feat_log
+## rp4: Feat_log:NPP_cv_sc
+## rp5: Feat_log
+## rp6: NPP_cv_sc
+## rp7: Feat_cv_sc
+rem_predvars <- list("NPP_log",
+                     "NPP_log",
+                     "NPP_log",
+                     "Feat_log",
+                     "Feat_log",
+                     "NPP_cv_sc",
+                     "Feat_cv_sc")
+rem_auxvars <- list(NULL,"Feat_cv_sc","Feat_log",
+                    "NPP_cv_sc",NULL,NULL,NULL)
+
+remef_plots <- list()
+for (tt in names(sc_taxon_names)) {
+    remef_plots[[tt]] <- list()
+    for (pp in seq_along(rem_predvars)) {
+        ## cat(tt," ",pp,"\n")
+        remef_plots[[tt]][[pp]] <- remef_plot(tt,predvar=rem_predvars[[pp]],
+                                              auxvar=rem_auxvars[[pp]])
+    }
+}
+```
+
+.
+
+# **Graphical outputs** -
+.
+### Graphic example to see the color of each biome in the plots below
+```{r example_plot,,warning=FALSE,fig.width=8,fig.height=6,echo=FALSE}
+ggplot(ecoreg,aes(NPP_mean,mbirds,colour=biome)) + geom_point() + labs(x = "NPP (g*C/m2*year)", y = "Birds (N sp/km2)")
+```
+  
+## **Amphibians**
+  
+### Original + transformed values (xy plot)    
+```{r amph_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+both_plots("mamph")
+```
+
+### Top 4 effects
+```{r amph_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+do.call(grid.arrange,
+        c(remef_plots[["mamph_log"]][c(2,3,4,5)],
+               list(ncol=2)))
+```
+    
+## **Birds** 
+  
+### Original + transformed values
+```{r birds_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+both_plots("mbirds")
+```    
+    
+### Top 4 effects
+	
+```{r birds_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+do.call(grid.arrange,
+        c(remef_plots[["mbirds_log"]][c(5,2,6,7)],
+               list(ncol=2)))
+```
+  
+## **Mammals** 
+  
+### Original + transformed values
+```{r mamm_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+both_plots("mmamm")
+```     
+    
+### Top 4 effects
+```{r mamm_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+do.call(grid.arrange,
+        c(remef_plots[["mmamm_log"]][c(7,5,2,4)],
+               list(ncol=2)))
+```
+
+
+
+
+
+
+
+
+

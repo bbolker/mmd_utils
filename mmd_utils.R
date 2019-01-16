@@ -694,3 +694,9 @@ backtrans_var <- function(data,xname,otherdata=NULL,othervars=NULL,...) {
     return(data)
 }
     
+## fix_NAs needed for remef() results: remef_allran does it automatically
+fix_NAs <- function(rem,model) {
+    if (!is.null(nastuff <- attr(model.frame(model),"na.action"))) {
+        return(napredict(nastuff,rem))
+    } else return(rem)
+}
