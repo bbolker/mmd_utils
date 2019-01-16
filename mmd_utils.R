@@ -209,8 +209,9 @@ predfun <- function(model=best_model,
             ## grouped values
             lrange <- lapply(split(xx,data[[grpvar]]),
                              function(x) if (length(x)==0) NULL else (range(x,na.rm=TRUE)))
-            pdata <- do.call(rbind,Map(function(nm,x) if (is.null(x)) NULL else data.frame(gg=nm,xx=x),
-                                       names(lrange),lrange))
+            tmpf <- function(nm,x) if (is.null(x)) NULL else data.frame(gg=nm,xx=x)
+            pdata <- do.call(rbind,
+                             Map(tmpf,names(lrange),lrange))
             names(pdata) <- c(grpvar,xvar)
         } else {
             ## xvar only
@@ -319,7 +320,8 @@ plotfun <- function(model=best_model,
     }
     mrespvar <- deparse(form[[2]])
     if (is.null(respvar)) respvar <- mrespvar
-    pdata <- predfun(model,data,xvar,respvar,auxvar,grpvar,
+    pdata <- predfun(model,data=data,xvar=xvar,respvar=respvar,
+                     auxvar=auxvar,grpvar=grpvar,
                      adjust_othervar=adjust_othervar,...)
     if (backtrans) {
         ## back-transform response variable from model,
@@ -349,9 +351,18 @@ plotfun <- function(model=best_model,
                         colour=NA,fill="black",alpha=0.1)+
             scale_linetype_manual(values=lty)
     } else {
-        gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar))) +
-                   geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr),
-                        colour=NA,fill="black",alpha=0.1)
+        if (!is.null(grpvar)) {
+            gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar),
+                                                   colour=as.name(grpvar))) +
+                         geom_ribbon(data=pdata,
+                               aes_(ymin=~lwr,ymax=~upr,
+                                    fill=as.name(grpvar)),
+                               alpha=0.1,colour=NA)
+        } else {
+            gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar))) +
+                geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr),
+                            colour=NA,fill="black",alpha=0.1)
+        }
     }
     ## finish
     ## sort out y limits, with or without log-axes
