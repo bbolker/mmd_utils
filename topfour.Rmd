@@ -48,7 +48,6 @@ ecoreg <- ecoreg
 ### Plots of the original variables: 
 
 ```{r plots_ori_vars,warning=FALSE}
-
 pred_names <- c(NPP_mean="NPP g*C/m2*year",
                 NPP_cv_inter="CV of NPP",
                 Feat_mean="Feat (% of NPP)",
@@ -207,9 +206,7 @@ do.call(grid.arrange,
         c(remef_plots[["mbirds_log"]][c(5,2,6,7)],
                list(ncol=2)))
 ```
-  
 ## **Mammals** 
-  
 ### Original + transformed values
 ```{r mamm_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
 both_plots("mmamm")

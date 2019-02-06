@@ -438,6 +438,7 @@ gg2 <- ggplot(tt2,aes(x=estimate,y=level))+
     theme(panel.spacing.x=grid::unit(0,"lines"))
 
 gg2 %+% filter(tt,term!="(Intercept)")
+```
 
 ## Extract coefficients
 

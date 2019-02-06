@@ -4,7 +4,30 @@
 
 #### high
 
-- "top 4" plots
+- plants data
+- prettify axes labels/facet etc.?
+- add coefficient plot to "topfour" document
+- can we explain the marginal vs conditional stuff graphically?
+- explain/think about cv_sc vs log scaling?
+    
+```
+library(corrplot)
+library(tidyverse)
+e2 <- (ecoreg
+    %>% select(mmamm_log, NPP_log, Feat_log, NPP_cv_sc, Feat_cv_sc)
+)
+cc <- function(x) {
+    corrplot.mixed(x,lower="ellipse",upper="number")
+}
+## correlations in the raw data
+cc(cor(e2))
+cc(cov2cor(as.matrix(vcov(best_models$mmamm_log$mer)))[-1,-1])
+
+library(rgl)
+with(e2,plot3d(Feat_cv_sc, NPP_log, mmamm_log))
+library(gg3D)
+## do something here?
+```
 - interactions as panel plots; for each panel, show
     - points in the range
     - predicted line for *overall* median aux var
