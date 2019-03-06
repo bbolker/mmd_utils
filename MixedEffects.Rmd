@@ -400,12 +400,19 @@ predFrame_fire <- bind_rows(predList_fire,.id="taxon")
 ```
 
 ```{r predfun_biome_plot_fire,warning=FALSE,fig.width=10,fig.height=8}
-ggplot(predFrame_fire,aes(x=Feat_log,y=focal,colour=biome))+
+(gpbf1 <- ggplot(predFrame_fire,aes(x=Feat_log,y=focal,colour=biome))+
     geom_line(lwd=1.5)+
     geom_point(data=dFrame,aes(shape=flor_realms),alpha=0.7)+
     facet_wrap(~taxon)+zmargin+
     labs(y="log diversity")+
-    theme(legend.position="bottom")
+    theme(legend.position="bottom"))
+```
+
+```{r}
+```{r predfun_biome_plot_fire,warning=FALSE,fig.width=10,fig.height=8}
+gpbf1 + geom_ribbon(colour=NA,aes(ymin=lwr,ymax=upr,group=biome),alpha=0.2)
+```
+
 ```
 
 Plot random effects estimates
@@ -415,8 +422,8 @@ represent deviations from the expectation based on the population-level
 effects ...)
 
 ```{r coefplots, echo=FALSE}
-gg1 <- allfits_restr_gamm4[[1]]
-obj <- allfits_restr_gamm4[[1]]$mer
+gg1 <- allfits_restr_gamm4[["mamph_log"]]
+obj <- allfits_restr_gamm4[["mamph_log"]]$mer
 tt <- tidy(obj,effects="ran_vals") %>%
     filter(group!="Xr") %>%
     select(-effect)

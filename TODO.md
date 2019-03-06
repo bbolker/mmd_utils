@@ -4,11 +4,14 @@
 
 #### high
 
+- restricted fits (biome-by-biome estimates): order the effects so we can look at them
 - plants data
 - prettify axes labels/facet etc.?
 - add coefficient plot to "topfour" document
-- can we explain the marginal vs conditional stuff graphically?
+- can we explain the unconditional vs conditional stuff graphically?
+      - what's the best example? feat_cv for amphibians? mammals?
 - explain/think about cv_sc vs log scaling?
+- get everything working with brms?
     
 ```
 library(corrplot)

@@ -6,7 +6,7 @@ output:
     code_folding: hide
 ---
 
-```{r get utlis}
+```{r get_utils}
 source("mmd_utils.R")
 source("gamm4_utils.R")
 ```
@@ -171,22 +171,24 @@ for (tt in names(sc_taxon_names)) {
 
 .
 
-# **Graphical outputs** -
-.
+# Graphical outputs
+
+
 ### Graphic example to see the color of each biome in the plots below
-```{r example_plot,,warning=FALSE,fig.width=8,fig.height=6,echo=FALSE}
+
+```{r example_plot,,warning=FALSE,fig.width=8,fig.height=6}
 ggplot(ecoreg,aes(NPP_mean,mbirds,colour=biome)) + geom_point() + labs(x = "NPP (g*C/m2*year)", y = "Birds (N sp/km2)")
 ```
   
 ## **Amphibians**
   
 ### Original + transformed values (xy plot)    
-```{r amph_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+```{r amph_ori,warning=FALSE,fig.width=10,fig.height=5.5}
 both_plots("mamph")
 ```
 
 ### Top 4 effects
-```{r amph_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+```{r amph_plots,warning=FALSE,fig.width=10,fig.height=8}
 do.call(grid.arrange,
         c(remef_plots[["mamph_log"]][c(2,3,4,5)],
                list(ncol=2)))
@@ -195,25 +197,26 @@ do.call(grid.arrange,
 ## **Birds** 
   
 ### Original + transformed values
-```{r birds_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+```{r birds_ori,warning=FALSE,fig.width=10,fig.height=5.5}
 both_plots("mbirds")
 ```    
     
 ### Top 4 effects
 	
-```{r birds_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+```{r birds_plots,warning=FALSE,fig.width=10,fig.height=8}
 do.call(grid.arrange,
         c(remef_plots[["mbirds_log"]][c(5,2,6,7)],
                list(ncol=2)))
 ```
 ## **Mammals** 
+
 ### Original + transformed values
-```{r mamm_ori,warning=FALSE,fig.width=10,fig.height=5.5, echo=FALSE}
+```{r mamm_ori,warning=FALSE,fig.width=10,fig.height=5.5}
 both_plots("mmamm")
 ```     
     
 ### Top 4 effects
-```{r mamm_plots,warning=FALSE,fig.width=10,fig.height=8, echo=FALSE}
+```{r mamm_plots,warning=FALSE,fig.width=10,fig.height=8}
 do.call(grid.arrange,
         c(remef_plots[["mmamm_log"]][c(7,5,2,4)],
                list(ncol=2)))
