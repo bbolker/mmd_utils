@@ -408,11 +408,8 @@ predFrame_fire <- bind_rows(predList_fire,.id="taxon")
     theme(legend.position="bottom"))
 ```
 
-```{r}
-```{r predfun_biome_plot_fire,warning=FALSE,fig.width=10,fig.height=8}
+```{r predfun_biome_plot_fire_ribbon,warning=FALSE,fig.width=10,fig.height=8}
 gpbf1 + geom_ribbon(colour=NA,aes(ymin=lwr,ymax=upr,group=biome),alpha=0.2)
-```
-
 ```
 
 Plot random effects estimates
@@ -421,30 +418,31 @@ the variation of levels of NPP and fire across biomes/realms; they
 represent deviations from the expectation based on the population-level
 effects ...)
 
-```{r coefplots, echo=FALSE}
-gg1 <- allfits_restr_gamm4[["mamph_log"]]
-obj <- allfits_restr_gamm4[["mamph_log"]]$mer
-tt <- tidy(obj,effects="ran_vals") %>%
-    filter(group!="Xr") %>%
-    select(-effect)
-gg2 <- ggplot(tt,aes(x=estimate,y=level))+
-    facet_grid(group~term,scale="free_y")+
+```{r coefplot_calcs, echo=FALSE}
+tt_all_lst <- lapply(allfits_restr_gamm4,
+                 function(x) (x$mer
+                   %>% tidy(obj,effects="ran_vals")
+                   %>% select(-effect)
+                   %>% filter(group!="Xr", term !="(Intercept)",
+                              group!="flor_realms")))
+tt_all <- bind_rows(tt_all_lst,.id="taxon")
+gg2A <- ggplot(tt_all,aes(x=estimate,y=level,colour=taxon))+
     geom_pointrangeh(aes(xmin=estimate-2*std.error,
-                         xmax=estimate+2*std.error))+
+                         xmax=estimate+2*std.error),
+                     position=position_dodgev(height=0.25))+
     geom_vline(xintercept=0,lty=2,colour="red")+
     theme(panel.spacing.x=grid::unit(0,"lines"))
+ggL <- lapply(unique(tt_all$term),
+              function(x) {
+                tt3 <- tt_all[tt_all$term==x,]
+                tt3$level <- reorder(tt3$level,tt3$estimate)
+                gg <- (gg2A %+% tt3)+ggtitle(x)+labs(y="")
+                return(gg)
+              })
 ```
 
-```{r}
-tt2 <- filter(tt, term !="(Intercept)", group!="flor_realms")
-gg2 <- ggplot(tt2,aes(x=estimate,y=level))+
-    facet_grid(.~term,scale="free")+
-    geom_pointrangeh(aes(xmin=estimate-2*std.error,
-                         xmax=estimate+2*std.error))+
-    geom_vline(xintercept=0,lty=2,colour="red")+
-    theme(panel.spacing.x=grid::unit(0,"lines"))
-
-gg2 %+% filter(tt,term!="(Intercept)")
+```{r coefplot_plot,fig.width=8}
+do.call(plot_grid,ggL)
 ```
 
 ## Extract coefficients
