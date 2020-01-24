@@ -421,7 +421,7 @@ effects ...)
 ```{r coefplot_calcs, echo=FALSE}
 tt_all_lst <- lapply(allfits_restr_gamm4,
                  function(x) (x$mer
-                   %>% tidy(obj,effects="ran_vals")
+                   %>% tidy(effects="ran_vals")
                    %>% select(-effect)
                    %>% filter(group!="Xr", term !="(Intercept)",
                               group!="flor_realms")))
@@ -443,6 +443,9 @@ ggL <- lapply(unique(tt_all$term),
 
 ```{r coefplot_plot,fig.width=8}
 do.call(plot_grid,ggL)
+
+ff <- filter(tt_all, taxon=="mbirds_log", group=="biome",term=="NPP_log")
+gg2A %+% ff
 ```
 
 ## Extract coefficients

@@ -675,6 +675,9 @@ backtrans_magic <- function(x,xname,y=NULL,log=NULL) {
 ##' @param xname response variable
 ##' @param otherdata original data set containing variables with scaling info
 ##' @param othervars other variables to transform with the same scaling
+## what happens if we pass "rem1"?  How are we supposed to back-transform it?
+## should be back-transformed according to the same rules as
+## the original response variable ...
 backtrans_var <- function(data,xname,otherdata=NULL,othervars=NULL,...) {
     if (xname %in% names(data)) {
         r1 <- backtrans_magic(data[[xname]],xname,

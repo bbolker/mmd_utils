@@ -27,5 +27,6 @@ clean:
 ## copy archive to my google drive folder
 to_gd:
 	make clean
-	rsync -auv --exclude='.git/' --exclude='*cache*' --exclude="allfits.RData" . /media/sf_Google_Drive/Enric
+	rsync -auv --exclude='.git/' --exclude='*cache*' --exclude="allfits.RData" . /media/sf_Google_Drive/fire_diversity
+
 

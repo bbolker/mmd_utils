@@ -4,6 +4,8 @@
 
 #### high
 
+- SD scaling for coefficient plots
+- copy stuff to Google Drive
 - restricted fits (biome-by-biome estimates): order the effects so we can look at them
 - plants data
 - prettify axes labels/facet etc.?

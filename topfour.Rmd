@@ -37,7 +37,6 @@ load("allfits_sum_gamm4.RData")
 load("allfits_restr_gamm4.RData")
 ```
 
-
 Data from Enric (includes area and lat/long coordinates):
 
 ```{r get_data}
@@ -48,6 +47,8 @@ ecoreg <- ecoreg
 ### Plots of the original variables: 
 
 ```{r plots_ori_vars,warning=FALSE}
+## names are the names of the variable in the data set;
+##  the character strings are the names to put on the axis
 pred_names <- c(NPP_mean="NPP g*C/m2*year",
                 NPP_cv_inter="CV of NPP",
                 Feat_mean="Feat (% of NPP)",
@@ -55,6 +56,8 @@ pred_names <- c(NPP_mean="NPP g*C/m2*year",
 taxon_names <- paste(c("Birds","Amphibians","Mammals"),
                     "N sp/km2")
 names(taxon_names) <- c("mbirds","mamph","mmamm")
+
+## plot raw values of diversity for a given taxon/predictor
 do_plots_1 <- function(taxon="mbirds",pred="NPP_mean",
                        s_names=taxon_names,
                        p_names=pred_names) {
@@ -63,11 +66,12 @@ do_plots_1 <- function(taxon="mbirds",pred="NPP_mean",
         theme(legend.position="none") +
         labs(y=s_names[taxon], x=p_names[pred])
 }
+## generate all combinations
 orig_plots <- list()
 for (tt in names(taxon_names)) {
     orig_plots[[tt]] <- list()
     for (pp in names(pred_names)) {
-        orig_plots[[tt]][[pp]] <- do_plots_1(tt,pp)
+      orig_plots[[tt]][[pp]] <- do_plots_1(tt,pp)
     }
 }
 do.call(grid.arrange,c(orig_plots[["mbirds"]],list(nrow=2)))
@@ -76,6 +80,9 @@ do.call(grid.arrange,c(orig_plots[["mbirds"]],list(nrow=2)))
 ### Plots of the transformed variables (log and scaled)
 
 ```{r plots_trans_vars,warning=FALSE}
+## names are the names of the variable in the data set;
+##  the character strings are the names to put on the axis
+## this time using log-scaled etc.
 sc_pred_names <- c(NPP_log="log NPP g*C/m2*year",
                    NPP_cv_sc="scaled CV of NPP",
                    Feat_log="log Feat (% of NPP)",
@@ -84,6 +91,7 @@ sc_pred_names <- c(NPP_log="log NPP g*C/m2*year",
 sc_taxon_names <- paste("log",taxon_names)
 names(sc_taxon_names) <- paste0(names(taxon_names),"_log")
 
+## do all combinations
 sc_plots <- list()
 for (tt in names(sc_taxon_names)) {
     sc_plots[[tt]] <- list()
@@ -93,6 +101,8 @@ for (tt in names(sc_taxon_names)) {
                                            s_names=sc_taxon_names)
     }
 }
+
+## for a given taxon, draw unscaled plots in row 1 and scaled plots in row 2
 both_plots <- function(taxon) {
     do.call(grid.arrange,c(orig_plots[[taxon]],
                            sc_plots[[paste0(taxon,"_log")]],
@@ -106,18 +116,17 @@ FIXME: y-axis names
   
 I generated several "lists" of plots (using `plotfun`) with the lapply function following Ben's code. In each case, I changed the `xvar` and `auxvar` to plot the 4 top most variables for each taxa (aside from NPP)  
 
-**Amph:** NPP_log:Feat_cv_sc, NPP_log:Feat_log, Feat_log:NPP_cv_sc, Feat_log  
-  
-**Birds:** Feat_log, NPP_log:Feat_cv_sc, NPP_cv_sc, Feat_cv_sc  
-  
-**Mammals:** Feat_cv_sc, Feat_log, NPP_log:Feat_cv_sc, Feat_log:NPP_cv_sc  
+- **Amph:** NPP_log:Feat_cv_sc, NPP_log:Feat_log, Feat_log:NPP_cv_sc, Feat_log  
+- **Birds:** Feat_log, NPP_log:Feat_cv_sc, NPP_cv_sc, Feat_cv_sc  
+- **Mammals:** Feat_cv_sc, Feat_log, NPP_log:Feat_cv_sc, Feat_log:NPP_cv_sc  
   
 ```{r backtrans}
-plotfun(best_models[[3]],respvar='mbirds_log',xvar='Feat_log',auxvar=NULL,data=ecoreg,backtrans=TRUE,log="xy")
-```  
+taxon <- "mbirds_log"
+plotfun(best_models[[taxon]],respvar=taxon,xvar='Feat_log',auxvar=NULL,data=ecoreg,backtrans=TRUE,log="xy")
+```
   
-
 ```{r lists_of_plots,warning=FALSE}
+## partial residuals plots
 remef_plot <- function(taxon="mbirds_log",predvar="NPP_log",
                        auxvar=NULL,title=NULL) {
     m <- best_models[[taxon]]
@@ -158,18 +167,18 @@ rem_predvars <- list("NPP_log",
 rem_auxvars <- list(NULL,"Feat_cv_sc","Feat_log",
                     "NPP_cv_sc",NULL,NULL,NULL)
 
+## construct all combinations of partial residuals for each taxon
 remef_plots <- list()
-for (tt in names(sc_taxon_names)) {
+for (tt in names(sc_taxon_names)) { ## for each taxon
     remef_plots[[tt]] <- list()
-    for (pp in seq_along(rem_predvars)) {
-        ## cat(tt," ",pp,"\n")
-        remef_plots[[tt]][[pp]] <- remef_plot(tt,predvar=rem_predvars[[pp]],
+    for (pp in seq_along(rem_predvars)) { ## for each predictor variable
+      ## cat(tt," ",pp,"\n")
+      ## generate and save the partial residuals plot
+      remef_plots[[tt]][[pp]] <- remef_plot(tt,predvar=rem_predvars[[pp]],
                                               auxvar=rem_auxvars[[pp]])
     }
 }
 ```
-
-.
 
 # Graphical outputs
 
@@ -180,7 +189,7 @@ for (tt in names(sc_taxon_names)) {
 ggplot(ecoreg,aes(NPP_mean,mbirds,colour=biome)) + geom_point() + labs(x = "NPP (g*C/m2*year)", y = "Birds (N sp/km2)")
 ```
   
-## **Amphibians**
+## Amphibians
   
 ### Original + transformed values (xy plot)    
 ```{r amph_ori,warning=FALSE,fig.width=10,fig.height=5.5}
@@ -191,10 +200,11 @@ both_plots("mamph")
 ```{r amph_plots,warning=FALSE,fig.width=10,fig.height=8}
 do.call(grid.arrange,
         c(remef_plots[["mamph_log"]][c(2,3,4,5)],
-               list(ncol=2)))
+          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
+          list(ncol=2)))
 ```
     
-## **Birds** 
+## Birds
   
 ### Original + transformed values
 ```{r birds_ori,warning=FALSE,fig.width=10,fig.height=5.5}
@@ -208,7 +218,7 @@ do.call(grid.arrange,
         c(remef_plots[["mbirds_log"]][c(5,2,6,7)],
                list(ncol=2)))
 ```
-## **Mammals** 
+## Mammals
 
 ### Original + transformed values
 ```{r mamm_ori,warning=FALSE,fig.width=10,fig.height=5.5}
@@ -216,17 +226,9 @@ both_plots("mmamm")
 ```     
     
 ### Top 4 effects
+
 ```{r mamm_plots,warning=FALSE,fig.width=10,fig.height=8}
 do.call(grid.arrange,
         c(remef_plots[["mmamm_log"]][c(7,5,2,4)],
-               list(ncol=2)))
+          list(ncol=2)))
 ```
-
-
-
-
-
-
-
-
-
