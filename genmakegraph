@@ -1,0 +1,9 @@
+#!/bin/bash
+## from https://code.google.com/p/makegrapher/
+MG=~/bin/makegrapher/makegrapher.py
+make -npr > Makefile.complete
+python $MG -T Makefile.complete -o make.dot
+grep -v "^;$" make.dot > make.dot2 ## remove spurious semicolon
+dot -Tps make.dot2 > make.ps
+convert make.ps make.png
+rm make.ps make.dot make.dot2 Makefile.complete ## cleanup

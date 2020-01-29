@@ -1,3 +1,4 @@
+# fire/diversity analyses with mixed models
 
 ## model summaries
 
@@ -17,4 +18,6 @@ All three components are data frames. All share the columns
 - `pred` has original variables from `ecoreg` used in the model, plus `.fitted`, `.resid`, `.fixed` (fixed-effect-only predictions)
 - `sum` has AIC, `singular` (logical: is model fit singular?), `df` (number of model parameters), `best` (logical: is model fit the best non-singular fit for the given taxon?)
 
-utility functions ...
+## file structure
+
+- `MixedEffects.Rmd` is the primary document, using `

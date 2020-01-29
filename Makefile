@@ -1,8 +1,10 @@
 %.html: %.Rmd
 	Rscript -e "rmarkdown::render(\"$<\")"
 
-MixedEffects.html: gamm4_utils.R mmd_utils.R ecoreg.RData allfits.RData allfits_restr.RData allprofs.RData MixedEffects.Rmd
+## primary output
+MixedEffects.html: gamm4_utils.R mmd_utils.R ecoreg.RData allfits.RData allfits_restr.RData allprofs.RData MixedEffects.Rmd make.png
 
+## process 'input' data to useful version
 ecoreg.RData: full_data.RData teow_data.RData mmd_procdata.R biome_defs.csv olson_defs.csv
 	R CMD BATCH mmd_procdata.R
 
@@ -18,8 +20,9 @@ allprofs.RData: allfits.RData
 	R CMD BATCH mmd_profilebatch.R
 
 ## requires 'dot': sudo apt-get install graphviz
+## may need to edit /etc/ImageMagick-6/policy.xml
 make.png: Makefile
-	~/bin/genmakegraph
+	. ./genmakegraph
 
 clean:
 	rm -f *~ .#* .RData
