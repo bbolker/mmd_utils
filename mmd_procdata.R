@@ -124,7 +124,7 @@ if (FALSE) {
     save(teow_data,file='.../teow_data.RData')
 }
 
-load('teow_data.RData')
+load("teow_data.RData")
 ## selecting only ecoregions within the dataset within the shapefile
 ## keep only eco_id, area_km2, x, y 
 xy_area_teow <- data.table(subset(teow_data,ECO_ID %in% ecoreg$eco_id,

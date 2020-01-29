@@ -1,10 +1,14 @@
+args <- commandArgs(trailingOnly=TRUE)
+platform <- if (length(args)<1) "lme4" else args[1]
+
 L <- load("ecoreg.RData")
 source("mmd_utils.R")
 library(lme4)
 library(gamm4)
 library(parallel)
 
-logrespvars <- paste0(c("plants","mamph","mbirds","mmamm"),"_log")
+## skip plants
+logrespvars <- paste0(c("mamph","mbirds","mmamm"),"_log")
 ## pp <- ecoreg[c("plants_log","NPP_mean","NPP_cv_inter",
 ##                     "Feat_mean","Feat_cv_inter",
 ##                     "biome","flor_realms","area_km2","x","y")]
@@ -15,11 +19,11 @@ logrespvars <- paste0(c("plants","mamph","mbirds","mmamm"),"_log")
 ## and stored in allfits_lmer.RData
 
 allfits <- parallel::mclapply(logrespvars, fit_all,
-                              platform = "gamm4",
+                              platform = platform,
                               verbose = TRUE,
                               mc.cores = 2  ## change as available
                               )
 names(allfits) <- logrespvars
-sapply(allfits, function(x) is(x,"try-error"))
+## sapply(allfits, function(x) is(x,"try-error"))
 
-save("allfits",file="allfits.RData")
+save("allfits",file=sprintf("allfits_%s.RData", platform))

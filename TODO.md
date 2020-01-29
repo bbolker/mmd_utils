@@ -1,9 +1,11 @@
 ## To do
 
-### BMB
+### new
 
-- documentation
-- 
+- finish cleaning up pipeline
+    - fit gamm4 models (also lme4 models, or skip?)
+	  - do **not** fit plants (expunge from final presentation)
+	
 
 #### high
 

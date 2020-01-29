@@ -1,9 +1,10 @@
 #!/bin/bash
 ## from https://code.google.com/p/makegrapher/
-MG=~/bin/makegrapher/makegrapher.py
-make -npr > Makefile.complete
-python $MG -T Makefile.complete -o make.dot
-grep -v "^;$" make.dot > make.dot2 ## remove spurious semicolon
-dot -Tps make.dot2 > make.ps
+## MG=~/bin/makegrapher/makegrapher.py
+## make -npr MixedEffects.html 1> Makefile.complete 2>&1 ## dry-run; print data base; no builtin
+##python $MG -T Makefile.complete -o make.dot
+## grep -v "^;$" make.dot > make.dot2 ## remove spurious semicolon
+export PATH=$PATH:.  ## ugh! need to find "make2graph"
+./makefile2graph | dot -Tps > make.ps
 convert make.ps make.png
-rm make.ps make.dot make.dot2 Makefile.complete ## cleanup
+rm make.ps ## cleanup

@@ -58,7 +58,8 @@ fit_all <- function(response="mbirds_log",
                     single_fit=NULL,
                     platform=c("lme4","gamm4","brms"),
                     add_sos=TRUE,
-                    verbose=FALSE) {
+                    verbose=FALSE)
+{
     platform <- match.arg(platform)
     if (add_sos && platform!="lme4") {
         ## add spherical smoothing term
@@ -117,17 +118,21 @@ fit_all <- function(response="mbirds_log",
     ## For example, use RE #1 (intercept) for biome, RE #2 (diag) for realm, RE #3 (full) for biome $\times$ realm interaction ...
     ## mform(c(1,2,3))
     results <- list()
+    if (verbose) cat("response","index","num...","name","\n",sep=" ")
     for (i in seq(nrow(dd))) {
         ## FIXME? if doing factorial stuff with brms (which we shouldn't
         ##  ever being doing), need to exclude ctrl from argList as above
         w <- unlist(dd[i,])
         nm <- paste(rterms,"=",names(forms)[w],sep="",collapse="/")
-        if (verbose) cat(i,w,nm,"\n")
+        if (verbose) cat(response,i,w,nm,"\n")
         ff <- mform(w,extra_pred_vars=extra_pred_vars)
         results[[i]] <- try(suppressWarnings(
-            fitfun(ff,data=data,
-                   na.action=na.exclude,
-                   control=ctrl)))
+            fitfun(ff
+                  , data=data
+                  , na.action=na.exclude
+                   )
+        )
+        )
         names(results)[i] <- nm
     }
     return(results)
