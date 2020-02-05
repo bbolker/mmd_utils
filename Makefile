@@ -1,3 +1,4 @@
+NCORES=4
 ## doesn't include args properly?
 %.Rout: %.R
 	Rscript --vanilla $< $@
@@ -14,7 +15,7 @@ allfits_lme4.rds: ecoreg.rds utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R lme4 >allfits_lme4.Rout
 
 allfits_gamm4.rds: ecoreg.rds utils.R fit_batch.R
-	Rscript --vanilla fit_batch.R gamm4 >allfits_gamm4.Rout
+	Rscript --vanilla fit_batch.R gamm4 FALSE $(NCORES) >allfits_gamm4.Rout
 
 allfits_brms.rds: ecoreg.rds utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R brms >allfits_brms.Rout

@@ -5,9 +5,10 @@ platform <- if (length(args)<1) "lme4" else args[1]
 ## restricted fit?
 restr <- if (length(args)<2) FALSE else as.logical(args[2])
 ## specify number of parallel cores
+## don't use multicores for brms because it parallelizes chains anyway
 cores <- if (length(args)<3) {
              if (platform!="brms") 2 else 1
-         }
+         } else as.numeric(args[3])
 ## include plants?
 include_plants <- if (length(args)<4) TRUE else as.logical(args[4])
 
@@ -37,7 +38,7 @@ ff <- if (restr) {
           fit_all
       }
 
-## ff(logrespvars[1], platform=platform)
+## ff(logrespvars[1], platform=platform, verbose=TRUE)
 allfits <- parallel::mclapply(logrespvars, ff,
                               platform = platform,
                               verbose = TRUE,
