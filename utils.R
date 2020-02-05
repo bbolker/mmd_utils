@@ -526,16 +526,16 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
 }
 
 
+##' Partial residuals, dropping all random variables
 ##' @param x model
 ##' @param data original data
 ##' @param fixed_keep which fixed effects should be \strong{retained}
 ##' (\code{NULL} means to keep all fixed effects
 ##' @param na.action what to do with NA values
 ##' @param return_components
-##
-## NOTE: see gamm4_predict.{rmd,html} for more info about which
-##  components (fixed, random, smooth) are included in which bits
-##  of a gamm4 model, how to access them via predict/residuals
+##' @details see gamm4_predict.{rmd,html} for more info about which
+##'  components (fixed, random, smooth) are included in which bits
+##'  of a gamm4 model, how to access them via predict/residuals
 ##
 ## I think I could use that information to get partial residuals
 ##   for a subcomponent (i.e. using newdata=), but for now I'm
@@ -598,6 +598,12 @@ remef_allran <- function(x, data,
     if (return_components) {
         return(data.frame(rem,pp_ran,pp_fixed))
     }
+    ## transfer scaling/transformation info from response var to partial resids
+    respvar <- deparse(formula(model, fixed.only=TRUE)[[2]])
+    rr <- data[[respvar]]
+    for (a in c("scaled::center","scaled::scale","logged")) {
+        attr(rem,a) <- attr(rr,a)
+    }
     return(rem)
 }
 
@@ -650,7 +656,7 @@ backtrans <- function(x,y=NULL,warn.noscale=FALSE) {
     return(ret)
 }
 
-##' back-transform a variable by exponentiating
+##' back-transform a variable by exponentiating, based on name
 ##' attempt to unscale (only effective if unscaling info
 ##'  is stored in x or y)
 ##' @note data are logged before scaling; to invert this
@@ -660,16 +666,17 @@ backtrans <- function(x,y=NULL,warn.noscale=FALSE) {
 ##' head(ecoreg$mmamm)
 ##' backtrans_magic(ecoreg$mmamm_log,"mmamm_log")
 backtrans_magic <- function(x,xname,y=NULL,log=NULL) {
-    r <- backtrans(x,y)
+    r <- backtrans(x,y)  ## unscale
+    re <- "(_log)?(_sc)?$" ## _log OR _sc OR both (in that order)
     ## exponentiate if var is logged or if forced
-    if (isTRUE(log) || grepl("_log(_sc)?$",xname)) {
+    if (isTRUE(log) || grepl(re,xname) || isTRUE(attr(r,"logged"))) {
         r <- exp(r)
+        attr(r,"logged") <- NULL
     }
     ## attempt 
-    attr(r,"name") <- gsub("(_log)?(_sc)?$","",xname)
+    attr(r,"name") <- gsub(re,"",xname)
     return(r)
 }
-        
 
 ##' back-transform one or more variables
 ##' @param data  data frame to back-transform

@@ -95,6 +95,7 @@ ecoreg$biome_FR <- factor(paste(flor_defs$abbrev[ecoreg$flor_realms],
 for (v in respvars) {
     scv <- paste0(v,"_log")
     tmpvar <- log(ecoreg[[v]])
+    attr(tmpvar,"logged") <- TRUE
     ecoreg[[scv]] <- tmpvar
     ## scale with both FALSE attaches no attributes anyway
     ## drop(scale(ecoreg[[v]],scale=FALSE, center=FALSE))
@@ -105,9 +106,11 @@ log_sc_vars <- grep("_cv_inter",predvars,invert=TRUE,value=TRUE)
 for (v in log_sc_vars) {
     scv <- gsub("(_inter|_mean)","",paste0(v,"_log_sc"))
     tmpvar <- log(ecoreg[[v]])
-    ecoreg[[scv]] <- drop(scale(tmpvar,scale=TRUE,center=TRUE))
+    tmpvar <- drop(scale(tmpvar,scale=TRUE,center=TRUE))
+    ## add logged attribute **after** scaling
+    attr(tmpvar,"logged") <- TRUE
+    ecoreg[[scv]] <- tmpvar
 }
-
 
 ## center *and* scale CVs
 ctr_vars <- grep("_cv_inter",predvars,value=TRUE)      

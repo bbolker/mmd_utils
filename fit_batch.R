@@ -2,10 +2,11 @@ args <- commandArgs(trailingOnly=TRUE)
 print(args)
 ## 'lme4', 'gamm4', 'brms'
 platform <- if (length(args)<1) "lme4" else args[1]
+if (!platform %in% c("lme4","gamm4","brms")) stop("unknown platform",platform)
 ## restricted fit?
 restr <- if (length(args)<2) FALSE else as.logical(args[2])
 ## specify number of parallel cores
-## don't use multicores for brms because it parallelizes chains anyway
+## don't use multicores for brms (by default) because it parallelizes chains anyway
 cores <- if (length(args)<3) {
              if (platform!="brms") 2 else 1
          } else as.numeric(args[3])
@@ -16,7 +17,6 @@ ecoreg <- readRDS("ecoreg.rds")
 source("utils.R")
 require(platform, character.only=TRUE)
 library(parallel)
-
 
 respvars <- c("mamph","mbirds","mmamm")
 if (include_plants) {
@@ -39,6 +39,7 @@ ff <- if (restr) {
       }
 
 ## ff(logrespvars[1], platform=platform, verbose=TRUE)
+## FIXME:: test/warning on Windows?
 allfits <- parallel::mclapply(logrespvars, ff,
                               platform = platform,
                               verbose = TRUE,
