@@ -1,3 +1,4 @@
+## doesn't include args properly?
 %.Rout: %.R
 	Rscript --vanilla $< $@
 
@@ -19,28 +20,34 @@ allfits_brms.rds: ecoreg.rds utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R brms >allfits_brms.Rout
 
 ## biome=diag, flor_realm=diag fits
-allfits_restr.rds: ecoreg.rds utils.R fit_batch.R
-	Rscript --vanilla fit_batch.R gamm4 TRUE > allfits_restr.Rout
+allfits_restr_gamm4.rds: ecoreg.rds utils.R fit_batch.R
+	Rscript --vanilla fit_batch.R gamm4 TRUE > allfits_restr_gamm4.Rout
 
-sumfiles = sum_batch.R utils.R ecoreg.rds allfits_gamm4.rds allfits_lme4.rds allfits_brms.rds
+sumfiles = sum_batch.R utils.R ecoreg.rds allfits_gamm4.rds allfits_lme4.rds
 
-## DRY ???
-allfits_sum_lme4.rds: $(sumfiles) sum_batch.Rout
+## summaries. DRY ???
+allfits_sum_lme4.rds: allfits_lme4.rds sum_batch.R
+	Rscript --vanilla sum_batch.R lme4 > allfits_sum_lme4.Rout
 
-allfits_sum_brms.rds: $(sumfiles) sum_batch.Rout
+allfits_sum_brms.rds: allfits_brms.rds sum_batch.R
+	Rscript --vanilla sum_batch.R brms > allfits_sum_brms.Rout
 
-bestmodels_gamm4.rds: $(sumfiles) sum_batch.Rout
+bestmodels_gamm4.rds allfits_sum_gamm4.rds: allfits_gamm4.rds sum_batch.R
+	Rscript --vanilla sum_batch.R gamm4 > allfits_sum_gamm4.Rout
 
-testfits.rds:         $(sumfiles) sum_batch.Rout
+## testfits.rds:         $(sumfiles) sum_batch.Rout
 
-allprofs.RData: allfits.RData
+allprofs.rds: allfits_lme4.rds
 	Rscript -e profile_batch.R >profile_batch.Rout
 
 ## requires 'dot': sudo apt-get install graphviz
 ## may need to edit /etc/ImageMagick-6/policy.xml
 ## from https://github.com/lindenb/makefile2graph
-make.png: Makefile
-	. ./genmakegraph
+make.dot: Makefile
+	exec make -nd MixedEffects.html | ./make2graph >make.dot
+
+make.png: make.dot
+	dot -Tpng make.dot >make.png
 
 clean:
 	rm -f *~ .#* .RData

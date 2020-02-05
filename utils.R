@@ -95,22 +95,25 @@ fit_all <- function(response="mbirds_log",
     ## g4fit() just calls gamm4 and assigns class "gamm4" to the result
     fitfun <- switch(platform,gamm4=g4fit,lme4=lmer,
                      brms=brm)
+    ## set up options/arguments
+    argList <- list(data=data)
+    if (platform %in% c("gamm4","lme4")) {
+        argList <- c(argList,
+                     list(control=lmerControl(optimizer=nloptwrap,
+                                              optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12),
+                                              ## suppress 'singular fit' messages
+                                              check.conv.singular="ignore"),
+                          ## brms doesn't know about na.action ... ?
+                          na.action=na.exclude))
+    } else if (platform=="brms") {
+        argList <- c(argList,
+                     list(control=list(adapt_delta=0.99),
+                          family=gaussian))
+    }
     ## run just one model
     if (!is.null(single_fit)) {
         ff <- mform(single_fit,extra_pred_vars=extra_pred_vars)
-        argList <- list(ff,data=data)
-        if (platform %in% c("gamm4","lme4")) {
-            argList <- c(argList,
-                list(control=lmerControl(optimizer=nloptwrap,
-                     optCtrl=list(ftol_rel=1e-12,ftol_abs=1e-12)),
-                     ## brms doesn't know about na.action ... ?
-                     na.action=na.exclude))
-        } else if (platform=="brms") {
-            argList <- c(argList,
-                         list(control=list(adapt_delta=0.99),
-                              family=gaussian))
-        }
-        suppressWarnings(time <- system.time(res <- try(do.call(fitfun,argList))))
+        suppressWarnings(time <- system.time(res <- try(do.call(fitfun,c(list(formula=ff),argList)))))
         attr(res,"time") <- time
         return(res)
     }
@@ -120,19 +123,14 @@ fit_all <- function(response="mbirds_log",
     results <- list()
     if (verbose) cat("response","index","num...","name","\n",sep=" ")
     for (i in seq(nrow(dd))) {
-        ## FIXME? if doing factorial stuff with brms (which we shouldn't
-        ##  ever being doing), need to exclude ctrl from argList as above
         w <- unlist(dd[i,])
         nm <- paste(rterms,"=",names(forms)[w],sep="",collapse="/")
         if (verbose) cat(response,i,w,nm,"\n")
+        ## DRY?
         ff <- mform(w,extra_pred_vars=extra_pred_vars)
-        results[[i]] <- try(suppressWarnings(
-            fitfun(ff
-                  , data=data
-                  , na.action=na.exclude
-                   )
-        )
-        )
+        suppressWarnings(time <- system.time(res <- try(do.call(fitfun,c(list(formula=ff),argList)))))
+        attr(res,"time") <- time
+        results[[i]] <- res
         names(results)[i] <- nm
     }
     return(results)
@@ -172,7 +170,7 @@ get_best_name_fitlist <- function(fitlist,allow_sing=FALSE) {
 ##' 
 predfun <- function(model=best_model,
                     data = ecoreg,
-                    xvar="NPP_log",
+                    xvar="NPP_log_sc",
                     respvar=NULL,
                     auxvar="Feat_cv_sc",
                     grpvar=NULL,
@@ -287,8 +285,8 @@ predfun <- function(model=best_model,
 }
 
 ##' @param model fitted model
-##' @param data (ecoreg)
-##' @param xvar ("NPP_log"): x-variable
+##' @param data data frame containing values
+##' @param xvar  x-variable
 ##' @param respvar (equal to model response by default): response variable
 ##' @param auxvar ("Feat_cv_sv"): auxiliary variable (e.g. for examining interactions)
 ##' @param backtrans back-transform x and y variables?
@@ -305,7 +303,7 @@ predfun <- function(model=best_model,
 ##' plotfun(m1,auxvar=NULL)
 plotfun <- function(model=best_model,
                     data = ecoreg,
-                    xvar="NPP_log",
+                    xvar="NPP_log_sc",
                     respvar=NULL,
                     auxvar="Feat_cv_sc",
                     grpvar=NULL,
@@ -409,11 +407,14 @@ pkgList <- c('lme4'         ## lmer etc.
             ,'dplyr'     ## data manipulation
             ,'tidyr'     ## ditto
             ,'tibble'    ## ditto: rownames_to_column
-            ,'remef'
+            ,'remef'     ## remotes::install_github('https://github.com/hohenstein/remef')
             ,'r2glmm'
             ,'raster')
 
 load_all_pkgs <- function() {
+    if (!require("remef", quietly=TRUE)) {
+        stop("install remef via remotes::install_github('https://github.com/hohenstein/remef')")
+    }
     sapply(pkgList,library,character.only=TRUE)
     stopifnot(packageVersion("lme4")>="1.1-14")
     ## devtools::install_github("hohenstein/remef")
@@ -433,7 +434,7 @@ get_best_sum <- function(x) {
     x$sum %>%   ## tidyverse-ish extraction?
     group_by(taxon) %>%
     filter(best) %>%
-    select(-c(AIC,best,singular))
+    dplyr::select(-c(AIC,best,singular))
 }
 
 get_best_name <- function(x,tt) {
@@ -470,25 +471,26 @@ diag_plot <- function(x,tt="plants_log") {
 }
 
 get_allcoefs <- function(data,model,focal_taxon="plants_log") {
-    data$coef %>%
-    ## add summary info (singular, AIC)
-    full_join(select(data$sum,c(taxon,model,singular,AIC)),
-              by=c("taxon","model")) %>%
-    ## pick one taxon; only fixed-effect parameters; drop intercept
-    filter(taxon==focal_taxon,
-           effect=="fixed",
-           term!="(Intercept)") %>%
-    mutate(model=shorten_modelname(model),     ## abbreviate model name
-           model=reorder(model,-AIC),          ## reverse-order by AIC
-           ## reverse-order by magnitude of coefficient for best model
-           term=reorder(term,estimate,function(x) -x[1]))
+    (data$coef
+        ## add summary info (singular, AIC)
+        %>% full_join(dplyr::select(data$sum,c(taxon,model,singular,AIC)),
+                      by=c("taxon","model"))
+        ## pick one taxon; only fixed-effect parameters; drop intercept
+        %>% filter(taxon==focal_taxon,
+                   effect=="fixed",
+                   term!="(Intercept)")
+        %>% mutate(model=shorten_modelname(model),     ## abbreviate model name
+                   model=reorder(model,-AIC),          ## reverse-order by AIC
+                   ## reverse-order by magnitude of coefficient for best model
+                   term=reorder(term,estimate,function(x) -x[1]))
+    )
 }
 
 ## utilities for post-processing coefficient tabs
 add_wald_ci <- function(data) {
     return(data %>%
            mutate(lwr=estimate-1.96*std.error,upr=estimate+1.96*std.error) %>%
-           select(-c(std.error,statistic)))
+           dplyr::select(-c(std.error,statistic)))
 }
 drop_intercept <- function(data) {
     data %>% filter(term != "(Intercept)")
@@ -660,11 +662,11 @@ backtrans <- function(x,y=NULL,warn.noscale=FALSE) {
 backtrans_magic <- function(x,xname,y=NULL,log=NULL) {
     r <- backtrans(x,y)
     ## exponentiate if var is logged or if forced
-    if (isTRUE(log) || grepl("_log$",xname)) {
+    if (isTRUE(log) || grepl("_log(_sc)?$",xname)) {
         r <- exp(r)
     }
     ## attempt 
-    attr(r,"name") <- gsub("_(log|sc)$","",xname)
+    attr(r,"name") <- gsub("(_log)?(_sc)?$","",xname)
     return(r)
 }
         

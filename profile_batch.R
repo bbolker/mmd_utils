@@ -1,5 +1,5 @@
-source("mmd_utils.R")
-load("allfits.RData")
+source("utils.R")
+allfits_lme4 <- readRDS("allfits_lme4.rds")
 library(lme4)
 
 proffun <- function(fit) {
@@ -11,7 +11,7 @@ profList <- parallel::mclapply(allfits, proffun,
                               mc.cores = 2  ## change as available
                               )
 names(profList) <- names(allfits)
-save("profList",file="allprofs.RData")
+saveRDS(profList,file="allprofs.rds")
 
 ## profiles ugly for 1 (plants), 4 (mammals);
 ## plotting fails for amphibians (but confints work, falling back to lin)

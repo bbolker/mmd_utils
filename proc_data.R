@@ -95,7 +95,9 @@ ecoreg$biome_FR <- factor(paste(flor_defs$abbrev[ecoreg$flor_realms],
 for (v in respvars) {
     scv <- paste0(v,"_log")
     tmpvar <- log(ecoreg[[v]])
-    ecoreg[[scv]] <- drop(scale(ecoreg[[v]],scale=FALSE, center=FALSE))
+    ecoreg[[scv]] <- tmpvar
+    ## scale with both FALSE attaches no attributes anyway
+    ## drop(scale(ecoreg[[v]],scale=FALSE, center=FALSE))
 }
 
 ## non-CV predictors; log and center/scale

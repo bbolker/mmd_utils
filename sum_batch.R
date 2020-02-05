@@ -1,9 +1,17 @@
+args <- commandArgs(trailingOnly=TRUE)
+print(args)
+## 'lme4', 'gamm4', 'brms'
+platform <- if (length(args)<1) "gamm4" else args[1]
+## save best models?
+save_best <- if (length(args)<2) {
+                 if (platform=="gamm4") TRUE else FALSE
+             }
+
 ## extract useful/necessary information
 library(purrr)
 library(dplyr)
 library(broom.mixed)
-library(gamm4)
-library(brms)
+require(platform,character.only=TRUE)
 
 source("utils.R")
 
@@ -94,18 +102,21 @@ if (FALSE) {
 
 ecoreg <- readRDS("ecoreg.rds")
 
-system.time(allfits_gamm4 <- readRDS("allfits_gamm4.rds"))
-## "allfits": length-4, taxa;
-##                length-27, all models
-gamm4_res <- get_allsum(allfits)
-saveRDS(gamm4_res,file="allfits_sum_gamm4.rds")
-
-## find best gamm4 model for each taxon,
-taxa <- names(allfits_gamm4)
-best_names <- map(taxa,get_best_name,x=gamm4_res)
-best_models <- map2(allfits_gamm4,best_names, ~.x[[.y]])
-best_models <- map(best_models, strip_gamm4_env)
-saveRDS(best_models,file="bestmodels_gamm4.rds")
+infn <- sprintf("allfits_%s.rds", platform)
+outfn <- sprintf("allfits_sum_%s.rds", platform)
+if (file.exists(infn)) {
+    allfits <- readRDS(infn)
+    res <- get_allsum(allfits)
+    saveRDS(res,file=outfn)
+    if (save_best) {
+        ## find best gamm4 model for each taxon,
+        taxa <- names(allfits)
+        best_names <- map(taxa,get_best_name,x=res)
+        best_models <- map2(allfits,best_names, ~.x[[.y]])
+        best_models <- map(best_models, strip_gamm4_env) ## save space
+        saveRDS(best_models,file=sprintf("bestmodels_%s.rds",platform))
+    }
+}
 
 ## gamm4_allfits <- lapply(allfits,
 ##             function(x) lapply(x,strip_gamm4_env))
@@ -115,15 +126,4 @@ saveRDS(best_models,file="bestmodels_gamm4.rds")
 ## save test fits, for queries to mailing lists/Simon Wood/etc.
 ## gamm4_testfits <- allfits_gamm4[[1]][1:8]
 ## saveRDS(gamm4_testfits,file="testfits.rds")  ## down to 11M
-
-rm(allfits_gamm4)
-gc()
-
-system.time(allfits_lme4 <- readRDS("allfits_lme4.rds"))
-lme4_res <- get_allsum(allfits_lme4)
-saveRDS(lme4_res,file="allfits_sum_lme4.rds")
-
-system.time(allfits_brms <- readRDS("allfits_brms.rds")) ## 6 seconds
-brms_res <- get_allsum(allfits_brms,nested=FALSE)
-saveRDS(brms_res, file="allfits_sum_brms.rds")
 

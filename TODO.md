@@ -3,10 +3,12 @@
 ### new
 
 - finish cleaning up pipeline
-    - fit gamm4 models (also lme4 models, or skip?)
-	  - do **not** fit plants (expunge from final presentation)
+    - redo back-trans stuff, allowing for `_log_sc`
+	- allfit
+	   - re-add checkpointing
+	   - parallelize at lower level?
 - notes on scaling: copy scaling info from original response to rem (if exists)
-
+- figure out layout, colours for dot file? (use Rgraphviz?)
 
 #### high
 
