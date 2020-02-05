@@ -1,30 +1,34 @@
 %.Rout: %.R
-	Rscript --vanilla $< >@
+	Rscript --vanilla $< $@
 
 ## primary output
-MixedEffects.html: ecoreg.RData allfits_sum_lmer.RData allfits_sum_gamm4.RData bestmodels_gamm4.RData allfits_restr_gamm4.RData mmd_utils.R gamm4_utils.R make.png
-
-sumfiles = mmd_reduce.R mmd_utils.R ecoreg.RData allfits.RData allfits_lmer.RData allfits_brms.RData
-
-## DRY ???
-allfits_sum_lmer.RData: $(sumfiles) mmd_reduce.Rout
-
-allfits_sum_brms.RData: $(sumfiles) mmd_reduce.Rout
-
-bestmodels_gamm4.RData: $(sumfiles) mmd_reduce.Rout
-testfits.RData:         $(sumfiles) mmd_reduce.Rout
+MixedEffects.html: ecoreg.RData allfits_sum_lme4.rds allfits_sum_gamm4.rds bestmodels_gamm4.rds allfits_restr_gamm4.rds utils.R gamm4_utils.R make.png
 
 ## process 'input' data to useful version
 ecoreg.RData: full_data.RData teow_data.RData mmd_procdata.R biome_defs.csv olson_defs.csv
 	$(RBATCH) mmd_procdata.R
 
 ## all combinations of fits
-allfits.RData: ecoreg.RData mmd_utils.R mmd_fitbatch.R
-	Rscript --vanilla mmd_fitbatch.R
+allfits_lme4.rds: ecoreg.RData utils.R fit_batch.R
+	Rscript --vanilla fit_batch.R lme4
+
+allfits_gamm4.rds: ecoreg.RData utils.R fit_batch.R
+	Rscript --vanilla fit_batch.R gamm4
+
+sumfiles = sum_batch.R utils.R ecoreg.RData allfits_gamm4.rds allfits_lme4.rds allfits_brms.rds
+
+## DRY ???
+allfits_sum_lme4.rds: $(sumfiles) sum_batch.Rout
+
+allfits_sum_brms.RData: $(sumfiles) sum_batch.Rout
+
+bestmodels_gamm4.RData: $(sumfiles) sum_batch.Rout
+
+testfits.RData:         $(sumfiles) sum_batch.Rout
 
 ## biome=diag, flor_realm=diag fits
-allfits_restr.RData: ecoreg.RData mmd_utils.R mmd_fitbatch.R
-	$(RBATCH) mmd_fitbatch2.R
+allfits_restr.rds: ecoreg.RData utils.R fit_batch.R
+	Rscript --vanilla fit_batch.R gamm4 TRUE
 
 allprofs.RData: allfits.RData
 	$(RBATCH) mmd_profilebatch.R

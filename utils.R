@@ -19,9 +19,9 @@ cplot <- function(x) {
     corrplot.mixed(cc,upper="ellipse")
 }
 
-## fits all of the combinations of random effects for a particular
-## response variable
-##
+##' fits all of the combinations of random effects for a particular
+##' response variable
+##' 
 ##' @param response (character) response variable
 ##' @param pars (character) vector of input variables
 ##' @param forms list of allowed random-effect terms
@@ -33,7 +33,7 @@ cplot <- function(x) {
 ##' (1=intercept; 2=diag; 3=full)
 ##' @param platform which fitting package to use?
 ##' @param add_sos add spherical smooth to model?
-##' 
+##' @return what does it return?
 ##' @examples
 ##' # two equivalent ways to fit a single model with diagonal terms
 ##' #  for biome and flor_realms and no effect for their interaction

@@ -2,8 +2,11 @@
 
 ## model summaries
 
-`allfits_sum_(lmer|gamm4).RData` are files containing
-lists (`lme4_res` and `gamm4_res`) with the following components:
+`allfits_sum_(lme4|gamm4).rds` are files containing
+lists (based on `allfits_(lme4|gamm4)_res.rds`)). The difference between these two model sets is that `gamm4_res` models use a spherical spline to model spatial autocorrelation.
+
+
+with the following components:
 
 - `coefs`: coefficients
 - `sum`: model summaries
@@ -20,4 +23,5 @@ All three components are data frames. All share the columns
 
 ## file structure
 
-- `MixedEffects.Rmd` is the primary document, using `
+- `MixedEffects.Rmd` is the primary document
+- there is a Makefile that describes the dependencies/build rules

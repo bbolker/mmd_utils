@@ -5,6 +5,8 @@ library(broom.mixed)
 library(gamm4)
 library(brms)
 
+source("utils.R")
+
 ## augment needs data, but will fail if data contains NAs in columns
 ##  not used in the model - extract formulas from model, use these
 ##  to find vars we need, extract those from data ...
@@ -90,14 +92,13 @@ if (FALSE) {
     ## sum(allfits[[1]][[1]]$) ## 17
 }
 
-source("mmd_utils.R")
 load("ecoreg.RData")
 
-system.time(L <- load("allfits.RData"))  ## ~ 18 seconds on collywobbles,
+system.time(allfits <- readRDS("allfits_gamm4.rds"))
 ## "allfits": length-4, taxa;
 ##                length-27, all models
 gamm4_res <- get_allsum(allfits)
-save(gamm4_res,file="allfits_sum_gamm4.RData")
+save(gamm4_res,file="allfits_sum_gamm4.rds")
 
 ## find best gamm4 model for each taxon,
 taxa <- names(allfits)

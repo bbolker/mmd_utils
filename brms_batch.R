@@ -1,4 +1,4 @@
-source("mmd_utils.R")
+source("utils.R")
 source("gamm4_utils.R")
 L <- load("ecoreg.RData")
 library(brms)
@@ -16,8 +16,9 @@ t1 <- system.time(b1 <- brm(form1,
    family=gaussian,
    data=ecoreg))
 
-  save("b1",file="brms_batch.RData")
+save("b1",file="brms_batch.RData")
 
+## second half
 load("brms_batch.RData")
 form2 <- update(form1, . ~ . + s(y,x,bs="sos"))
 
