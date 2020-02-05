@@ -44,7 +44,7 @@ cplot <- function(x) {
 ## - repeat less (if lmer() is encapsulated may need to play with
 ##   environment stuff some more, ugh)
 fit_all <- function(response="mbirds_log",
-                    pars=c("NPP_log","Feat_log","NPP_cv_sc","Feat_cv_sc"),
+                    pars=c("NPP_log_sc","Feat_log_sc","NPP_cv_sc","Feat_cv_sc"),
                     extra_pred_vars="log(area_km2)",
                     ## possible random-effect models
                     forms=c(int="1|",  ## intercept-only
@@ -159,8 +159,8 @@ get_best_name_fitlist <- function(fitlist,allow_sing=FALSE) {
 ##' @param re.form (NA) which RE to include in *predictions* (default is none)
 ##' @examples
 ##' source("gamm4_utils.R")
-##' load("ecoreg.RData")
-##' load("allfits_restr_gamm4.RData")
+##' ecoreg <- readRDS("ecoreg.rds")
+##' allfits_restr_gamm4 <- readRDS("allfits_restr_gamm4.rds")
 ##' m1 <- allfits_restr_gamm4$mbirds_log
 ##' pp <- predfun(m1)
 ##' pp2 <- predfun(m1,auxvar=NULL,grpvar="biome",re.form=~(1+NPP_log|biome))
@@ -298,8 +298,8 @@ predfun <- function(model=best_model,
 ##' @param ... parameters passed through to predfun
 ##' @examples
 ##' source("gamm4_utils.R")
-##' load("ecoreg.RData")
-##' load("allfits_restr_gamm4.RData")
+##' ecoreg <- readRDS("ecoreg.rds")
+##' allfits_restr_gamm4 <- readRDS("allfits_restr_gamm4.rds")
 ##' m1 <- allfits_restr_gamm4$mbirds_log
 ##' plotfun(m1)
 ##' plotfun(m1,auxvar=NULL)
@@ -393,31 +393,25 @@ plotfun <- function(model=best_model,
 
 ## test
 
-if (FALSE) {
-    load("ecoreg.RData")
-    library(lme4)
-    debug(lFormula)
-    debug(fit_all)
-    fit_all("plants_log")
-}
-
-pkgList <- c('lme4',      ## lmer etc.
-             'gamm4',     ## spatial fits
-             'bbmle',     ## AICtab, cosmetic
-             'broom.mixed', ## better coef tables
-             'brms',
-             'lattice',   ## diagnostic plots
-             'gridExtra', ## arrange plots
-             'ggplot2',
-             'viridis',
-             'plotly',
-             'cowplot',
-             'ggstance',  ## horizontal geoms
-             'dplyr',     ## data manipulation
-             'tidyr',     ## ditto
-             'tibble',    ## ditto: rownames_to_column
-             'remef',
-             'r2glmm')
+pkgList <- c('lme4'         ## lmer etc.
+            ,'gamm4'       ## spatial fits
+            ,'bbmle'       ## AICtab cosmetic
+            ,'broom.mixed' ## better coef tables
+            ,'brms'
+            ,'data.table' ## 
+            ,'lattice'   ## diagnostic plots
+            ,'gridExtra' ## arrange plots
+            ,'ggplot2'
+            ,'viridis'
+            ,'plotly'
+            ,'cowplot'
+            ,'ggstance'  ## horizontal geoms
+            ,'dplyr'     ## data manipulation
+            ,'tidyr'     ## ditto
+            ,'tibble'    ## ditto: rownames_to_column
+            ,'remef'
+            ,'r2glmm'
+            ,'raster')
 
 load_all_pkgs <- function() {
     sapply(pkgList,library,character.only=TRUE)

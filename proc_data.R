@@ -44,16 +44,14 @@ ecoreg = db_land[,list(Ncells = .N,	## total number of cells per ecoregion
 ## convert the data.table to a data.frame
 ecoreg = as.data.frame(ecoreg)
 
-### ------------------------------------------------------------------------------
-#   log/scale/center variables
-### -------------------------------------------------------------------------------
-
 ## read realm/biome definitions
-read_fun <- function(x) read.csv(x,quote="'",stringsAsFactors=FALSE,
+read_fun <- function(x) {
+    read.csv(x,quote="'",stringsAsFactors=FALSE,
                                  strip.white=TRUE,
                                  comment="#",
                                  ## treat 'NA' in abbrevs as a real value!
                                  na.strings="")
+}
 
 biome_defs <- read_fun("biome_defs.csv")
 flor_defs <- read_fun("olson_defs.csv")
@@ -91,15 +89,23 @@ ecoreg$flor_realms <- factor(ecoreg$flor_realms,
 ecoreg$biome_FR <- factor(paste(flor_defs$abbrev[ecoreg$flor_realms],
                             ecoreg$biome,sep=":"))
 
-## log-scale all non-CV predictors; center (after logging)
-log_vars <- c(respvars,grep("_cv_inter",predvars,invert=TRUE,value=TRUE))
-for (v in log_vars) {
-    scv <- gsub("(_inter|_mean)","",paste0(v,"_log"))
+## log/scale/center variables
+
+## response variables: log; don't scale (but do include mean/scale attr)
+for (v in respvars) {
+    scv <- paste0(v,"_log")
     tmpvar <- log(ecoreg[[v]])
-    ecoreg[[scv]] <- drop(scale(tmpvar,
-                           scale=1,
-                           center=mean(tmpvar,na.rm=TRUE)))
+    ecoreg[[scv]] <- drop(scale(ecoreg[[v]],scale=FALSE, center=FALSE))
 }
+
+## non-CV predictors; log and center/scale
+log_sc_vars <- grep("_cv_inter",predvars,invert=TRUE,value=TRUE)
+for (v in log_sc_vars) {
+    scv <- gsub("(_inter|_mean)","",paste0(v,"_log_sc"))
+    tmpvar <- log(ecoreg[[v]])
+    ecoreg[[scv]] <- drop(scale(tmpvar,scale=TRUE,center=TRUE))
+}
+
 
 ## center *and* scale CVs
 ctr_vars <- grep("_cv_inter",predvars,value=TRUE)      
@@ -139,8 +145,7 @@ chksc <- function(x) {
     all(c("scaled:center","scaled:scale") %in% names(attributes(x)))
 }
 ## check that attributes are preserved
-stopifnot(chksc(ecoreg$NPP_log),chksc(ecoreg$mamph_log),
-          chksc(ecoreg$mmamm_log))
+stopifnot(chksc(ecoreg$NPP_log_sc))
 
 ## https://stackoverflow.com/questions/20306853/maintain-attributes-of-data-frame-columns-after-merge
 ## issues with dplyr::join() and merge() dropping attributes,
@@ -149,10 +154,9 @@ ecoreg <- merge(data.table(ecoreg),data.table(biggest),by="eco_id")
 
 ecoreg <- as.data.frame(ecoreg)
 ## check that attributes are preserved
-stopifnot(chksc(ecoreg$NPP_log),chksc(ecoreg$mamph_log),
-          chksc(ecoreg$mmamm_log))
+stopifnot(chksc(ecoreg$NPP_log))
 
-save("ecoreg", file="ecoreg.RData")
+saveRDS(ecoreg, file="ecoreg.rds")
 
 
 

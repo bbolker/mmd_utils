@@ -92,39 +92,38 @@ if (FALSE) {
     ## sum(allfits[[1]][[1]]$) ## 17
 }
 
-load("ecoreg.RData")
+ecoreg <- readRDS("ecoreg.rds")
 
-system.time(allfits <- readRDS("allfits_gamm4.rds"))
+system.time(allfits_gamm4 <- readRDS("allfits_gamm4.rds"))
 ## "allfits": length-4, taxa;
 ##                length-27, all models
 gamm4_res <- get_allsum(allfits)
-save(gamm4_res,file="allfits_sum_gamm4.rds")
+saveRDS(gamm4_res,file="allfits_sum_gamm4.rds")
 
 ## find best gamm4 model for each taxon,
-taxa <- names(allfits)
+taxa <- names(allfits_gamm4)
 best_names <- map(taxa,get_best_name,x=gamm4_res)
-best_models <- map2(allfits,best_names, ~.x[[.y]])
+best_models <- map2(allfits_gamm4,best_names, ~.x[[.y]])
 best_models <- map(best_models, strip_gamm4_env)
-save(best_models,file="bestmodels_gamm4.RData")
+saveRDS(best_models,file="bestmodels_gamm4.rds")
 
-gamm4_allfits <- lapply(allfits,
-            function(x) lapply(x,strip_gamm4_env))
+## gamm4_allfits <- lapply(allfits,
+##             function(x) lapply(x,strip_gamm4_env))
 ## save(gamm4_allfits,file="allfits_strip_gamm4.RData")
 ## ugh. "only" 160 M
 
-rm(allfits)
+## save test fits, for queries to mailing lists/Simon Wood/etc.
+## gamm4_testfits <- allfits_gamm4[[1]][1:8]
+## saveRDS(gamm4_testfits,file="testfits.rds")  ## down to 11M
+
+rm(allfits_gamm4)
 gc()
 
-## save test fits, for queries to mailing lists/Simon Wood/etc.
-gamm4_testfits <- gamm4_allfits[[1]][1:8]
-save(gamm4_testfits,file="testfits.RData")  ## down to 11M
+system.time(allfits_lme4 <- readRDS("allfits_lme4.rds"))
+lme4_res <- get_allsum(allfits_lme4)
+saveRDS(lme4_res,file="allfits_sum_lme4.rds")
 
-system.time(load("allfits_lmer.RData"))
-lme4_res <- get_allsum(allfits)
-save(lme4_res,file="allfits_sum_lmer.RData")
-
-system.time(L <- load("allfits_brms.RData")) ## 6 seconds
+system.time(allfits_brms <- readRDS("allfits_brms.rds")) ## 6 seconds
 brms_res <- get_allsum(allfits_brms,nested=FALSE)
-save(brms_res, file="allfits_sum_brms.RData")
-rm(allfits)
+saveRDS(brms_res, file="allfits_sum_brms.rds")
 
