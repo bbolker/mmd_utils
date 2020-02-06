@@ -49,7 +49,7 @@ Limit all observations with all predictor variables > 0 and no biome 98/99; set 
 ## Model fitting
 
 This can now be done semi-automatically (i.e., fit all combinations
-of random effects) by using the function `fit_all` from the `mmd_utils.R`
+of random effects) by using the function `fit_all` from the `utils.R`
 file (sourced above), e.g. `fit_all(response="mbirds_log")`
 
 The `fit_batch.R` code has already run all
@@ -250,15 +250,17 @@ names(best_models)
 - `re.form` (NA) which RE to include in *predictions* (default is none)
 
 ```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
-ggplot1 <- plotfun(best_models[[1]],backtrans=TRUE,log="xy")
+ggplot1 <- (plotfun(best_models[[1]],backtrans=TRUE,log="xy")
+  + scale_y_log10(limits=c(0.8,110),oob=scales::squish)
+)
 comb_out(ggplot1,"ggplot1.html")
 ```
 
 Testing back-transformation:
-```{r}
+```{r test_backtrans}
 ecoreg$rem1 <- remef_allran(best_models[[2]],ecoreg)
 plotfun(best_models[[2]],
-        xvar="Feat_log",
+        xvar="Feat_log_sc",
         respvar="rem1",
         auxvar="NPP_cv_sc",
         data=ecoreg,
@@ -325,7 +327,7 @@ print(rsqplot)
 Plot in two panels:
 
 ```{r rsqplot2}
-all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP_log","log(area_km2)"))
+all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP_log_sc","log(area_km2)"))
 r1 <- rsqplot %+% subset(all_rsq,upper)
 r2 <- rsqplot %+% subset(all_rsq,!upper)
 ## facet_wrap doesn't have 'space' argument ...
@@ -352,7 +354,7 @@ plot_grid(p1,L,rel_widths=c(2,0.4))
 
 ## Models fitted with only biome and flor_realms
 
-(from `mmd_fitbatch2.R`): diagonal (independent) random effects
+(from `fit_batch.R`): diagonal (independent) random effects
 at the biome and flor realm level.
 One of the keys here is that the line for each biome is estimated
 based on the median values of the other predictors (fire, NPP CV,
@@ -363,7 +365,7 @@ allfits_restr_gamm4 <- readRDS("allfits_restr_gamm4.rds")
 predList <- lapply(allfits_restr_gamm4,
        predfun,
        auxvar=NULL,grpvar="biome",
-       re.form=~(1+NPP_log|biome))
+       re.form=~(1+NPP_log_sc|biome))
 set.focal <- function(n,d) { d$focal <- d[[n]]; return(d) }
 predList <- Map(set.focal,names(predList),predList)
 predFrame <- bind_rows(predList,.id="taxon")
@@ -373,7 +375,7 @@ dFrame <- bind_rows(dList,.id="taxon")
 ```
 
 ```{r predfun_biome_plot,warning=FALSE,fig.width=10,fig.height=8}
-ggplot(predFrame,aes(x=NPP_log,y=focal,colour=biome))+
+ggplot(predFrame,aes(x=NPP_log_sc,y=focal,colour=biome))+
     geom_line(lwd=1.5)+
     geom_point(data=dFrame,aes(shape=flor_realms),alpha=0.7)+
     facet_wrap(~taxon)+zmargin+
@@ -381,20 +383,20 @@ ggplot(predFrame,aes(x=NPP_log,y=focal,colour=biome))+
     theme(legend.position="bottom")
 ```
 
-Version with `Feat_log` (main effect of fire) as focal predictor:
+Version with `Feat_log_sc` (main effect of fire) as focal predictor:
 
 ```{r predList_fire}
 predList_fire <- lapply(allfits_restr_gamm4,
        predfun,
-       xvar="Feat_log",
+       xvar="Feat_log_sc",
        auxvar=NULL,grpvar="biome",
-       re.form=~(1+Feat_log|biome))
+       re.form=~(1+Feat_log_sc|biome))
 predList_fire <- Map(set.focal,names(predList_fire),predList_fire)
 predFrame_fire <- bind_rows(predList_fire,.id="taxon")
 ```
 
 ```{r predfun_biome_plot_fire,warning=FALSE,fig.width=10,fig.height=8}
-(gpbf1 <- ggplot(predFrame_fire,aes(x=Feat_log,y=focal,colour=biome))+
+(gpbf1 <- ggplot(predFrame_fire,aes(x=Feat_log_sc,y=focal,colour=biome))+
     geom_line(lwd=1.5)+
     geom_point(data=dFrame,aes(shape=flor_realms),alpha=0.7)+
     facet_wrap(~taxon)+zmargin+
@@ -437,8 +439,7 @@ ggL <- lapply(unique(tt_all$term),
 
 ```{r coefplot_plot,fig.width=8}
 do.call(plot_grid,ggL)
-
-ff <- filter(tt_all, taxon=="mbirds_log", group=="biome",term=="NPP_log")
+ff <- filter(tt_all, taxon=="mbirds_log", group=="biome",term=="NPP_log_sc")
 gg2A %+% ff
 ```
 
@@ -449,7 +450,7 @@ so the picture isn't especially pretty:
 
 ```{r coef_var}
 coefs_plants <- merge_coefs(ecoreg,best_models[[1]])
-ggplot(coefs_plants,aes(x,y,colour=NPP_log))+
+ggplot(coefs_plants,aes(x,y,colour=NPP_log_sc))+
     geom_point()+
     scale_colour_viridis()
 ```

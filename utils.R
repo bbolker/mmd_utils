@@ -599,7 +599,8 @@ remef_allran <- function(x, data,
         return(data.frame(rem,pp_ran,pp_fixed))
     }
     ## transfer scaling/transformation info from response var to partial resids
-    respvar <- deparse(formula(model, fixed.only=TRUE)[[2]])
+    ## DRY?  did we extract the formula already above?
+    respvar <- deparse(formula(x, fixed.only=TRUE)[[2]])
     rr <- data[[respvar]]
     for (a in c("scaled::center","scaled::scale","logged")) {
         attr(rem,a) <- attr(rr,a)

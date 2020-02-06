@@ -9,6 +9,7 @@
 	   - parallelize at lower level?
 - notes on scaling: copy scaling info from original response to rem (if exists)
 - figure out layout, colours for dot file? (use Rgraphviz?)
+- back-trans predictions in plotfun() ??
 
 #### high
 
