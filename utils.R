@@ -281,6 +281,10 @@ predfun <- function(model=best_model,
                                upr=cut_lwr(upr,val=pred_lower_lim))
         }
     }
+    ## assign scaling/logging info to pred values
+    pdata[[mrespvar]] <- copy_attributes(data[[mrespvar]],pdata[[mrespvar]])
+    pdata$lwr <- copy_attributes(data[[mrespvar]],pdata$lwr)
+    pdata$upr <- copy_attributes(data[[mrespvar]],pdata$upr)
     return(pdata)
 }
 
@@ -307,7 +311,7 @@ plotfun <- function(model=best_model,
                     respvar=NULL,
                     auxvar="Feat_cv_sc",
                     grpvar=NULL,
-                    ylim=if (!backtrans) c(-3,1) else NULL,
+                    ylim=NULL,
                     backtrans=FALSE,
                     lty=c(2,1,3),
                     log="",
@@ -602,9 +606,7 @@ remef_allran <- function(x, data,
     ## DRY?  did we extract the formula already above?
     respvar <- deparse(formula(x, fixed.only=TRUE)[[2]])
     rr <- data[[respvar]]
-    for (a in c("scaled::center","scaled::scale","logged")) {
-        attr(rem,a) <- attr(rr,a)
-    }
+    rem <- copy_attributes(rr,rem)
     return(rem)
 }
 
@@ -679,6 +681,13 @@ backtrans_magic <- function(x,xname,y=NULL,log=NULL) {
     return(r)
 }
 
+copy_attributes <- function(x,y,attrs=c("logged","scaled:scale","scaled:center")) {
+    for (a  in attrs) {
+        attr(y,a) <- attr(x,a)
+    }
+    return(y)
+}
+    
 ##' back-transform one or more variables
 ##' @param data  data frame to back-transform
 ##' @param xname response variable

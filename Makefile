@@ -44,8 +44,9 @@ allprofs.rds: allfits_lme4.rds
 ## requires 'dot': sudo apt-get install graphviz
 ## may need to edit /etc/ImageMagick-6/policy.xml
 ## from https://github.com/lindenb/makefile2graph
+## https://unix.stackexchange.com/questions/145402/regex-alternation-or-operator-foobar-in-gnu-or-bsd-sed
 make.dot: Makefile
-	exec make -nd MixedEffects.html | ./make2graph >make.dot
+	exec make -nd MixedEffects.html | ./make2graph | sed -E 's/red|green/gray/' >make.dot 
 
 make.png: make.dot
 	dot -Tpng make.dot >make.png

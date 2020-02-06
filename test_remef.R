@@ -1,6 +1,7 @@
+## testing backtrans, plotting, etc.
 load("ecoreg.RData")
-L <- load("bestmodels_gamm4.RData")
-L <- load("allfits_brms.RData")
+L <- load("bestmodels_gamm4.rds")
+L <- load("allfits_brms.rds")
 
 library(gamm4)
 library(tidyr)
