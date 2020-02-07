@@ -24,3 +24,7 @@ All three components are data frames. All share the columns
 
 - `MixedEffects.Rmd` is the primary document
 - there is a Makefile that describes the dependencies/build rules
+
+## misc
+
+- the `update` script will "touch" (update time stamps) on time-consuming model fits, to avoid re-making unnecessarily when (e.g.) `utils.R` is updated

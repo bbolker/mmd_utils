@@ -251,59 +251,24 @@ names(best_models)
 - `re.form` (NA) which RE to include in *predictions* (default is none)
 
 ```{r predplot,fig.width=10,fig.height=8,warning=FALSE}
-p1A <- plotfun(best_models$mamph_log) + coord_cartesian(ylim=c(0,5))+nolegend
-p1B <- plotfun(best_models$mamph_log,backtrans=TRUE)+nolegend
-p1C <- p1B+coord_cartesian(ylim=c(0,30))+nolegend
-p1D <- plotfun(best_models$mamph_log,backtrans=TRUE,log="xy")+nolegend
-cowplot::plot_grid(p1A,p1B,p1C,p1D)
-##
-##   + scale_y_log10(limits=c(0.8,110),oob=scales::squish)
-## )
-## comb_out(ggplot1,"ggplot1.html")
+bm <- best_models[[ex]]
+p1A <- plotfun(bm)+nolegend
+p1B <- plotfun(bm,backtrans=TRUE)+nolegend
+p1C <- plotfun(bm,backtrans=TRUE,log="xy")+nolegend
+cowplot::plot_grid(p1A,p1B,p1C,labels="auto")
 ```
 
-Testing back-transformation:
-```{r test_backtrans}
-ecoreg$rem1 <- remef_allran(best_models[[2]],ecoreg)
-plotfun(best_models[[2]],
-        xvar="Feat_log_sc",
-        respvar="rem1",
-        auxvar="NPP_cv_sc",
-        data=ecoreg,
-        backtrans=TRUE)
-##    scale_x_log10()
-```
-
-([dynamic alternative](./ggplot1.html))
+This plot shows (a) observed points and fit on log scale (using "fire eaten" as aux variable, i.e. lines show predictions for 0.1/0.5/0.9 quantiles of fire-eaten); (b) points and back-transformed predictions; (c) the same, but with a constrained scale; (d) back-transformed preds with scaled *axes* (`scale_*_log10()`) (scale also constrained)
 
 Partial residuals:
 
-```{r part_resid,warning=FALSE}
-## fix_NAs needed for remef() results: remef_allran does it automatically
-fix_NAs <- function(rem,model) {
-    if (!is.null(nastuff <- attr(model.frame(model),"na.action"))) {
-        return(napredict(nastuff,rem))
-    } else return(rem)
-}
-remef_plots <- lapply(best_models,
-      function(m) {
-    rem1 <- remef_allran(m,ecoreg)
-    if (length(rem1)==nrow(ecoreg)) {
-        ## if it worked ...
-        ecoreg$rem1 <- rem1
-        ## update previous plot:
-        plotfun(m,respvar="rem1",data=ecoreg)+theme(legend.position="none")+
-            scale_x_continuous(limits=c(-3,1))
-    }
-})
-do.call(grid.arrange,remef_plots)
+```{r test_backtrans}
+p1D <- plotfun(bm,respvar="partial_res")+nolegend
+p1E <- plotfun(bm,respvar="partial_res",backtrans=TRUE)+nolegend
+p1F <- plotfun(bm,respvar="partial_res",backtrans=TRUE,log="xy")+nolegend
+partial_res_plot <- cowplot::plot_grid(p1D,p1E,p1F,labels="auto")
+print(partial_res_plot)
 ```
-
-```{r ggplotly_remef,echo=FALSE,warning=FALSE}
-htmlwidgets::saveWidget(ggplotly(remef_plots[[1]]),"plants_remef.html")
-```
-
-[A dynamic version of the plants results](./plants_remef.html)
 
 ## $R^2$ across taxa
 

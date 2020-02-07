@@ -2,27 +2,28 @@
 
 ### new
 
+- divide document into backend/frontend (update table of contents?)
 - finish cleaning up pipeline
-    - redo back-trans stuff, allowing for `_log_sc`
+    - test remef/backtrans/etc.
+	- add limits via `coord_cartesian()` to `plotfun()`?
 	- allfit
 	   - re-add checkpointing
 	   - parallelize at lower level?
+	   - separate `utils.R` into model-fitting and downstream?
+- prettify 
+    - axes labels/facet etc.? (units!)
 - notes on scaling: copy scaling info from original response to rem (if exists)
 - figure out layout, colours for dot file? (use Rgraphviz?)
 - back-trans predictions in plotfun() ??
+- get everything working with brms?
 
 #### high
 
-- SD scaling for coefficient plots
-- copy stuff to Google Drive
 - restricted fits (biome-by-biome estimates): order the effects so we can look at them
-- plants data
-- prettify axes labels/facet etc.?
 - add coefficient plot to "topfour" document
 - can we explain the unconditional vs conditional stuff graphically?
       - what's the best example? feat_cv for amphibians? mammals?
-- explain/think about cv_sc vs log scaling?
-- get everything working with brms?
+
     
 ```
 library(corrplot)

@@ -7,7 +7,7 @@ output:
 ---
 
 ```{r get_utils}
-source("mmd_utils.R")
+source("utils.R")
 source("gamm4_utils.R")
 ```
 
@@ -31,16 +31,8 @@ opts_chunk$set(error=FALSE)
 
 
 ```{r source files}
-load("bestmodels_gamm4.RData")
-load("allfits_sum_lmer.RData") 
-load("allfits_sum_gamm4.RData")
-load("allfits_restr_gamm4.RData")
-```
-
-Data from Enric (includes area and lat/long coordinates):
-
-```{r get_data}
-L <- load("ecoreg.RData")
+best_models <- readRDS("bestmodels_gamm4.rds")
+ecoreg <- readRDS("ecoreg.rds")
 ecoreg <- ecoreg
 ```
 
@@ -83,9 +75,9 @@ do.call(grid.arrange,c(orig_plots[["mbirds"]],list(nrow=2)))
 ## names are the names of the variable in the data set;
 ##  the character strings are the names to put on the axis
 ## this time using log-scaled etc.
-sc_pred_names <- c(NPP_log="log NPP g*C/m2*year",
+sc_pred_names <- c(NPP_log_sc="log NPP g*C/m2*year",
                    NPP_cv_sc="scaled CV of NPP",
-                   Feat_log="log Feat (% of NPP)",
+                   Feat_log_sc="log Feat (% of NPP)",
                    Feat_cv_sc = "scaled CV of Feat")
 
 sc_taxon_names <- paste("log",taxon_names)
@@ -122,7 +114,9 @@ I generated several "lists" of plots (using `plotfun`) with the lapply function 
   
 ```{r backtrans}
 taxon <- "mbirds_log"
-plotfun(best_models[[taxon]],respvar=taxon,xvar='Feat_log',auxvar=NULL,data=ecoreg,backtrans=TRUE,log="xy")
+plotfun(best_models[[taxon]],
+        respvar=taxon,
+        xvar='Feat_log_sc',auxvar=NULL,data=ecoreg,backtrans=TRUE,log="xy")
 ```
   
 ```{r lists_of_plots,warning=FALSE}
@@ -135,18 +129,12 @@ remef_plot <- function(taxon="mbirds_log",predvar="NPP_log",
              paste(predvar,auxvar,sep=":")                                     
                                               }
     }
-    rem1 <- remef_allran(m,ecoreg,
-                         set_other="zero",
-                         keep_intercept=TRUE,
-                         fixed_keep=predvar)
-    if (length(rem1)==nrow(ecoreg)) {
-        ## if it worked ...
-        ecoreg$rem1 <- rem1
-        pp <- plotfun(m,xvar=predvar,respvar="rem1",
-                      auxvar=auxvar,data=ecoreg,ylim=NULL)+
-            theme(legend.position="none")+
-            ggtitle(title)
-    }
+    pp <- (plotfun(m,xvar=predvar,respvar="partial_res",
+                   auxvar=auxvar,data=ecoreg,
+                   backtrans=TRUE,log="xy") 
+      + theme(legend.position="none")
+      + ggtitle(title)
+    )
     return(pp)
 }
 
@@ -157,14 +145,14 @@ remef_plot <- function(taxon="mbirds_log",predvar="NPP_log",
 ## rp5: Feat_log
 ## rp6: NPP_cv_sc
 ## rp7: Feat_cv_sc
-rem_predvars <- list("NPP_log",
-                     "NPP_log",
-                     "NPP_log",
-                     "Feat_log",
-                     "Feat_log",
+rem_predvars <- list("NPP_log_sc",
+                     "NPP_log_sc",
+                     "NPP_log_sc",
+                     "Feat_log_sc",
+                     "Feat_log_sc",
                      "NPP_cv_sc",
                      "Feat_cv_sc")
-rem_auxvars <- list(NULL,"Feat_cv_sc","Feat_log",
+rem_auxvars <- list(NULL,"Feat_cv_sc","Feat_log_sc",
                     "NPP_cv_sc",NULL,NULL,NULL)
 
 ## construct all combinations of partial residuals for each taxon
@@ -172,10 +160,12 @@ remef_plots <- list()
 for (tt in names(sc_taxon_names)) { ## for each taxon
     remef_plots[[tt]] <- list()
     for (pp in seq_along(rem_predvars)) { ## for each predictor variable
+      ## cat(tt,pp,"\n")
       ## cat(tt," ",pp,"\n")
       ## generate and save the partial residuals plot
       remef_plots[[tt]][[pp]] <- remef_plot(tt,predvar=rem_predvars[[pp]],
-                                              auxvar=rem_auxvars[[pp]])
+                                            auxvar=rem_auxvars[[pp]])
+      ## print(remef_plots[[tt]][[pp]])
     }
 }
 ```
@@ -218,9 +208,11 @@ do.call(grid.arrange,
         c(remef_plots[["mbirds_log"]][c(5,2,6,7)],
                list(ncol=2)))
 ```
+
 ## Mammals
 
 ### Original + transformed values
+
 ```{r mamm_ori,warning=FALSE,fig.width=10,fig.height=5.5}
 both_plots("mmamm")
 ```     

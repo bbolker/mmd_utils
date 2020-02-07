@@ -297,6 +297,8 @@ predfun <- function(model=best_model,
 ##' @param log character string, as in \code{\link{plot.default}}, that specifies
 ##' whether to log-scale the x and y axes ("xy"), one or the other ("x" or "y"),
 ##' or neither ("")
+##' @param xlim x-limits: if missing, use range of data (not predictions/CI)
+##' @param ylim y-limits: ditto
 ##' @param ... parameters passed through to predfun
 ##' @examples
 ##' source("gamm4_utils.R")
@@ -311,35 +313,54 @@ plotfun <- function(model=best_model,
                     respvar=NULL,
                     auxvar="Feat_cv_sc",
                     grpvar=NULL,
-                    ylim=NULL,
+                    xlim = NULL,
+                    ylim = NULL,
                     backtrans=FALSE,
                     lty=c(2,1,3),
                     log="",
-                    adjust_othervar=if (respvar=="rem1") "mean" else "median",
+                    adjust_othervar=if (respvar=="partial_res") "mean" else "median",
+                    auto_label=(backtrans==TRUE),
                     ...
                     ) {
+    auto_lab_text <- c("NPP"="NPP~(g~C%.%m^{-2}%.%year)",
+                       "NPP_cv"="Interannual~CV~of~NPP",
+                       "Feat"="Fire~losses~('%'~of~NPP)",
+                       "Feat_cv"="Interannual~CV~of~fire~losses",
+                       "mbirds"="Birds~(species/km^2)",
+                       "mamph"="Amphibians~(species/km^2)",
+                       "mmamm"="Mammals~(species/km^2)",
+                       "plants"="Plants~(species/km^2)")
     require("ggplot2")
     ## response variable from model (may not be the same as respvar,
     ##  e.g. in partial residuals plots)
-    form <- formula(model)
-    if (inherits(model,"brmsfit")) {
-        form <- form$formula
+    if (!is.null(model)) {
+        form <- formula(model)
+        if (inherits(model,"brmsfit")) {
+            form <- form$formula
+        }
+        mrespvar <- deparse(form[[2]])
+        if (is.null(respvar)) respvar <- mrespvar
+        if (respvar=="partial_res") {
+            data$partial_res <- remef_allran(model,
+                                             data=data,
+                                             fixed_keep=c("(Intercept)",xvar))
+        }
+        pdata <- predfun(model,data=data,xvar=xvar,respvar=respvar,
+                         auxvar=auxvar,grpvar=grpvar,
+                         adjust_othervar=adjust_othervar,...)
     }
-    mrespvar <- deparse(form[[2]])
-    if (is.null(respvar)) respvar <- mrespvar
-    pdata <- predfun(model,data=data,xvar=xvar,respvar=respvar,
-                     auxvar=auxvar,grpvar=grpvar,
-                     adjust_othervar=adjust_othervar,...)
     if (backtrans) {
         ## back-transform response variable from model,
         ##  with CIs
-        pdata <- backtrans_var(pdata,mrespvar,data,
-                               othervars=c("lwr","upr"),log=TRUE)
-        ## change name to transformed name (e.g. minus "_log")
-        mrespvar <- attr(pdata,"transvar")
-        ## back-transform x-variable
-        pdata <- backtrans_var(pdata,xvar,data)
-        ## back-tranform respvar in data
+        if (!is.null(model)) {
+            pdata <- backtrans_var(pdata,mrespvar,data,
+                                   othervars=c("lwr","upr"),log=TRUE)
+            ## change name to transformed name (e.g. minus "_log")
+            mrespvar <- attr(pdata,"transvar")
+            ## back-transform x-variable
+            pdata <- backtrans_var(pdata,xvar,data)
+            ## back-tranform respvar in data
+        }
         data <- backtrans_var(data,respvar)
         respvar <- attr(data,"transvar")
         ## back-transform xvar in data
@@ -347,48 +368,64 @@ plotfun <- function(model=best_model,
         xvar <- attr(data,"transvar")
     }
     gg0 <- ggplot(data,aes_(x=as.name(xvar)))
-    if (!is.null(auxvar)) {
-        fauxvar <- paste0("f",auxvar)
-        ## geom_encircle(aes(group=biome_FR),expand=0)+  ## ugly ...
-        ## use model respvar for predicted values
-        gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar),
-                                               linetype=as.name(fauxvar))) +
-            geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr,
-                                        group=as.name(fauxvar)),
-                        colour=NA,fill="black",alpha=0.1)+
-            scale_linetype_manual(values=lty)
-    } else {
-        if (!is.null(grpvar)) {
+    if (!is.null(model)) {
+        if (!is.null(auxvar)) {
+            fauxvar <- paste0("f",auxvar)
+            ## geom_encircle(aes(group=biome_FR),expand=0)+  ## ugly ...
+            ## use model respvar for predicted values
             gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar),
-                                                   colour=as.name(grpvar))) +
-                         geom_ribbon(data=pdata,
-                               aes_(ymin=~lwr,ymax=~upr,
-                                    fill=as.name(grpvar)),
-                               alpha=0.1,colour=NA)
+                                                   linetype=as.name(fauxvar))) +
+                geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr,
+                                            group=as.name(fauxvar)),
+                            colour=NA,fill="black",alpha=0.1)+
+                scale_linetype_manual(values=lty)
         } else {
-            gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar))) +
-                geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr),
-                            colour=NA,fill="black",alpha=0.1)
+            if (!is.null(grpvar)) {
+                gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar),
+                                                       colour=as.name(grpvar))) +
+                    geom_ribbon(data=pdata,
+                                aes_(ymin=~lwr,ymax=~upr,
+                                     fill=as.name(grpvar)),
+                                alpha=0.1,colour=NA)
+            } else {
+                gg0 <- gg0 + geom_line(data=pdata,aes_(y=as.name(mrespvar))) +
+                    geom_ribbon(data=pdata,aes_(ymin=~lwr,ymax=~upr),
+                                colour=NA,fill="black",alpha=0.1)
+            }
         }
-    }
+    }  ## if model
     ## finish
-    ## sort out y limits, with or without log-axes
-    ysc <- if (grepl("y",log)) {
-               if (!is.null(ylim)) {
-                   scale_y_log10(limits=exp(ylim),oob=scales::squish)
-               } else {
-                   scale_y_log10()
-               }
-           } else if (!is.null(ylim)) {
-               scale_y_continuous(limits=ylim,oob=scales::squish)
-           } else {
-               scale_y_continuous()
-           }
-    gg0 <- gg0 + ysc
     if (grepl("x",log)) {
         gg0 <- gg0 + scale_x_log10()
     }
-    gg0 <- gg0 + theme(legend.box="horizontal")
+    if (grepl("y",log)) {
+        gg0 <- gg0 + scale_y_log10()
+    }
+    ## set x, y to range of *data* (not prediction/CIs) if
+    ##   missing (explicit NULL recovers entire range)
+    if (missing(xlim)) {
+        xlim <- range(data[[xvar]])
+    }
+    if (missing(ylim)) {
+        ylim <- range(data[[respvar]],na.rm=TRUE)
+    }
+    gg0 <- (gg0
+        + theme(legend.box="horizontal")
+        + coord_cartesian(xlim=xlim, ylim=ylim)
+    )
+    ## https://stackoverflow.com/questions/18237134/line-break-in-expression
+    ## (but doesn't work)
+    pfun <- function(x) {
+        p <- parse(text=x)
+        if (grepl("\n",x)) {
+            p <- as.list(p)
+        }
+        return(p)
+    }
+    if (auto_label) {
+        gg0 <- gg0 + labs(x=pfun(auto_lab_text[[xvar]]),
+                          y=pfun(auto_lab_text[[mrespvar]]))
+    }
     return(gg0 + geom_point(aes_(y=as.name(respvar),
                                 colour=~biome,shape=~flor_realms)))
 }
@@ -408,12 +445,17 @@ pkgList <- c('lme4'         ## lmer etc.
             ,'plotly'
             ,'cowplot'
             ,'ggstance'  ## horizontal geoms
+            ,'plyr'      ## manipulation -- LOAD THIS FIRST
             ,'dplyr'     ## data manipulation
             ,'tidyr'     ## ditto
             ,'tibble'    ## ditto: rownames_to_column
             ,'remef'     ## remotes::install_github('https://github.com/hohenstein/remef')
             ,'r2glmm'
-            ,'raster')
+            ,'raster'
+            ,'rgdal'
+            ,'fields'
+            ,'plotrix'
+            ,'sp')
 
 load_all_pkgs <- function() {
     if (!require("remef", quietly=TRUE)) {
@@ -546,8 +588,7 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
 ##   going to use residuals (which subtracts everything (fixed/random/smooth)
 ##   and add specified fixed effects back in ...
 remef_allran <- function(x, data,
-                         fixed_keep=NULL,
-                         keep_intercept=TRUE,
+                         fixed_keep="(Intercept)",
                          set_other=c("median","zero"),
                          na.action=na.exclude,
                          return_components=FALSE) {
@@ -573,9 +614,6 @@ remef_allran <- function(x, data,
     mm_fixed <- model.matrix(ff_fixed[-2],data)
     ## hack/remove response var (delete.response() ?)
     mm_fixed <- mm_fixed[,colnames(mm_fixed)!="y"]
-    ## want to KEEP intercept in partial residuals, so *remove*
-    ##  it from model matrix
-    if (keep_intercept) mm_fixed <- mm_fixed[,colnames(mm_fixed)!="(Intercept)"]
     cc <- coef(x$gam)
     cc <- cc[intersect(names(cc),colnames(mm_fixed))]
     if (length(fixed_keep)>0) {
