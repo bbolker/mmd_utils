@@ -5,16 +5,15 @@
 - divide document into backend/frontend (update table of contents?)
 - finish cleaning up pipeline
     - test remef/backtrans/etc.
-	- add limits via `coord_cartesian()` to `plotfun()`?
 	- allfit
 	   - re-add checkpointing
 	   - parallelize at lower level?
 	   - separate `utils.R` into model-fitting and downstream?
 - prettify 
-    - axes labels/facet etc.? (units!)
-- notes on scaling: copy scaling info from original response to rem (if exists)
-- figure out layout, colours for dot file? (use Rgraphviz?)
-- back-trans predictions in plotfun() ??
+    - switch to scale_colour_discrete_qualitative
+- topfour
+	- drop some y-axes? facet?
+- make "transformed" plots nicer? (what is the point of "transformed"? should we do one thing on non-log scales?)
 - get everything working with brms?
 
 #### high

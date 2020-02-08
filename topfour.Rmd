@@ -39,34 +39,26 @@ ecoreg <- ecoreg
 ### Plots of the original variables: 
 
 ```{r plots_ori_vars,warning=FALSE}
-## names are the names of the variable in the data set;
-##  the character strings are the names to put on the axis
-pred_names <- c(NPP_mean="NPP g*C/m2*year",
-                NPP_cv_inter="CV of NPP",
-                Feat_mean="Feat (% of NPP)",
-                Feat_cv_inter = "CV of Feat")
-taxon_names <- paste(c("Birds","Amphibians","Mammals"),
-                    "N sp/km2")
-names(taxon_names) <- c("mbirds","mamph","mmamm")
-
+taxon_names <- c("mbirds","mamph","mmamm")
+respvars <- paste0(taxon_names,"_log")
+predvars <- c("NPP_log_sc","Feat_log_sc","NPP_cv_sc","Feat_cv_sc")
 ## plot raw values of diversity for a given taxon/predictor
-do_plots_1 <- function(taxon="mbirds",pred="NPP_mean",
-                       s_names=taxon_names,
-                       p_names=pred_names) {
-    ggplot(ecoreg,aes_string(x=pred,y=taxon,colour="biome")) +
-        geom_point() +
-        theme(legend.position="none") +
-        labs(y=s_names[taxon], x=p_names[pred])
-}
+plotfun(model=NULL, respvar="mbirds_log",
+        predvar="NPP_log_sc",
+        backtrans=TRUE,log="xy")
 ## generate all combinations
 orig_plots <- list()
-for (tt in names(taxon_names)) {
-    orig_plots[[tt]] <- list()
-    for (pp in names(pred_names)) {
-      orig_plots[[tt]][[pp]] <- do_plots_1(tt,pp)
+for (i in seq_along(taxon_names)) {
+    orig_plots[[taxon_names[i]]] <- list()
+    for (pp in predvars) {
+      orig_plots[[taxon_names[i]]][[pp]] <-
+        plotfun(model=NULL,respvar=respvars[i],
+                xvar=pp,data=ecoreg,
+                backtrans=TRUE,log="xy")+
+                theme(legend.position="none")
     }
 }
-do.call(grid.arrange,c(orig_plots[["mbirds"]],list(nrow=2)))
+plot_grid(plotlist=orig_plots[["mbirds"]],align="hv",nrow=2)
 ```
 
 ### Plots of the transformed variables (log and scaled)
@@ -75,13 +67,26 @@ do.call(grid.arrange,c(orig_plots[["mbirds"]],list(nrow=2)))
 ## names are the names of the variable in the data set;
 ##  the character strings are the names to put on the axis
 ## this time using log-scaled etc.
+pred_names <- c(NPP_mean="NPP g*C/m2*year",
+                Feat_mean="Feat (% of NPP)",
+                NPP_cv_inter="CV of NPP",
+                Feat_cv_inter = "CV of Feat")
+sc_taxon_names <- paste(c("Birds","Amphibians","Mammals"),
+                      "N sp/km2")
+names(sc_taxon_names) <- paste0(c("mbirds","mamph","mmamm"),"_log")
 sc_pred_names <- c(NPP_log_sc="log NPP g*C/m2*year",
-                   NPP_cv_sc="scaled CV of NPP",
                    Feat_log_sc="log Feat (% of NPP)",
+                   NPP_cv_sc="scaled CV of NPP",
                    Feat_cv_sc = "scaled CV of Feat")
 
-sc_taxon_names <- paste("log",taxon_names)
-names(sc_taxon_names) <- paste0(names(taxon_names),"_log")
+do_plots_1 <- function(taxon="mbirds",pred="NPP_mean",
+                       s_names=taxon_names,
+                       p_names=pred_names) {
+    ggplot(ecoreg,aes_string(x=pred,y=taxon,colour="biome")) +
+        geom_point() +
+        theme(legend.position="none") +
+        labs(y=s_names[taxon], x=p_names[pred])
+}
 
 ## do all combinations
 sc_plots <- list()
@@ -96,9 +101,10 @@ for (tt in names(sc_taxon_names)) {
 
 ## for a given taxon, draw unscaled plots in row 1 and scaled plots in row 2
 both_plots <- function(taxon) {
-    do.call(grid.arrange,c(orig_plots[[taxon]],
-                           sc_plots[[paste0(taxon,"_log")]],
-                           list(nrow=2)))
+    plot_grid(plotlist=c(orig_plots[[taxon]],
+                         sc_plots[[paste0(taxon,"_log")]]),
+              nrow=2,
+              align="hv")
 }
 ```
 
@@ -224,3 +230,7 @@ do.call(grid.arrange,
         c(remef_plots[["mmamm_log"]][c(7,5,2,4)],
           list(ncol=2)))
 ```
+
+## questions
+
+* why do fitted model lines look bad? Is this just some kind of problem with the intercept? Under what circumstances do we expect this to work?  Scale (geometric mean problem), or incorrect model center, or ... ?

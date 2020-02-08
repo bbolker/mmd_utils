@@ -288,6 +288,15 @@ predfun <- function(model=best_model,
     return(pdata)
 }
 
+    auto_lab_text <- c("NPP"="NPP~(g~C%.%m^{-2}%.%year^{-1})",
+                       "NPP_cv"="Interannual~CV~of~NPP",
+                       "Feat"="Fire~loss~(prop.~NPP~year^{-1})",
+                       "Feat_cv"="Interannual~CV~of~fire~loss",
+                       "mbirds"="Birds~(species/km^2)",
+                       "mamph"="Amphibians~(species/km^2)",
+                       "mmamm"="Mammals~(species/km^2)",
+                       "plants"="Plants~(species/km^2)")
+
 ##' @param model fitted model
 ##' @param data data frame containing values
 ##' @param xvar  x-variable
@@ -320,16 +329,9 @@ plotfun <- function(model=best_model,
                     log="",
                     adjust_othervar=if (respvar=="partial_res") "mean" else "median",
                     auto_label=(backtrans==TRUE),
+                    sci10_axis=NULL,
                     ...
                     ) {
-    auto_lab_text <- c("NPP"="NPP~(g~C%.%m^{-2}%.%year)",
-                       "NPP_cv"="Interannual~CV~of~NPP",
-                       "Feat"="Fire~losses~('%'~of~NPP)",
-                       "Feat_cv"="Interannual~CV~of~fire~losses",
-                       "mbirds"="Birds~(species/km^2)",
-                       "mamph"="Amphibians~(species/km^2)",
-                       "mmamm"="Mammals~(species/km^2)",
-                       "plants"="Plants~(species/km^2)")
     require("ggplot2")
     ## response variable from model (may not be the same as respvar,
     ##  e.g. in partial residuals plots)
@@ -348,6 +350,9 @@ plotfun <- function(model=best_model,
         pdata <- predfun(model,data=data,xvar=xvar,respvar=respvar,
                          auxvar=auxvar,grpvar=grpvar,
                          adjust_othervar=adjust_othervar,...)
+    } else {
+        ## no model, must specify respvar
+        mrespvar <- respvar
     }
     if (backtrans) {
         ## back-transform response variable from model,
@@ -363,6 +368,7 @@ plotfun <- function(model=best_model,
         }
         data <- backtrans_var(data,respvar)
         respvar <- attr(data,"transvar")
+        if (is.null(model)) mrespvar <- respvar
         ## back-transform xvar in data
         data <- backtrans_var(data,xvar)
         xvar <- attr(data,"transvar")
@@ -395,16 +401,21 @@ plotfun <- function(model=best_model,
         }
     }  ## if model
     ## finish
+    labels_x <- waiver()
+    ## fanciness for appropriate default
+    if ((missing(sci10_axis) && xvar=="Feat") || isTRUE(sci10_axis)) {
+        labels_x <- scientific_10
+    }
     if (grepl("x",log)) {
-        gg0 <- gg0 + scale_x_log10()
+            gg0 <- gg0 + scale_x_log10(labels=labels_x)
     }
     if (grepl("y",log)) {
-        gg0 <- gg0 + scale_y_log10()
+            gg0 <- gg0 + scale_y_log10()
     }
     ## set x, y to range of *data* (not prediction/CIs) if
     ##   missing (explicit NULL recovers entire range)
     if (missing(xlim)) {
-        xlim <- range(data[[xvar]])
+        xlim <- range(data[[xvar]],na.rm=TRUE)
     }
     if (missing(ylim)) {
         ylim <- range(data[[respvar]],na.rm=TRUE)
@@ -759,3 +770,22 @@ fix_NAs <- function(rem,model) {
         return(napredict(nastuff,rem))
     } else return(rem)
 }
+
+scientific_10 <- function(x,suppress_ones=TRUE) {
+    s <- scales::scientific_format()(x)
+    ## substitute for exact zeros
+    s[s=="0e+00"] <- "0"
+    ## regex: [+]?  = "zero or one occurrences of '+'"
+    s2 <- gsub("e[+]?", " %*% 10^", s )
+    ## suppress 1 x
+    if (suppress_ones) s2 <- gsub("1 %\\*% +","",s2)
+    parse(text=s2)
+}
+
+## mfun <- function(x) {
+##     s <- scales::scientific_format()(x)
+##     ss <- strsplit(s,"e")
+##     base <- sapply(ss,"[[",1)
+##     pow <- sapply(ss,"[[",2)
+##     substitute(expression(x %*% 10^y),list(x=base,y=pow))
+## }

@@ -6,6 +6,8 @@ NCORES=4
 ## primary output
 MixedEffects.html: ecoreg.RData allfits_sum_lme4.rds allfits_sum_gamm4.rds bestmodels_gamm4.rds allfits_restr_gamm4.rds utils.R gamm4_utils.R make.png
 
+topfour.html: topfour.Rmd utils.R
+
 ## process 'input' data to useful version
 ecoreg.rds: full_data.RData teow_data.RData proc_data.R biome_defs.csv olson_defs.csv
 	Rscript --vanilla proc_data.R >proc_data.Rout
