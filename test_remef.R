@@ -1,13 +1,13 @@
 ## testing backtrans, plotting, etc.
-load("ecoreg.RData")
-L <- load("bestmodels_gamm4.rds")
-L <- load("allfits_brms.rds")
+ecoreg <- readRDS("ecoreg.rds")
+best_models <- readRDS("bestmodels_gamm4.rds")
+allfits_brms <- readRDS("allfits_brms.rds")
 
 library(gamm4)
 library(tidyr)
 library(dplyr)
 library(ggplot2); theme_set(theme_bw())
-source("mmd_utils.R")
+source("utils.R")
 
 bb <- best_models[["mmamm_log"]]
 head(residuals(bb$mer))
@@ -16,9 +16,9 @@ bbr <- allfits_brms[["mmamm_log"]]
 
 ## plain
 no_legend <- theme(legend.position="none")
-plotfun(bb,backtrans=TRUE,log="xy",xvar="Feat_log")
-plotfun(bb,backtrans=TRUE,xvar="Feat_log")
-plotfun(bb,xvar="Feat_log",backtrans=TRUE,log="xy")+ no_legend
+plotfun(bb,backtrans=TRUE,log="xy",xvar="Feat_log_sc")
+plotfun(bb,backtrans=TRUE,xvar="Feat_log_sc")
+plotfun(bb,xvar="Feat_log_sc",backtrans=TRUE,log="xy")+ no_legend
 ## brms prediction
 plotfun(bbr,backtrans=TRUE,log="xy",ylim=log(c(8,250)))+ no_legend
 ## all looks reasonable

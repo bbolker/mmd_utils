@@ -468,6 +468,18 @@ pkgList <- c('lme4'         ## lmer etc.
             ,'plotrix'
             ,'sp')
 
+install_all_pkgs <- function() {
+    i1 <- installed.packages()
+    git_pkgs <- "remef" ## FIXME: complete
+    to_install <- setdiff(pkgList, c(rownames(i1),git_pkgs))
+    if (length(to_install)>0) {
+        install.packages(to_install)
+    }
+    if (! "remef" %in% rownames(i1)) {
+        remotes::install_github('https://github.com/hohenstein/remef')
+    }
+}
+
 load_all_pkgs <- function() {
     if (!require("remef", quietly=TRUE)) {
         stop("install remef via remotes::install_github('https://github.com/hohenstein/remef')")

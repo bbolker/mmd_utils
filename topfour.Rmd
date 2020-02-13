@@ -44,7 +44,7 @@ respvars <- paste0(taxon_names,"_log")
 predvars <- c("NPP_log_sc","Feat_log_sc","NPP_cv_sc","Feat_cv_sc")
 ## plot raw values of diversity for a given taxon/predictor
 plotfun(model=NULL, respvar="mbirds_log",
-        predvar="NPP_log_sc",
+        xvar="NPP_log_sc",
         backtrans=TRUE,log="xy")
 ## generate all combinations
 orig_plots <- list()

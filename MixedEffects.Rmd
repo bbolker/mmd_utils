@@ -40,7 +40,7 @@ opts_chunk$set(error=FALSE)
 ```
 
 Data from Enric (includes area and lat/long coordinates):
-```{r get_data,cache=TRUE}
+```{r get_data}}
 ecoreg <- readRDS("ecoreg.rds")
 ```
 
