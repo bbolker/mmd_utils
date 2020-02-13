@@ -127,15 +127,15 @@ plotfun(best_models[[taxon]],
   
 ```{r lists_of_plots,warning=FALSE}
 ## partial residuals plots
-remef_plot <- function(taxon="mbirds_log",predvar="NPP_log",
+remef_plot <- function(taxon="mbirds_log",xvar="NPP_log",
                        auxvar=NULL,title=NULL) {
     m <- best_models[[taxon]]
     if (is.null(title)) {
-        title <- if (is.null(auxvar)) predvar else {
-             paste(predvar,auxvar,sep=":")                                     
+        title <- if (is.null(auxvar)) xvar else {
+             paste(xvar,auxvar,sep=":")                                     
                                               }
     }
-    pp <- (plotfun(m,xvar=predvar,respvar="partial_res",
+    pp <- (plotfun(m,xvar=xvar,respvar="partial_res",
                    auxvar=auxvar,data=ecoreg,
                    backtrans=TRUE,log="xy") 
       + theme(legend.position="none")
@@ -169,7 +169,7 @@ for (tt in names(sc_taxon_names)) { ## for each taxon
       ## cat(tt,pp,"\n")
       ## cat(tt," ",pp,"\n")
       ## generate and save the partial residuals plot
-      remef_plots[[tt]][[pp]] <- remef_plot(tt,predvar=rem_predvars[[pp]],
+      remef_plots[[tt]][[pp]] <- remef_plot(tt,xvar=rem_predvars[[pp]],
                                             auxvar=rem_auxvars[[pp]])
       ## print(remef_plots[[tt]][[pp]])
     }

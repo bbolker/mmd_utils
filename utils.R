@@ -179,10 +179,10 @@ predfun <- function(model=best_model,
                     re.form = NA,  ## exclude REs from prediction
                     alpha=0.05,
                     npts = 51,
-                    adjust_othervars=c("median","zero","mean")
+                    adjust_othervar="mean"
                     ) {
 
-    adjust_othervars <- match.arg(adjust_othervars)
+    adjust_othervar <- match.arg(adjust_othervar)
     if (inherits(model,"brmsfit")) {
         require(brms)
         ff <- lme4::nobars(formula(model)$formula)
@@ -223,14 +223,14 @@ predfun <- function(model=best_model,
         }
     }
     ## variables other than primary x-variable and aux (and maybe grpvar) are set to median, or zero
+    mfun <- get(adjust_othervar) ## mean, or median
     for (i in othervars) {
-        if (adjust_othervars=="zero") {
+        if (adjust_othervar=="zero") {
             ## HACK: area_km2 is used in the formula as log(...)
             if (i=="area_km2") {
-                pdata[[i]] <- median(data[[i]])
+                pdata[[i]] <- mfun(data[[i]])
             } else pdata[[i]] <- 0
         } else {
-            mfun <- get(adjust_othervars) ## mean, or median
             if (is.null(grpvar)) {
                 pdata[[i]] <- mfun(data[[i]])
             } else {
@@ -327,7 +327,7 @@ plotfun <- function(model=best_model,
                     backtrans=FALSE,
                     lty=c(2,1,3),
                     log="",
-                    adjust_othervar=if (respvar=="partial_res") "mean" else "median",
+                    adjust_othervar="mean",
                     auto_label=(backtrans==TRUE),
                     sci10_axis=NULL,
                     ...
@@ -612,7 +612,7 @@ merge_coefs <- function(data,model,id_vars=c("biome","biome_FR","flor_realms"),
 ##   and add specified fixed effects back in ...
 remef_allran <- function(x, data,
                          fixed_keep="(Intercept)",
-                         set_other=c("median","zero"),
+                         set_other=c("mean","median","zero"),
                          na.action=na.exclude,
                          return_components=FALSE) {
     set_other <- match.arg(set_other)
@@ -648,6 +648,7 @@ remef_allran <- function(x, data,
             ## set to median or mean, not zero ... ?
             for (col in setdiff(colnames(mm_fixed),fixed_keep)) {
                 mm_fixed[,col] <- switch(set_other,
+                         mean=mean(mm_fixed[,col],na.rm=TRUE),
                          median=median(mm_fixed[,col],na.rm=TRUE),
                          zero=0)                
             }
