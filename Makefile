@@ -61,6 +61,9 @@ to_gd:
 	make clean
 	rsync -auv --exclude='.git/' --exclude='*cache*' --exclude="allfits.RData" . /media/sf_Google_Drive/fire_diversity
 
+from_cw:
+	rsync -auv collywobbles.mcmaster.ca:~/Documents/projects/mmd_fire/*.rds .
+
 %.html: %.Rmd
 	Rscript -e "rmarkdown::render(\"$<\")"
 
