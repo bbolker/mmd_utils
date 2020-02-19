@@ -56,16 +56,35 @@ read_fun <- function(x) {
 biome_defs <- read_fun("biome_defs.csv")
 flor_defs <- read_fun("olson_defs.csv")
 
+load("teow_data.RData")
+## selecting only ecoregions within the dataset within the shapefile
+## keep only eco_id, area_km2, x, y 
+xy_area_teow <- data.table(subset(teow_data,ECO_ID %in% ecoreg$eco_id,
+                                  select=c(ECO_ID,area_km2,Shape_Area,x,y)))
+setnames(xy_area_teow,c('eco_id','area_km2','Shape_Area','x','y'))
+## selecting biggest 'Shape_Area' by ecoregion -- using data.table
+## rationale to select unique rows from a data table 
+## in data.table .I represents the row number in the original data set
+biggest <- xy_area_teow[xy_area_teow[, .I[Shape_Area == max(Shape_Area)], by=c('eco_id')]$V1]
+
+## https://stackoverflow.com/questions/20306853/maintain-attributes-of-data-frame-columns-after-merge
+## issues with dplyr::join() and merge() dropping attributes,
+## but OK with merge.data.table() ...
+ecoreg <- merge(data.table(ecoreg),data.table(biggest),by="eco_id")
+
 ## predictors (must be non-zero)
-predvars <- c("NPP_mean","NPP_cv_inter","Feat_mean","Feat_cv_inter")
+predvars <- c("NPP_mean","NPP_cv_inter","Feat_mean","Feat_cv_inter","area_km2")
 nm <- names(ecoreg)
 ## potential grouping variables
 grpvars <- c("biome",grep("_(realms|regions)$",nm,value=TRUE))
 ## potential response variables:
 ##  plants, plus everything starting with m (amph, birds, mamm)
 respvars <- c("plants",nm[grepl("^m",nm) & !grepl("regions$",nm)])
+spatvars <- c("x","y")
 ## Adding three additional columns that will be needed to assign the residuals to each ecoregion
-ecoreg <- ecoreg[c('eco_id','Ncells','Area',respvars,predvars,grpvars)]
+## n.b. ecoreg is still a data.table, need with=FALSE
+## https://stackoverflow.com/questions/32184252/how-to-select-columns-in-data-table-using-a-character-vector-of-certain-column-n
+ecoreg <- ecoreg[,c('eco_id','Ncells',respvars,predvars,grpvars,spatvars), with=FALSE]
 
 ## select non-zero vals
 for (v in predvars) {
@@ -135,27 +154,11 @@ if (FALSE) {
     save(teow_data,file='.../teow_data.RData')
 }
 
-load("teow_data.RData")
-## selecting only ecoregions within the dataset within the shapefile
-## keep only eco_id, area_km2, x, y 
-xy_area_teow <- data.table(subset(teow_data,ECO_ID %in% ecoreg$eco_id,
-                                  select=c(ECO_ID,area_km2,Shape_Area,x,y)))
-setnames(xy_area_teow,c('eco_id','area_km2','Shape_Area','x','y'))
-## selecting bigger 'Shape_Area' by ecoregion -- using data.table
-## rationale to select unique rows from a data table 
-## in data.table .I represents the row number in the original data set
-biggest <- xy_area_teow[xy_area_teow[, .I[Shape_Area == max(Shape_Area)], by=c('eco_id')]$V1]
-
 chksc <- function(x) {
     all(c("scaled:center","scaled:scale") %in% names(attributes(x)))
 }
 ## check that attributes are preserved
 stopifnot(chksc(ecoreg$NPP_log_sc))
-
-## https://stackoverflow.com/questions/20306853/maintain-attributes-of-data-frame-columns-after-merge
-## issues with dplyr::join() and merge() dropping attributes,
-## but OK with merge.data.table() ...
-ecoreg <- merge(data.table(ecoreg),data.table(biggest),by="eco_id")
 
 ecoreg <- as.data.frame(ecoreg)
 ## check that attributes are preserved

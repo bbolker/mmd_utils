@@ -45,7 +45,7 @@ cplot <- function(x) {
 ##   environment stuff some more, ugh)
 fit_all <- function(response="mbirds_log",
                     pars=c("NPP_log_sc","Feat_log_sc","NPP_cv_sc","Feat_cv_sc"),
-                    extra_pred_vars="log(area_km2)",
+                    extra_pred_vars="area_km2_log_sc",
                     ## possible random-effect models
                     forms=c(int="1|",  ## intercept-only
                             diag=paste("1+",paste(pars,collapse="+"),"||"),
@@ -181,7 +181,6 @@ predfun <- function(model=best_model,
                     npts = 51,
                     adjust_othervar="mean"
                     ) {
-
     adjust_othervar <- match.arg(adjust_othervar)
     if (inherits(model,"brmsfit")) {
         require(brms)
@@ -189,9 +188,9 @@ predfun <- function(model=best_model,
     } else if (inherits(model,"gamm4")) {
         require(gamm4)
         ## need x/y variables
-        ff <- formula(model,fixed.only=TRUE,drop.smooth=FALSE)
+        ff <- formula(model, fixed.only=TRUE, drop.smooth=FALSE)
     } else {
-        ff <- formula(model,fixed.only=TRUE)
+        ff <- formula(model, fixed.only=TRUE)
     }
     ## get LHS of formula
     mrespvar <- deparse(ff[[2]])
@@ -225,16 +224,19 @@ predfun <- function(model=best_model,
     ## variables other than primary x-variable and aux (and maybe grpvar) are set to median, or zero
     mfun <- get(adjust_othervar) ## mean, or median
     for (i in othervars) {
+        ok <- !is.na(data[[respvar]])
+        cur_var <- data[[i]][ok]
         if (adjust_othervar=="zero") {
             ## HACK: area_km2 is used in the formula as log(...)
+            ## no longer necessary?
             if (i=="area_km2") {
-                pdata[[i]] <- mfun(data[[i]])
+                pdata[[i]] <- mfun(cur_var)
             } else pdata[[i]] <- 0
         } else {
             if (is.null(grpvar)) {
-                pdata[[i]] <- mfun(data[[i]])
+                pdata[[i]] <- mfun(cur_var)
             } else {
-                pdata[[i]] <- aggregate(data[[i]],by=list(data[[grpvar]]),
+                pdata[[i]] <- aggregate(cur_var,by=list(data[[grpvar]][ok]),
                                         FUN=mfun)$x
             }
         }
@@ -466,7 +468,8 @@ pkgList <- c('lme4'         ## lmer etc.
             ,'rgdal'
             ,'fields'
             ,'plotrix'
-            ,'sp')
+            ,'sp'
+            ,'colorspace')
 
 install_all_pkgs <- function() {
     i1 <- installed.packages()
@@ -802,3 +805,16 @@ scientific_10 <- function(x,suppress_ones=TRUE) {
 ##     pow <- sapply(ss,"[[",2)
 ##     substitute(expression(x %*% 10^y),list(x=base,y=pow))
 ## }
+
+graphics_setup <- function() {
+    suppressPackageStartupMessages(require(ggplot2))
+    suppressPackageStartupMessages(require(colorspace))
+    theme_set(theme_bw())
+    ## utilities for cleaning up plots
+    assign("zmargin",theme(panel.spacing=grid::unit(0,"lines")),envir=.GlobalEnv)
+    assign("zmarginx",theme(panel.spacing.x=grid::unit(0,"lines")),envir=.GlobalEnv)
+    assign("nolegend",theme(legend.position="none"),envir=.GlobalEnv)
+    ## override default colors
+    assign("scale_colour_discrete",
+           function(...) scale_colour_discrete_qualitative(...),envir=.GlobalEnv)
+}

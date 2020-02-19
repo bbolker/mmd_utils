@@ -6,22 +6,27 @@ output:
     code_folding: hide
 ---
 
+**FIXME:** 
+
+- figure out amphibian offset ...
+     - what is different about amphibians? Fixed potential NA issues, I think
+	 - diversities are lower than for birds/mammals (also checked plants, they have even higher diversities and look fine)
+	 - don't see how it could be a nonlinear-averaging thing (we do all computations on the log scale and display the results on the log scale) but low-diversity could be where such effects are strongest
+	 - could it be the effects of the smooth? (i.e. value at average x,y rather than leaving out the smooth term entirely) (TEST: check whether this effect occurs for lme4 models as well)
+- two-line axis labels?
+- facet/strip redundant axes and labels?
+- prettier titles?
+  
 ```{r get_utils}
 source("utils.R")
 source("gamm4_utils.R")
 ```
 
 ```{r load_packages,message=FALSE}
-load_all_pkgs() 
-theme_set(theme_bw())
-zmargin <- theme(panel.spacing=grid::unit(0,"lines"))
-zmarginx <- theme(panel.spacing.x=grid::unit(0,"lines"))
+load_all_pkgs()
+graphics_setup()
 library('pander')  ## for tables
 sapply(pkgList,function(x) format(packageVersion(x)))
-comb_out <- function(p,fn,...) {
-    print(p)
-    htmlwidgets::saveWidget(ggplotly(p,...),fn)
-}
 ```
 
 ```{r knitr_setup,echo=FALSE}
@@ -32,14 +37,15 @@ opts_chunk$set(error=FALSE)
 
 ```{r source files}
 best_models <- readRDS("bestmodels_gamm4.rds")
+best_lmer_models <- readRDS("allfits_lme4.rds")
 ecoreg <- readRDS("ecoreg.rds")
-ecoreg <- ecoreg
 ```
 
 ### Plots of the original variables: 
 
 ```{r plots_ori_vars,warning=FALSE}
-taxon_names <- c("mbirds","mamph","mmamm")
+taxon_names <- c("mbirds","mamph","mmamm","plants")
+pretty_taxon_names <- c("Birds","Amphibians","Mammals","Plants")
 respvars <- paste0(taxon_names,"_log")
 predvars <- c("NPP_log_sc","Feat_log_sc","NPP_cv_sc","Feat_cv_sc")
 ## plot raw values of diversity for a given taxon/predictor
@@ -71,14 +77,12 @@ pred_names <- c(NPP_mean="NPP g*C/m2*year",
                 Feat_mean="Feat (% of NPP)",
                 NPP_cv_inter="CV of NPP",
                 Feat_cv_inter = "CV of Feat")
-sc_taxon_names <- paste(c("Birds","Amphibians","Mammals"),
-                      "N sp/km2")
-names(sc_taxon_names) <- paste0(c("mbirds","mamph","mmamm"),"_log")
+sc_taxon_names <- paste(pretty_taxon_names, "N sp/km2")
+names(sc_taxon_names) <- paste0(taxon_names,"_log")
 sc_pred_names <- c(NPP_log_sc="log NPP g*C/m2*year",
                    Feat_log_sc="log Feat (% of NPP)",
                    NPP_cv_sc="scaled CV of NPP",
                    Feat_cv_sc = "scaled CV of Feat")
-
 do_plots_1 <- function(taxon="mbirds",pred="NPP_mean",
                        s_names=taxon_names,
                        p_names=pred_names) {
@@ -87,7 +91,6 @@ do_plots_1 <- function(taxon="mbirds",pred="NPP_mean",
         theme(legend.position="none") +
         labs(y=s_names[taxon], x=p_names[pred])
 }
-
 ## do all combinations
 sc_plots <- list()
 for (tt in names(sc_taxon_names)) {
@@ -98,7 +101,6 @@ for (tt in names(sc_taxon_names)) {
                                            s_names=sc_taxon_names)
     }
 }
-
 ## for a given taxon, draw unscaled plots in row 1 and scaled plots in row 2
 both_plots <- function(taxon) {
     plot_grid(plotlist=c(orig_plots[[taxon]],
@@ -108,15 +110,13 @@ both_plots <- function(taxon) {
 }
 ```
 
-FIXME: y-axis names
-  
 ### Plots of residuals  
   
 I generated several "lists" of plots (using `plotfun`) with the lapply function following Ben's code. In each case, I changed the `xvar` and `auxvar` to plot the 4 top most variables for each taxa (aside from NPP)  
 
-- **Amph:** NPP_log:Feat_cv_sc, NPP_log:Feat_log, Feat_log:NPP_cv_sc, Feat_log  
-- **Birds:** Feat_log, NPP_log:Feat_cv_sc, NPP_cv_sc, Feat_cv_sc  
-- **Mammals:** Feat_cv_sc, Feat_log, NPP_log:Feat_cv_sc, Feat_log:NPP_cv_sc  
+- **Amph:** `NPP_log:Feat_cv_sc`, `NPP_log:Feat_log`, `Feat_log:NPP_cv_sc`, `Feat_log`
+- **Birds:** `Feat_log`, `NPP_log:Feat_cv_sc`, `NPP_cv_sc`, `Feat_cv_sc`
+- **Mammals:** `Feat_cv_sc`, `Feat_log`, `NPP_log:Feat_cv_sc`, `Feat_log:NPP_cv_sc`
   
 ```{r backtrans}
 taxon <- "mbirds_log"
@@ -143,7 +143,6 @@ remef_plot <- function(taxon="mbirds_log",xvar="NPP_log",
     )
     return(pp)
 }
-
 ## rp1: NPP_log
 ## rp2: NPP_log:Feat_cv_sc
 ## rp3: NPP_log:Feat_log
@@ -160,7 +159,6 @@ rem_predvars <- list("NPP_log_sc",
                      "Feat_cv_sc")
 rem_auxvars <- list(NULL,"Feat_cv_sc","Feat_log_sc",
                     "NPP_cv_sc",NULL,NULL,NULL)
-
 ## construct all combinations of partial residuals for each taxon
 remef_plots <- list()
 for (tt in names(sc_taxon_names)) { ## for each taxon
@@ -233,4 +231,20 @@ do.call(grid.arrange,
 
 ## questions
 
-* why do fitted model lines look bad? Is this just some kind of problem with the intercept? Under what circumstances do we expect this to work?  Scale (geometric mean problem), or incorrect model center, or ... ?
+* why do fitted model lines look bad for amphibians? NA values/different mean? Amphibians are indeed the only data set with any NA values ...
+
+```{r calc_na}
+nna <- colSums(is.na(ecoreg))
+nna[nna>0]
+```
+
+```{r calc_means}
+ee <- subset(ecoreg, select=c(Area,mamph_log,mbirds_log,
+                              NPP_mean,NPP_cv_inter,Feat_mean,Feat_cv_inter))
+predvars <- c("NPP_mean","NPP_cv_inter","Feat_mean","Feat_cv_inter","Area")
+rbind(amph=colMeans(ee[!is.na(ee$mamph_log),predvars]),
+      birds=colMeans(ee[!is.na(ee$mbirds_log),predvars]))
+```
+
+Means are indeed *slightly* different, but is this enough to drive the observed difference?
+
