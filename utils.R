@@ -297,7 +297,8 @@ predfun <- function(model=best_model,
                        "mbirds"="Birds~(species/km^2)",
                        "mamph"="Amphibians~(species/km^2)",
                        "mmamm"="Mammals~(species/km^2)",
-                       "plants"="Plants~(species/km^2)")
+                       "plants"="Plants~(species/km^2)",
+                       "area_km2"="Ecoregion~area~(km^{2})")
 
 ##' @param model fitted model
 ##' @param data data frame containing values
@@ -405,7 +406,8 @@ plotfun <- function(model=best_model,
     ## finish
     labels_x <- waiver()
     ## fanciness for appropriate default
-    if ((missing(sci10_axis) && xvar=="Feat") || isTRUE(sci10_axis)) {
+    if ((missing(sci10_axis) &&
+         xvar %in% c("Feat","area_km2")) || isTRUE(sci10_axis)) {
         labels_x <- scientific_10
     }
     if (grepl("x",log)) {
@@ -817,4 +819,22 @@ graphics_setup <- function() {
     ## override default colors
     assign("scale_colour_discrete",
            function(...) scale_colour_discrete_qualitative(...),envir=.GlobalEnv)
+}
+
+## partial residuals plots
+remef_plot <- function(taxon="mbirds_log",xvar="NPP_log",
+                       auxvar=NULL,title=NULL) {
+    m <- best_models[[taxon]]
+    if (is.null(title)) {
+        title <- if (is.null(auxvar)) xvar else {
+             paste(xvar,auxvar,sep=":")                                     
+                                              }
+    }
+    pp <- (plotfun(m,xvar=xvar,respvar="partial_res",
+                   auxvar=auxvar,data=ecoreg,
+                   backtrans=TRUE,log="xy") 
+      + theme(legend.position="none")
+      + ggtitle(title)
+    )
+    return(pp)
 }

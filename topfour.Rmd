@@ -126,23 +126,6 @@ plotfun(best_models[[taxon]],
 ```
   
 ```{r lists_of_plots,warning=FALSE}
-## partial residuals plots
-remef_plot <- function(taxon="mbirds_log",xvar="NPP_log",
-                       auxvar=NULL,title=NULL) {
-    m <- best_models[[taxon]]
-    if (is.null(title)) {
-        title <- if (is.null(auxvar)) xvar else {
-             paste(xvar,auxvar,sep=":")                                     
-                                              }
-    }
-    pp <- (plotfun(m,xvar=xvar,respvar="partial_res",
-                   auxvar=auxvar,data=ecoreg,
-                   backtrans=TRUE,log="xy") 
-      + theme(legend.position="none")
-      + ggtitle(title)
-    )
-    return(pp)
-}
 ## rp1: NPP_log
 ## rp2: NPP_log:Feat_cv_sc
 ## rp3: NPP_log:Feat_log

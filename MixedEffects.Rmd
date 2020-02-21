@@ -12,7 +12,7 @@ snooped model analysis. **Note** that this version is an overhaul, with some mis
 
 Some parts of the analysis have been moved into separate `.R` files: the overall workflow is
 
-![](make.png)
+![](make_ME.png)
 
 ```{r get_utils}
 source("utils.R")

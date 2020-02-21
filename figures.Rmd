@@ -1,0 +1,550 @@
+---
+title: "Final (?) figures"
+author: "Enric Batllori and Ben Bolker"
+date: "`r Sys.time()`"
+output: 
+  html_document:
+    toc: yes
+    code_folding: hide
+---
+
+## code and package dependencies
+
+![](make_figs.png)
+
+```{r get_utils,warning=FALSE,message=FALSE}
+source("utils.R")
+source("gamm4_utils.R")
+do_maps <- FALSE ## skip map drawing in absence of source files ... ?
+```
+
+```{r load_packages,message=FALSE}
+load_all_pkgs()
+graphics_setup()
+source("palettes.R")
+library('pander')  ## for tables
+sapply(pkgList,function(x) format(packageVersion(x)))
+```
+
+```{r knitr_setup,echo=FALSE}
+library(knitr)
+opts_chunk$set(error=FALSE)
+```
+
+Load data and model results
+```{r source_files}
+best_models <- readRDS("bestmodels_gamm4.rds")
+ecoreg <- readRDS("ecoreg.rds")
+load('full_data_LAND.RData') 
+## might need allfits_sum_gamm4.rds too, for profile CIs?
+```
+
+
+Additional data (includes area and lat/long coordinates)
+```{r get_data, eval=do_maps}
+# full data set (only working variables) - to use in Figure 3
+load(file='D:/Enric/8.Fire_Biodiversity/GFED4s/FireDiversityDataset_20170504.RData') # full data set with all the original vars, including fraction burned
+# computing mean values per ecoregion -- ONLY land masses
+db.land = db[land == 1,]	# selecting only land masses
+db.land$fracburn = round(db.land$tBA_mean/db.land$AREA.cell,4)	# computing "mean" fraction of area burned per cell (as opposed to burned area)
+setkey(db.land,eco_id)    # sorting the data set by ecoregion id
+db.land <- as.data.frame(db.land)
+biomes <- readOGR('D:/Enric/8.Fire_Biodiversity/official_teow/official','wwf_terr_ecos', verbose = FALSE)
+land_limits <- readOGR('D:/Enric/8.Fire_Biodiversity/official_teow','WORLD_Limits_LAND', verbose = FALSE)
+# changing the coordinate reference system
+biomes <- spTransform(biomes, CRS = CRS("+proj=eck4 +lon_0=0 +x_0=0 +y_0=0 +a=6371000 +b=6371000 +units=m +no_defs"))
+```
+  
+Computing combined indices of mean and CV for NPP and Feat. A 3-level classification of each variable is used; breakpoints = quantile c(0,0.35,0.7,1).
+
+```{r combined_data,eval=do_maps}
+#  defining levels of NPP_log and NPP_cv_sc      				
+nlev <- 3	  
+brk_npp_comb <- seq(min(ecoreg$NPP_log,na.rm=TRUE),max(ecoreg$NPP_log,na.rm=TRUE),length=nlev+1)	  
+brk_nppcv_comb <- seq(min(ecoreg$NPP_cv_sc,na.rm=TRUE),max(ecoreg$NPP_cv_sc,na.rm=TRUE),length=nlev+1)	
+## trying quantiles instead ... 	  
+brk_npp_comb <- quantile(ecoreg$NPP_log,na.rm=TRUE,c(0,0.35,0.7,1)) 
+brk_nppcv_comb <- quantile(ecoreg$NPP_cv_sc,na.rm=TRUE,c(0,0.35,0.7,1))	
+# "classifying" NPP_log and NPP_cv_sc into 10 classes
+npp_comb_class <- findInterval(ecoreg$NPP_log,brk_npp_comb,all.inside=F,rightmost.closed=TRUE)	
+nppcv_comb_class <- findInterval(ecoreg$NPP_cv_sc,brk_nppcv_comb,all.inside=F,rightmost.closed=TRUE)
+# composite NPP-NPP_cv classes, e.g. "1 1",... "3 4", ... bb <- bio_to_plot
+npp_code = paste(npp_comb_class,nppcv_comb_class)											
+# possible levels of composite NPP-NPP_cv
+# npp_lev = paste(rep(c(1:nlev),each=nlev),c(1:nlev))						
+npp_lev <- rev(paste(rep(c(1:nlev),each=nlev),c(nlev:1)))
+ll <- 1
+for(l in npp_lev){ npp_code[which(npp_code[] == l)] <- ll; ll <- ll+1 }	# replacing classes byn a numeric code, e.g. 1,...16,...
+npp_code <- as.numeric(npp_code)	  
+
+# defining levels of Feat_log and Feat_cv_sc													
+nlev = 3	  
+brk_feat_comb <- seq(min(ecoreg$Feat_log,na.rm=TRUE),max(ecoreg$Feat_log,na.rm=TRUE),length=nlev+1)	  
+brk_featcv_comb <- seq(min(ecoreg$Feat_cv_sc,na.rm=TRUE),max(ecoreg$Feat_cv_sc,na.rm=TRUE),length=nlev+1)	
+## trying quantiles instead... 
+brk_feat_comb <- quantile(ecoreg$Feat_log,na.rm=TRUE,c(0,0.35,0.7,1))	  
+brk_featcv_comb <- quantile(ecoreg$Feat_cv_sc,na.rm=TRUE,c(0,0.35,0.7,1))	
+# "classifying" NPP_log and NPP_cv_sc into 10 classes
+feat_comb_class <- findInterval(ecoreg$Feat_log,brk_feat_comb,all.inside=F,rightmost.closed=TRUE)	
+featcv_comb_class <- findInterval(ecoreg$Feat_cv_sc,brk_featcv_comb,all.inside=F,rightmost.closed=TRUE)
+# composite NPP-NPP_cv classes, e.g. "1 1",... "3 4", ... 
+feat_code = paste(feat_comb_class,featcv_comb_class)											
+# possible levels of composite NPP-NPP_cv
+# npp_lev = paste(rep(c(1:nlev),each=nlev),c(1:nlev))						
+feat_lev <- rev(paste(rep(c(1:nlev),each=nlev),c(nlev:1)))
+ll <- 1
+for(l in feat_lev){ feat_code[which(feat_code[] == l)] <- ll; ll <- ll+1 }	# replacing classes byn a numeric code, e.g. 1,...16,...
+feat_code <- as.numeric(feat_code)	  
+													
+# adding npp_code and feat_code to ecoreg
+ecoreg$NPP_code <- npp_code
+ecoreg$Feat_code <- feat_code
+# changing colnames of ecoreg to match 'ECO_ID' in the biomes shapefile
+colnames(ecoreg)[1] <- 'ECO_ID'
+# joining biomes@data with ecoreg
+bio_to_plot <- biomes
+bio_to_plot <- spTransform(bio_to_plot, CRS = CRS("+proj=eck4 +lon_0=0 +x_0=0 +y_0=0 +a=6371000 +b=6371000 +units=m +no_defs"))
+bio_to_plot@data <- join(bio_to_plot@data,ecoreg,by='ECO_ID')
+```
+
+  
+## Framework (maps, NPP, biodiversity, etc...)
+
+### Figure 1
+
+Basic maps of realms, biomes, ecoregions, biodiversity, and NPP and Feat indices of joint mean and CV.
+```{r maps,fig.width=10,fig.height=8, echo=FALSE, eval=FALSE}
+### Realms, Biomes, Ecoregions + Diversity -----------------------------------------------------
+library(fields)
+# to plot only biomes/floristic realms for the ecoregions included in land masses (bigger than Australia)
+biom_plot <- bio_to_plot[which(!is.na(bio_to_plot$x)),]
+
+# tiff('D:/Enric/8.Fire_Biodiversity/4.Mixed_Effects_Nov2019/Fig_1.tif',height=3500,width=3500,res=350,compression='lzw')
+
+# plot layout
+m_layout <- layout(matrix(c(1:9),ncol=3,nrow=3,byrow=TRUE))
+
+brk <- c(0.5,1.5,3.5,4.5,5.5,6.5,8.5)
+par(mar=c(0,0,0,0),mgp=c(0,-2,0),tck=0)
+plot(biom_plot, col=pal_realm[findInterval(as.numeric(biom_plot$REALM),brk,all.inside=F,rightmost.closed=TRUE)],border=NA)
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+axis(side=3,at=0,lab='Realms',tck=0,lty=0,cex.axis=1.6,font=2)
+
+# color breaks
+brk = seq(0.5,16.5,by=1)	
+par(mar=c(0,0,0,0),mgp=c(0,-2,0),tck=0)
+plot(biom_plot, col=pal_biome[findInterval(biom_plot$BIOME,brk,all.inside=F,rightmost.closed=TRUE)],border=NA)		
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+axis(side=3,at=0,lab='Biomes',tck=0,lty=0,cex.axis=1.6,font=2)
+
+brk <- c(sort(unique(biom_plot$ECO_ID))-0.5,max(biom_plot$ECO_ID,na.rm=TRUE)+0.5)
+set.seed(15091979)
+par(mar=c(0,0,0,0),mgp=c(0,-2,0),tck=0)
+plot(biom_plot, col=pal_ecoreg(length(brk-1))[sample(1:length(brk-1))],border=NA) #[findInterval(biom_plot$ECO_ID,brk,all.inside=F,rightmost.closed=TRUE)],border=NA)	
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+axis(side=3,at=0,lab='Ecoregions',tck=0,lty=0,cex.axis=1.6,font=2)
+
+# Amphibian richness
+brk <- seq(min(ecoreg$mamph_log,na.rm=TRUE),max(ecoreg$mamph_log,na.rm=TRUE),length=101)
+amph_class <- as.numeric(findInterval(ecoreg$mamph_log,brk,all.inside=F,rightmost.closed=TRUE))
+amph_class <- as.data.frame(cbind(ECO_ID = ecoreg$ECO_ID,amph_class = amph_class))
+bio_to_plot@data <- join(bio_to_plot@data,amph_class,by='ECO_ID')
+par(mar=c(0,0,0,0))
+plot(bio_to_plot,col=pal_div(100)[bio_to_plot$amph_class],border=NA)
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+par(mgp=c(0,-2,0)); axis(side=3,at=0,lab='Amphibian richness',cex.axis=1.6,font=2,tck=0,lty=0)
+par(bty='n'); llab <- round(range(ecoreg$mamph,na.rm=TRUE))
+image.plot(legend.only=TRUE,smallplot=c(0.08,0.15,0.3,0.42),zlim=c(brk[1],brk[101]),col=pal_div(100),axis.args=list(cex.axis=0.9, at=c(brk[1],brk[101]),lab=c(llab[1],llab[2]),mgp=c(0,0.3,0)))
+
+# Birds richness
+brk <- seq(min(ecoreg$mbirds_log,na.rm=TRUE),max(ecoreg$mbirds_log,na.rm=TRUE),length=101)
+birds_class <- as.numeric(findInterval(ecoreg$mbirds_log,brk,all.inside=F,rightmost.closed=TRUE))
+birds_class <- as.data.frame(cbind(ECO_ID = ecoreg$ECO_ID,birds_class = birds_class))
+bio_to_plot@data <- join(bio_to_plot@data,birds_class,by='ECO_ID')
+par(mar=c(0,0,0,0))
+plot(bio_to_plot,col=pal_div(100)[bio_to_plot$birds_class],border=NA)
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+par(mgp=c(0,-2,0)); axis(side=3,at=0,lab='Bird richness',cex.axis=1.6,font=2, tck=0, lty=0)
+par(bty='n'); llab <- round(range(ecoreg$mbirds,na.rm=TRUE))
+image.plot(legend.only=TRUE,smallplot=c(0.08,0.15,0.3,0.42),zlim=c(brk[1],brk[101]),col=pal_div(100),axis.args=list(cex.axis=0.9, at=c(brk[1],brk[101]),lab=c(llab[1],llab[2]),mgp=c(0,0.3,0)))
+
+# Mammal richness
+brk <- seq(min(ecoreg$mmamm_log,na.rm=TRUE),max(ecoreg$mmamm_log,na.rm=TRUE),length=101)
+mamm_class <- as.numeric(findInterval(ecoreg$mmamm_log,brk,all.inside=F,rightmost.closed=TRUE))
+mamm_class <- as.data.frame(cbind(ECO_ID = ecoreg$ECO_ID,mamm_class = mamm_class))
+bio_to_plot@data <- join(bio_to_plot@data,mamm_class,by='ECO_ID')
+par(mar=c(0,0,0,0))
+plot(bio_to_plot,col=pal_div(100)[bio_to_plot$mamm_class],border=NA)
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+par(mgp=c(0,-2,0)); axis(side=3,at=0,lab='Mammal richness',cex.axis=1.6,font=2, tck=0, lty=0)
+par(bty='n'); llab <- round(range(ecoreg$mmamm,na.rm=TRUE))
+image.plot(legend.only=TRUE,smallplot=c(0.08,0.15,0.3,0.42),zlim=c(brk[1],brk[101]),col=pal_div(100),axis.args=list(cex.axis=0.9, at=c(brk[1],brk[101]),lab=c(llab[1],llab[2]),mgp=c(0,0.3,0)))
+
+# Ecoregion area
+brk <- seq(min(log(ecoreg$area_km2+1),na.rm=TRUE),max(log(ecoreg$area_km2+1),na.rm=TRUE),length=101)
+area_class <- as.numeric(findInterval(log(ecoreg$area_km2+1),brk,all.inside=F,rightmost.closed=TRUE))
+area_class <- as.data.frame(cbind(ECO_ID = ecoreg$ECO_ID,area_class = area_class))
+bio_to_plot@data <- join(bio_to_plot@data,area_class,by='ECO_ID')
+par(mar=c(0,0,0,0))
+plot(bio_to_plot,col=pal_area(100)[bio_to_plot$area_class],border=NA)
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+par(mgp=c(0,-2,0)); axis(side=3,at=0,lab='Ecoregion area',cex.axis=1.6,font=2)
+par(bty='n')
+image.plot(legend.only=TRUE,smallplot=c(0.08,0.15,0.3,0.42),zlim=c(brk[1],brk[101]),col=pal_area(100),axis.args=list(cex.axis=1.1, at=c(brk[1],brk[101]),lab=c('small','large')))
+
+# NPP - NPP_cv plot
+r <- raster(nrow=3,ncol=3,xmn=0,xmx=4,ymn=0,ymx=4)
+r <- setValues(r,1:9)
+par(mar=c(0,0,0,0),mgp=c(0,-2,0),tck=0)
+plot(bio_to_plot,col=pal_py[bio_to_plot$NPP_code],border=pal_py[bio_to_plot$NPP_code])
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+axis(side=3,at=0,lab='NPP',tck=0,lty=0,cex.axis=1.6,font=2)
+par(new=TRUE,plt=c(0.1,0.22,0.2,0.35),mgp=c(0,0.2,0),bty='n')
+image(r,col=pal_py,breaks=seq(0.5,9.5,by=1),axes=FALSE,xlab='',ylab='')
+axis(side=2,at=c(0,3.5),lab=c('l_NPP\nl_CV','h_NPP\nl_CV'),las=2,cex.axis=0.9,lty=0)
+axis(side=4,at=c(0,3.5),lab=c('l_NPP\nh_CV','h_NPP\nh_CV'),las=2,cex.axis=0.9,lty=0)
+
+# Feat - Feat_cv plot
+par(mar=c(0,0,0,0),mgp=c(0,-2,0),tck=0)
+plot(bio_to_plot,col=pal_br[bio_to_plot$Feat_code],border=pal_br[bio_to_plot$Feat_code])
+plot(land_limits,add=TRUE,col=NA, border='grey50',lwd=0.5)
+axis(side=3,at=0,lab='Feat',tck=0,lty=0,cex.axis=1.6,font=2)
+par(new=TRUE,plt=c(0.1,0.2,0.2,0.35),mgp=c(0,0.2,0),bty='n')
+image(r,col=pal_br,breaks=seq(0.5,9.5,by=1),axes=FALSE,xlab='',ylab='')
+axis(side=2,at=c(0,3.5),lab=c('l_Feat\nl_CV','h_Feat\nl_CV'),las=2,cex.axis=0.9,lty=0)
+axis(side=4,at=c(0,3.5),lab=c('l_Feat\nh_CV','h_Feat\nh_CV'),las=2,cex.axis=0.9,lty=0)
+```
+
+
+### Figure 2
+
+Summary of NPP (green) and proportion of NPP eaten by fire (red) at the biome level. Divesity of amphibians, birds and mammals for each biome is also shown. Diversity data (number of species at 10km pixels) comes from Jenkins et al. (2013) PNAS, doi: 10.1073/pnas.1302251110. 
+```{r barplot}
+## biome_means <- ddply(ecoreg,.(biome),summarise,
+##                      NPP = mean(NPP_mean,na.rm=TRUE),
+##                      NPP_cv = mean(NPP_cv_inter,na.rm=TRUE),
+##                      Feat = mean(Feat_mean, na.rm=TRUE),
+##                      Feat_cv = mean(Feat_cv_inter,na.rm=TRUE),
+##                      amph=mean(mamph,na.rm=TRUE),
+##                      birds=mean(mbirds,na.rm=TRUE),
+##                      mamm=mean(mmamm,na.rm=TRUE))
+## biome_means$FNPP <- biome_means$NPP*biome_means$Feat
+
+trans_names <- function(x) {
+  gsub("^m","m",
+       gsub("(_mean|_inter)","",x))
+}
+biome_means <- (ecoreg 
+  %>% group_by(biome)
+  %>% summarise_at(c("NPP_mean","NPP_cv_inter",
+                     "Feat_mean","Feat_cv_inter",
+                     "mamph","mbirds","mmamm"),
+                   ~mean(.,na.rm=TRUE))
+  %>% setNames(trans_names(names(.)))
+  %>% mutate(FNPP=NPP*Feat)
+)
+
+
+# option 2 - computing FNPP at the ecoreg level and then computing biome means -- probably more correct?
+full_data$FNPP <- full_data$NPP_mean*full_data$Feat_mean
+bb <- ddply(full_data,.(eco_id),summarise, biome = unique(biome), area = sum(AREA_cell), NPP = mean(NPP_mean,na.rm=TRUE), NPP_cv = mean(NPP_cv_inter,na.rm=TRUE), Feat = mean(Feat_mean, na.rm=TRUE), Feat_median = median(Feat_mean, na.rm=TRUE), Feat_cv = mean(Feat_cv_inter,na.rm=TRUE), FNPP = mean(FNPP, na.rm=TRUE), amph=mean(amph,na.rm=TRUE), birds=mean(birds,na.rm=TRUE), mamm=mean(mamm,na.rm=TRUE))
+# removing data with no biome assigned... 
+bb <- bb[-(which(is.na(bb$biome))),]
+
+bm <- ddply(bb,.(biome),summarise, NPP = mean(NPP,na.rm=TRUE), NPP_cv = mean(NPP_cv,na.rm=TRUE), Feat = mean(Feat, na.rm=TRUE), Feat_cv = mean(Feat_cv,na.rm=TRUE), FNPP = mean(FNPP, na.rm=TRUE), amph=mean(amph,na.rm=TRUE), birds=mean(birds,na.rm=TRUE), mamm=mean(mamm,na.rm=TRUE))
+
+# sorting the data set by NPP levels
+biome_means <- biome_means[order(biome_means$NPP),]
+bm <- bm[order(bm$NPP),]
+
+# scaled variables !! scaling is done together for NPP and FNPP -- patterns are the same than for raw data
+bm$NPP_sc <- scale(c(bm$NPP,bm$FNPP))[1:14]
+bm$NPP_sc2 <- bm$NPP_sc + abs(min(scale(c(bm$NPP,bm$FNPP))))
+bm$FNPP_sc <- scale(c(bm$NPP,bm$FNPP))[15:28]
+bm$FNPP_sc2 <- bm$FNPP_sc + abs(min(scale(c(bm$NPP,bm$FNPP))))
+# log variables
+bm$NPP_log <- log(bm$NPP)
+bm$FNPP_log <- log(bm$FNPP)
+
+biome_name <- c('TrMF','TrDF','TrCF','TeBF','TeCF','BorF','TrG','TeG','FlG','MoG','Tund','MedF','Des','Mang','Lak','R&I')
+bm$biomeshort <- bm$biome
+levels(bm$biomeshort) <- biome_name
+
+## "RAW" values plot
+# NPP barplot
+par(plt=c(0.08,0.38,0.15,0.9),mgp=c(1.7,0.6,0))
+bp <- barplot(bm$NPP,horiz=TRUE,beside=F,col=c('darkolivegreen3'),border=NA,names.arg=bm$biomeshort,las=2,main = 'NPP',xlab='g C / m2 * year',xaxt='n')
+axis(side=1, tck=-0.015)
+# Feat plot (fraction of NPP eaten by fire, as %)
+par(new=TRUE,plt=c(0.40,0.55,0.15,0.9), mgp=c(1.7,0.6,0))
+bp <- barplot(round(bm$Feat * 100,2),horiz=TRUE,beside=F,col=c('orangered'),border=NA,las=2,main = 'Fire loss',xlab='% of NPP',xaxt='n')
+axis(side=1, tck=-0.015)
+# Amph
+par(new=TRUE,plt=c(0.57,0.68,0.15,0.9))
+bp <- barplot(bm$amph,horiz=TRUE,beside=F,col=c('grey80'),border=NA,las=2, xlim=c(0,50),main='Amph',xlab='',xaxt='n')
+axis(side=1,at=seq(0,50,by=25),lab=seq(0,50,by=25), tck=-0.015)
+# Birds
+par(new=TRUE,plt=c(0.71,0.82,0.15,0.9))
+bp <- barplot(bm$birds,horiz=TRUE,beside=F,col=c('grey60'),border=NA,las=2, xlim=c(0,400),main='Birds',xlab='N species / 10km^2',xaxt='n')
+axis(side=1,at=seq(0,400,by=100),lab=seq(0,400,by=100), tck=-0.015)
+# Mamm
+par(new=TRUE,plt=c(0.85,0.96,0.15,0.9))
+bp <- barplot(bm$mamm,horiz=TRUE,beside=F,col=c('grey40'),border=NA,las=2, xlim=c(0,150),main='Mamm',xlab='',xaxt='n')
+axis(side=1,at=seq(0,150,by=50),lab=seq(0,150,by=50), tck=-0.015)
+```
+
+  
+## Model results (Rsq of model predictors)
+
+### Figure 3
+
+Partial R square values of all model predictors for each taxa. The upper plot displays Rsq values of the Model and NPP; the area highlighted in grey in the upper plot is the one shown in the bottom plot with the rest of predictors.
+```{r model_coefs}
+# Model coefficients' plot from Ben (MixedEfefcts.Rmd from 20200219)
+# adding best_models[1:3] selection to avoid plotting model results for plants
+
+all_rsq <- bind_rows(lapply(best_models[1:3],
+                            function(x) r2beta(x$mer)),.id="taxon") %>%
+    mutate(Effect=as.character(Effect),
+           Effect=gsub("^X","",Effect),
+           Effect=reorder(factor(Effect),Rsq))           
+
+rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
+    geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
+                   position=position_dodgev(height=0.5))+
+    scale_colour_brewer(palette="Dark2")+
+    ## scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
+    labs(y="")
+
+# print(rsqplot) # use this to visualize R^2 in a single plot
+
+## Two panels plot
+all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP_log_sc","log(area_km2)"))
+r1 <- rsqplot %+% subset(all_rsq,upper)
+r2 <- rsqplot %+% subset(all_rsq,!upper)
+## facet_wrap doesn't have 'space' argument ...
+## rsqplot %+% all_rsq +facet_wrap(~upper,ncol=1,scales="free")
+## facet_grid doesn't use axes for all facets ...
+## rsqplot %+% all_rsq +facet_grid(upper~.,scales="free",space="free") +
+##    theme(strip.text=element_blank())
+## https://cran.r-project.org/web/packages/cowplot/vignettes/shared_legends.html
+L <- get_legend(r1)
+## stack facets
+p1 <- plot_grid(r1 + xlim(0,0.75)  #W adding manual xlim to set the min value to 0
+                +labs(x="")
+                ## rectangle indicating scale of lower box w/in upper
+                + geom_rect(xmin=0,xmax=0.125,ymin=-Inf,ymax=Inf,
+                            fill="black",
+                            colour=NA,alpha=0.02)
+                + theme(legend.position="none"),
+                r2+theme(legend.position="none")+xlab(expression("R" ^2)),  # adding expression to set R^2 in xlabels
+                ncol=1,
+                align="v",rel_heights=c(0.3,0.7),axis="b")
+## add legend
+plot_grid(p1,L,rel_widths=c(2,0.4))
+
+```
+
+
+
+```{r plots_ori_vars,warning=FALSE,echo=FALSE}
+### Plots of the original variables
+taxon_names <- c("mbirds","mamph","mmamm")
+respvars <- paste0(taxon_names,"_log")
+predvars <- c("NPP_log_sc","Feat_log_sc","NPP_cv_sc","Feat_cv_sc","area_km2_log_sc")
+## plot raw values of diversity for a given taxon/predictor
+## generate all combinations
+orig_plots <- list()
+for (i in seq_along(taxon_names)) {
+    orig_plots[[taxon_names[i]]] <- list()
+    for (pp in predvars) {
+      orig_plots[[taxon_names[i]]][[pp]] <-
+        plotfun(model=NULL,respvar=respvars[i],
+                xvar=pp,data=ecoreg,
+                backtrans=TRUE,log="xy")+
+                theme(legend.position="none")
+    }
+}
+orig_plots_nolog <- list()
+for (i in seq_along(taxon_names)) {
+    orig_plots_nolog[[taxon_names[i]]] <- list()
+    for (pp in predvars) {
+      orig_plots_nolog[[taxon_names[i]]][[pp]] <-
+        plotfun(model=NULL,respvar=respvars[i],
+                xvar=pp,data=ecoreg,
+                backtrans=TRUE) + # ,log="xy")+
+                theme(legend.position="none")
+    }
+}
+
+
+#### Computing and plotting partial residuals
+sc_taxon_names <- paste(c("Birds","Amphibians","Mammals"),
+                      "N sp/km2")
+names(sc_taxon_names) <- paste0(c("mbirds","mamph","mmamm"),"_log")
+sc_pred_names <- c(NPP_log_sc="log NPP g*C/m2*year",
+                   Feat_log_sc="log Feat (% of NPP)",
+                   NPP_cv_sc="scaled CV of NPP",
+                   Feat_cv_sc = "scaled CV of Feat")
+
+## partial residuals plots
+remef_plot <- function(taxon="mbirds_log",xvar="NPP_log",
+                       auxvar=NULL,title=NULL) {
+    m <- best_models[[taxon]]
+    if (is.null(title)) {
+        title <- if (is.null(auxvar)) xvar else {
+             paste(xvar,auxvar,sep=":")                                     
+                                              }
+    }
+    pp <- (plotfun(m,xvar=xvar,respvar="partial_res",
+                   auxvar=auxvar,data=ecoreg,
+                   backtrans=TRUE,log="xy") 
+      + theme(legend.position="none")
+      + ggtitle(title)
+    )
+    return(pp)
+}
+remef_plot_nolog <- function(taxon="mbirds_log",xvar="NPP_log",
+                       auxvar=NULL,title=NULL) {
+    m <- best_models[[taxon]]
+    if (is.null(title)) {
+        title <- if (is.null(auxvar)) xvar else {
+             paste(xvar,auxvar,sep=":")                                     
+                                              }
+    }
+    pp <- (plotfun(m,xvar=xvar,respvar="partial_res",
+                   auxvar=auxvar,data=ecoreg,
+                   backtrans=TRUE) #,log="xy") 
+      + theme(legend.position="none")
+      + ggtitle(title)
+    )
+    return(pp)
+}
+## rp1: NPP_log
+## rp2: NPP_log:Feat_cv_sc
+## rp3: NPP_log:Feat_log
+## rp4: Feat_log:NPP_cv_sc
+## rp5: Feat_log
+## rp6: NPP_cv_sc
+## rp7: Feat_cv_sc
+rem_predvars <- list("NPP_log_sc",
+                     "NPP_log_sc",
+                     "NPP_log_sc",
+                     "Feat_log_sc",
+                     "Feat_log_sc",
+                     "NPP_cv_sc",
+                     "Feat_cv_sc",
+                     "area_km2_log_sc")
+rem_auxvars <- list(NULL,"Feat_cv_sc","Feat_log_sc",
+                    "NPP_cv_sc",NULL,NULL,NULL,NULL)
+## construct all combinations of partial residuals for each taxon
+remef_plots <- list()
+for (tt in names(sc_taxon_names)) { ## for each taxon
+    remef_plots[[tt]] <- list()
+    for (pp in seq_along(rem_predvars)) { ## for each predictor variable
+      ## cat(tt,pp,"\n")
+      ## cat(tt," ",pp,"\n")
+      ## generate and save the partial residuals plot
+      remef_plots[[tt]][[pp]] <- remef_plot(tt,xvar=rem_predvars[[pp]],
+                                            auxvar=rem_auxvars[[pp]])
+      ## print(remef_plots[[tt]][[pp]])
+    }
+}
+remef_plots_nolog <- list()
+for (tt in names(sc_taxon_names)) { ## for each taxon
+    remef_plots_nolog[[tt]] <- list()
+    for (pp in seq_along(rem_predvars)) { ## for each predictor variable
+      ## cat(tt,pp,"\n")
+      ## cat(tt," ",pp,"\n")
+      ## generate and save the partial residuals plot
+      remef_plots_nolog[[tt]][[pp]] <- remef_plot_nolog(tt,xvar=rem_predvars[[pp]],
+                                            auxvar=rem_auxvars[[pp]])
+      ## print(remef_plots[[tt]][[pp]])
+    }
+}
+```
+  
+  
+## Productivity part of the story
+
+### Figure 4.1: original variables, non-transformed
+
+Relationship between NPP, interannual CV of NPP, and ecoregion area and the diversity of amphibians, birds, and mammals.  
+```{r NPP_part1_notrans,warning=FALSE,fig.width=10,fig.height=8}
+do.call(grid.arrange,
+        c(orig_plots_nolog[["mamph"]][c(1,3,5)],orig_plots_nolog[["mbirds"]][c(1,3,5)],orig_plots_nolog[["mmamm"]][c(1,3,5)],
+          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
+          list(ncol=3)))
+```
+  
+### Figure 4.2: original variables, transformed
+
+```{r NPP_part1_trans,warning=FALSE,fig.width=10,fig.height=8}
+do.call(grid.arrange,
+        c(orig_plots[["mamph"]][c(1,3,5)],orig_plots[["mbirds"]][c(1,3,5)],orig_plots[["mmamm"]][c(1,3,5)],
+          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
+          list(ncol=3)))
+```
+
+### Figure 4.3: Partial residuals, non-transformed vars
+
+Effects of NPP, interannual CV of NPP, and ecoregion area on the diversity of amphibians, birds, and mammals. Plots show partial model residuals and, thus, display the effect of these three variables without the influence of the rest of variables included in the model (or, when the effects of other variables are removed). 
+```{r NPP_part2_notrans,warning=FALSE,fig.width=10,fig.height=8}
+do.call(grid.arrange,
+        c(remef_plots_nolog[["mamph_log"]][c(1,6,8)],c(remef_plots_nolog[["mbirds_log"]][c(1,6,8)]),c(remef_plots_nolog[["mmamm_log"]][c(1,6,8)]),
+          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
+          list(ncol=3)))
+```
+
+### Figure 4.4: Partial residuals, transformed vars
+
+```{r NPP_part2_trans,warning=FALSE,fig.width=10,fig.height=8}
+do.call(grid.arrange,
+        c(remef_plots[["mamph_log"]][c(1,6,8)],c(remef_plots[["mbirds_log"]][c(1,6,8)]),c(remef_plots[["mmamm_log"]][c(1,6,8)]),
+          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
+          list(ncol=3)))
+```
+
+## Fire part of the story
+
+### Figure 5.1: Effects of fire eaten etc., non-transformed
+
+```{r fire_part_notrans,warning=FALSE,fig.width=10,fig.height=8}
+do.call(grid.arrange,
+        c(remef_plots_nolog[["mamph_log"]][c(5,7,3,2)],c(remef_plots_nolog[["mbirds_log"]][c(5,7,3,2)]),c(remef_plots_nolog[["mmamm_log"]][c(5,7,3,2)]),
+          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
+          list(ncol=4)))
+```
+  
+### Figure 5.2: Effects of fire eaten etc., transformed
+
+```{r fire_part_trans,warning=FALSE,fig.width=10,fig.height=8}
+do.call(grid.arrange,
+        c(remef_plots[["mamph_log"]][c(5,7,3,2)],c(remef_plots[["mbirds_log"]][c(5,7,3,2)]),c(remef_plots[["mmamm_log"]][c(5,7,3,2)]),
+          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
+          list(ncol=4)))
+```
+
+## coefficient plot
+
+
+```{r coef_plots,fig.width=8,fig.height=4}
+coefs <- (best_models[1:3] ## leave out plants
+  %>% purrr::map_dfr(tidy,effects="fixed",.id="taxon",
+                     conf.int=TRUE)
+  ## n.b. these are Wald intervals, might need to go back to gamm4_res
+  ##  if we want profile CIs
+  %>% mutate(term=reorder(term,estimate))
+  %>% rename(lwr="conf.low",upr="conf.high")
+  %>% mutate(sig=(lwr*upr)>0)
+  %>% filter(term!="(Intercept)")
+)
+ggplot(coefs,aes(estimate,term,colour=sig))+
+    geom_linerangeh(aes(xmin=lwr,xmax=upr))+
+    geom_point(fill="white")+
+    geom_vline(xintercept=0,lty=2)+
+    facet_wrap(~taxon,scale="free_x",nrow=1)+
+    labs(x="",y="")+
+    scale_colour_manual(values=c("black","orange"),guide=FALSE)+
+    zmargin
+```

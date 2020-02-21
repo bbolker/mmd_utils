@@ -4,9 +4,11 @@ NCORES=4
 	Rscript --vanilla $< $@
 
 ## primary output
-MixedEffects.html: ecoreg.RData allfits_sum_lme4.rds allfits_sum_gamm4.rds bestmodels_gamm4.rds allfits_restr_gamm4.rds utils.R gamm4_utils.R make.png
+MixedEffects.html: ecoreg.rds allfits_sum_lme4.rds allfits_sum_gamm4.rds bestmodels_gamm4.rds allfits_restr_gamm4.rds utils.R gamm4_utils.R make_ME.png
 
 topfour.html: topfour.Rmd utils.R
+
+figures.html: figures.Rmd utils.R gamm4_utils.R palettes.R full_data_LAND.RData bestmodels_gamm4.rds make_figs.png
 
 ## process 'input' data to useful version
 ecoreg.rds: full_data.RData teow_data.RData proc_data.R biome_defs.csv olson_defs.csv
@@ -35,7 +37,10 @@ allfits_sum_lme4.rds: allfits_lme4.rds sum_batch.R
 allfits_sum_brms.rds: allfits_brms.rds sum_batch.R
 	Rscript --vanilla sum_batch.R brms > allfits_sum_brms.Rout
 
-bestmodels_gamm4.rds allfits_sum_gamm4.rds: allfits_gamm4.rds sum_batch.R
+allfits_sum_gamm4.rds: allfits_gamm4.rds sum_batch.R
+	Rscript --vanilla sum_batch.R gamm4 > allfits_sum_gamm4.Rout
+
+bestmodels_gamm4.rds: allfits_gamm4.rds sum_batch.R
 	Rscript --vanilla sum_batch.R gamm4 > allfits_sum_gamm4.Rout
 
 ## testfits.rds:         $(sumfiles) sum_batch.Rout
@@ -47,11 +52,11 @@ allprofs.rds: allfits_lme4.rds
 ## may need to edit /etc/ImageMagick-6/policy.xml
 ## from https://github.com/lindenb/makefile2graph
 ## https://unix.stackexchange.com/questions/145402/regex-alternation-or-operator-foobar-in-gnu-or-bsd-sed
-make.dot: Makefile
-	exec make -nd MixedEffects.html | ./make2graph | sed -E 's/red|green/gray/' >make.dot 
+make_ME.dot: Makefile
+	exec make -nd MixedEffects.html | ./make2graph | sed -E 's/red|green/gray/' >make_ME.dot 
 
-make.png: make.dot
-	dot -Tpng make.dot >make.png
+make_figs.dot: Makefile
+	exec make -nd figures.html | ./make2graph | sed -E 's/red|green/gray/' >make_figs.dot 
 
 clean:
 	rm -f *~ .#* .RData
@@ -62,8 +67,10 @@ to_gd:
 	rsync -auv --exclude='.git/' --exclude='*cache*' --exclude="allfits.RData" . /media/sf_Google_Drive/fire_diversity
 
 from_cw:
-	rsync -auv collywobbles.mcmaster.ca:~/Documents/projects/mmd_fire/*.rds .
+	rsync -auvz collywobbles.mcmaster.ca:~/Documents/projects/mmd_fire/*.rds .
 
 %.html: %.Rmd
 	Rscript -e "rmarkdown::render(\"$<\")"
 
+make_%.png: make_%.dot
+	dot -Tpng $< >$@
