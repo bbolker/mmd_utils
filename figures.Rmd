@@ -8,7 +8,7 @@ output:
     code_folding: hide
 ---
 
-## code and package dependencies
+## Code and package dependencies
 
 ![](make_figs.png)
 
@@ -18,7 +18,7 @@ source("gamm4_utils.R")
 do_maps <- FALSE ## skip map drawing in absence of source files ... ?
 ```
 
-```{r load_packages,message=FALSE}
+```{r load_packages,message=FALSE,warning=FALSE}
 load_all_pkgs()
 graphics_setup()
 source("palettes.R")
@@ -26,7 +26,7 @@ library('pander')  ## for tables
 sapply(pkgList,function(x) format(packageVersion(x)))
 ```
 
-```{r knitr_setup,echo=FALSE}
+```{r knitr_setup,echo=FALSE,warning=FALSE}
 library(knitr)
 opts_chunk$set(error=FALSE)
 ```
@@ -38,7 +38,6 @@ ecoreg <- readRDS("ecoreg.rds")
 load('full_data_LAND.RData') 
 ## might need allfits_sum_gamm4.rds too, for profile CIs?
 ```
-
 
 Additional data (includes area and lat/long coordinates)
 ```{r get_data, eval=do_maps}
@@ -113,7 +112,7 @@ bio_to_plot@data <- join(bio_to_plot@data,ecoreg,by='ECO_ID')
 ### Figure 1
 
 Basic maps of realms, biomes, ecoregions, biodiversity, and NPP and Feat indices of joint mean and CV.
-```{r maps,fig.width=10,fig.height=8, echo=FALSE, eval=FALSE}
+```{r maps,fig.width=10,fig.height=8, echo=FALSE, eval=do_maps}
 ### Realms, Biomes, Ecoregions + Diversity -----------------------------------------------------
 library(fields)
 # to plot only biomes/floristic realms for the ecoregions included in land masses (bigger than Australia)
@@ -215,6 +214,7 @@ axis(side=2,at=c(0,3.5),lab=c('l_Feat\nl_CV','h_Feat\nl_CV'),las=2,cex.axis=0.9,
 axis(side=4,at=c(0,3.5),lab=c('l_Feat\nh_CV','h_Feat\nh_CV'),las=2,cex.axis=0.9,lty=0)
 ```
 
+![](Fig_1.jpg)
 
 ### Figure 2
 
@@ -298,7 +298,8 @@ axis(side=1,at=seq(0,150,by=50),lab=seq(0,150,by=50), tck=-0.015)
 
 ### Figure 3
 
-Partial R square values of all model predictors for each taxa. The upper plot displays Rsq values of the Model and NPP; the area highlighted in grey in the upper plot is the one shown in the bottom plot with the rest of predictors.
+**(a)** Partial R square values of all model predictors for each taxa. The upper plot displays Rsq values of the Model and NPP; the area highlighted in grey in the upper plot is the one shown in the bottom plot with the rest of predictors.  
+**(b)** Coefficient plot.
 ```{r model_coefs}
 # Model coefficients' plot from Ben (MixedEfefcts.Rmd from 20200219)
 # adding best_models[1:3] selection to avoid plotting model results for plants
@@ -340,9 +341,33 @@ p1 <- plot_grid(r1 + xlim(0,0.75)  #W adding manual xlim to set the min value to
                 r2+theme(legend.position="none")+xlab(expression("R" ^2)),  # adding expression to set R^2 in xlabels
                 ncol=1,
                 align="v",rel_heights=c(0.3,0.7),axis="b")
-## add legend
-plot_grid(p1,L,rel_widths=c(2,0.4))
 
+## Original Rsq plot + add legend
+# plot_grid(p1,L,rel_widths=c(2,0.4))
+
+
+## coefficient plot
+coefs <- (best_models[1:3] ## leave out plants
+  %>% purrr::map_dfr(tidy,effects="fixed",.id="taxon",
+                     conf.int=TRUE)
+  ## n.b. these are Wald intervals, might need to go back to gamm4_res
+  ##  if we want profile CIs
+  %>% mutate(term=reorder(term,estimate))
+  %>% rename(lwr="conf.low",upr="conf.high")
+  %>% mutate(sig=(lwr*upr)>0)
+  %>% filter(term!="(Intercept)")
+)
+p2 <- ggplot(coefs,aes(estimate,term,colour=sig))+
+    geom_linerangeh(aes(xmin=lwr,xmax=upr))+
+    geom_point(fill="white")+
+    geom_vline(xintercept=0,lty=2)+
+    facet_wrap(~taxon,scale="free_x",nrow=1)+
+    labs(x="",y="")+
+    scale_colour_manual(values=c("black","orange"),guide=FALSE)+
+    zmargin
+
+## Combined Rsq + coefficient plot
+plot_grid(p1,L,p2,rel_widths=c(2,0.4,2),rel_heights=c(2,1.5),labels=c('(a)','','(b)'))
 ```
 
 
@@ -525,26 +550,4 @@ do.call(grid.arrange,
           list(ncol=4)))
 ```
 
-## coefficient plot
 
-
-```{r coef_plots,fig.width=8,fig.height=4}
-coefs <- (best_models[1:3] ## leave out plants
-  %>% purrr::map_dfr(tidy,effects="fixed",.id="taxon",
-                     conf.int=TRUE)
-  ## n.b. these are Wald intervals, might need to go back to gamm4_res
-  ##  if we want profile CIs
-  %>% mutate(term=reorder(term,estimate))
-  %>% rename(lwr="conf.low",upr="conf.high")
-  %>% mutate(sig=(lwr*upr)>0)
-  %>% filter(term!="(Intercept)")
-)
-ggplot(coefs,aes(estimate,term,colour=sig))+
-    geom_linerangeh(aes(xmin=lwr,xmax=upr))+
-    geom_point(fill="white")+
-    geom_vline(xintercept=0,lty=2)+
-    facet_wrap(~taxon,scale="free_x",nrow=1)+
-    labs(x="",y="")+
-    scale_colour_manual(values=c("black","orange"),guide=FALSE)+
-    zmargin
-```
