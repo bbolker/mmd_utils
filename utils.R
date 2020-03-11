@@ -180,6 +180,7 @@ predfun <- function(model=best_model,
                     alpha=0.05,
                     npts = 51,
                     adjust_othervar="mean"
+                    exclude_fire=FALSE,
                     ) {
     adjust_othervar <- match.arg(adjust_othervar)
     if (inherits(model,"brmsfit")) {
@@ -220,6 +221,10 @@ predfun <- function(model=best_model,
             pdata <- data.frame(seq(min(xx),max(xx),length=npts))
             names(pdata) <- xvar
         }
+    }
+    if (exclude_fire) {
+        ## set fire to a minimum value (not zero!)
+        ## Fire_cv to ???  (zero?)
     }
     ## variables other than primary x-variable and aux (and maybe grpvar) are set to median, or zero
     mfun <- get(adjust_othervar) ## mean, or median
