@@ -15,22 +15,22 @@ ecoreg.rds: full_data.RData teow_data.RData proc_data.R biome_defs.csv olson_def
 	Rscript --vanilla proc_data.R >proc_data.Rout
 
 ## all combinations of fits
-allfits_lme4.rds: ecoreg.rds utils.R fit_batch.R
+allfits_lme4.rds: ecoreg.rds fit_utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R lme4 >allfits_lme4.Rout
 
-allfits_gamm4.rds: ecoreg.rds utils.R fit_batch.R
+allfits_gamm4.rds: ecoreg.rds fit_utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R gamm4 FALSE $(NCORES) >allfits_gamm4.Rout
 
-allfits_brms.rds: ecoreg.rds utils.R fit_batch.R
+allfits_brms.rds: ecoreg.rds fit_utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R brms >allfits_brms.Rout
 
 ## biome=diag, flor_realm=diag fits
-allfits_restr_gamm4.rds: ecoreg.rds utils.R fit_batch.R
+allfits_restr_gamm4.rds: ecoreg.rds fit_utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R gamm4 TRUE > allfits_restr_gamm4.Rout
 
 sumfiles = sum_batch.R utils.R ecoreg.rds allfits_gamm4.rds allfits_lme4.rds
 
-## summaries. DRY ???
+## summaries. DRY ??? do these include all dependencies?
 allfits_sum_lme4.rds: allfits_lme4.rds sum_batch.R
 	Rscript --vanilla sum_batch.R lme4 > allfits_sum_lme4.Rout
 
@@ -74,3 +74,7 @@ from_cw:
 
 make_%.png: make_%.dot
 	dot -Tpng $< >$@
+
+## update rds files so we don't have to re-make
+update: fit_utils.R
+	touch *.rds

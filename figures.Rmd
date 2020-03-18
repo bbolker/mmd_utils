@@ -112,6 +112,7 @@ bio_to_plot@data <- join(bio_to_plot@data,ecoreg,by='ECO_ID')
 ### Figure 1
 
 Basic maps of realms, biomes, ecoregions, biodiversity, and NPP and Feat indices of joint mean and CV.
+
 ```{r maps,fig.width=10,fig.height=8, echo=FALSE, eval=do_maps}
 ### Realms, Biomes, Ecoregions + Diversity -----------------------------------------------------
 library(fields)
