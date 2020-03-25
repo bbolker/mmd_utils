@@ -1,4 +1,6 @@
 args <- commandArgs(trailingOnly=TRUE)
+## arguments: platform, restricted fit?, num cores, include plants?, exclude fir?
+args <- c("gamm4",FALSE,1,TRUE,TRUE)
 print(args)
 ## 'lme4', 'gamm4', 'brms'
 platform <- if (length(args)<1) "lme4" else args[1]
@@ -12,30 +14,41 @@ cores <- if (length(args)<3) {
          } else as.numeric(args[3])
 ## include plants?
 include_plants <- if (length(args)<4) TRUE else as.logical(args[4])
+exclude_fire <- if (length(args)<5) FALSE else as.logical(args[5])
 
 ecoreg <- readRDS("ecoreg.rds")
-source("utils.R")
+source("fit_utils.R")
+source("gamm4_utils.R")
 require(platform, character.only=TRUE)
 library(parallel)
 
 respvars <- c("mamph","mbirds","mmamm")
+
 if (include_plants) {
     respvars <- c(respvars,"plants")
 }
 logrespvars <- paste0(respvars,"_log")
 
+if (!exclude_fire) {
+    pars <- c("NPP_log_sc","Feat_log_sc","NPP_cv_sc","Feat_cv_sc")
+} else {
+    pars <- c("NPP_log_sc","NPP_cv_sc")
+}
+
 ff <- if (restr) {
           function(r,...) fit_all(response=r,
                                   single_fit=c(2,2),
                                   rterms=c("biome","flor_realms"),
+                                  pars=pars,
                                   ...)
       } else if (platform=="brms") {
           function(r,...) fit_all(response=r,
                                   single_fit=c(3,3,3),
+                                  pars=pars,
                                   ...)
 
       } else {
-          fit_all
+          function(r,...) fit_all(response=r,pars=pars, ...)
       }
 
 ## ff(logrespvars[1], platform=platform, verbose=TRUE)
@@ -48,9 +61,12 @@ allfits <- parallel::mclapply(logrespvars, ff,
 ## FIXME: do we need this or does mclapply assign names?
 names(allfits) <- logrespvars
 
-if (!restr) {
-    fn <- sprintf("allfits_%s.rds", platform)
-} else {
-    fn <- sprintf("allfits_restr_%s.rds", platform)
-}
+str1 <- "allfits"
+str2 <- if (restr) "restr" else ""
+str3 <- if (exclude_fire) "nofire" else ""
+str4 <- platform
+ss <- c(str1,str2,str3,str4)
+ss <- ss[nchar(ss)>0]
+fn <- paste0(paste(ss,collapse="_"),".rds")
+
 saveRDS(allfits,file=fn)

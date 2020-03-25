@@ -101,7 +101,14 @@ predfun <- function(model=best_model,
     if (exclude_fire) {
         ## set fire to a minimum value (not zero!)
         ## Fire_cv to ???  (zero?)
-        browser()
+        firevars <- grep("Feat",othervars,value=TRUE)
+        othervars <- setdiff(othervars,firevars) ## exclude fire vars from othervars
+        for (i in firevars) {
+            ## set firevars to min val
+            ok <- !is.na(data[[respvar]])
+            cur_var <- data[[i]][ok]
+            pdata[[i]] <- min(cur_var)
+        }
     }
     ## variables other than primary x-variable and aux (and maybe grpvar) are set to median, or zero
     mfun <- get(adjust_othervar) ## mean, or median
@@ -719,4 +726,16 @@ remef_plot <- function(taxon="mbirds_log",xvar="NPP_log",
       + ggtitle(title)
     )
     return(pp)
+}
+
+## from r2glmm:::r2beta.lmerMod
+extract.merMod.cov <- function(model) {
+    Z = lme4::getME(model, "Z")
+    s2e = lme4::getME(model, "sigma")^2
+    lam = lme4::getME(model, "Lambda")
+    lamt = lme4::getME(model, "Lambdat")
+    G = s2e * (lam %*% lamt)
+    SigHat = Z %*% (G %*% Matrix::t(Z))
+    Matrix::diag(SigHat) = Matrix::diag(SigHat) + s2e/model@resp$weights
+    return(SigHat)
 }

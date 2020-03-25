@@ -277,9 +277,9 @@ NPP (of course), fire (for mammals and ?birds?), and fire CV (for amphibians).
 Everything else is going to be pretty subtle (provided of course that
 we trust this particular way of estimating $R^2$).
 
-```{r rsq_calc,cache=TRUE}
-all_rsq <- bind_rows(lapply(best_models,
-                            function(x) r2beta(x$mer)),.id="taxon") %>%
+```{r rsq_calc}
+all_rsq <- purrr::map_dfr(best_models,
+                   ~r2beta(.$mer),.id="taxon") %>%
     mutate(Effect=as.character(Effect),
            Effect=gsub("^X","",Effect),
            Effect=reorder(factor(Effect),Rsq))           
@@ -321,6 +321,20 @@ p1 <- plot_grid(r1
                 align="v",rel_heights=c(0.3,0.7),axis="b")
 ## add legend
 plot_grid(p1,L,rel_widths=c(2,0.4))
+```
+
+What about a combined "fire $R^2$"? (**not working yet**)
+
+```{r cmp_R2}
+x <- best_models[[1]]
+SigHat <- extract.merMod.cov(x$mer)
+X <- getME(x$mer,"X")
+beta <- fixef(x)
+C <- matrix(0,nrow=1,ncol=length(beta))
+C[grepl("Feat",names(beta))] <- 1
+## doesn't work yet ...
+## cmp_R2(c=C, x=X, SigHat=SigHat, beta=beta, method = 'nsj')
+## what should obsperclust, nclusts, be for a crossed RE model??
 ```
 
 ## Models fitted with only biome and flor_realms
@@ -425,6 +439,19 @@ ggplot(coefs_plants,aes(x,y,colour=NPP_log_sc))+
     geom_point()+
     scale_colour_viridis()
 ```
+
+## No-fire predictions
+
+```{r}
+predList_fire <- lapply(best_models,
+       predfun,
+       auxvar=NULL,grpvar=NULL)
+predList_nofire <- lapply(best_models,
+       predfun,
+       auxvar=NULL,grpvar=NULL,
+       exclude_fire=TRUE)
+```
+
 
 
 ## Methods description

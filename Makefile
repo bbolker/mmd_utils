@@ -21,6 +21,9 @@ allfits_lme4.rds: ecoreg.rds fit_utils.R fit_batch.R
 allfits_gamm4.rds: ecoreg.rds fit_utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R gamm4 FALSE $(NCORES) >allfits_gamm4.Rout
 
+allfits_nofire_gamm4.rds: ecoreg.rds fit_utils.R fit_batch.R
+	Rscript --vanilla fit_batch.R gamm4 FALSE $(NCORES) TRUE TRUE >allfits_gamm4.Rout
+
 allfits_brms.rds: ecoreg.rds fit_utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R brms >allfits_brms.Rout
 

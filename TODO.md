@@ -7,7 +7,8 @@
 - fire comparisons
     - combined fire R^2 with `cmp_R2`
 	- zero-fire predictions
-
+    - no-fire models
+	
 ### low
 
 - figure out amphibian intercept shift???
