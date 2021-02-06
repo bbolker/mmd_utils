@@ -360,7 +360,8 @@ pkgList <- c('lme4'         ## lmer etc.
             ,'fields'
             ,'plotrix'
             ,'sp'
-            ,'colorspace')
+            ,'colorspace'
+            ,'remotes')
 
 install_all_pkgs <- function() {
     i1 <- installed.packages()
