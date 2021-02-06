@@ -3,6 +3,15 @@ NCORES=4
 %.Rout: %.R
 	Rscript --vanilla $< $@
 
+fulldata=1pR9ymyfS1POyQj3Jhzj7GXh5rEJ5tMN1
+fullland=1oJGNtoj5RvD-z_43tajUOnu5qzHvuPeb
+
+full_data.RData:
+	Rscript --vanilla -e "source('utils.R'); get_googledrive(\"$(fulldata)\",dest='full_data.RData')"
+
+full_data_LAND.RData:
+	Rscript --vanilla -e "source('utils.R'); get_googledrive(\"$(fullland)\",dest='full_data_LAND.RData')"
+
 ## primary output
 MixedEffects.html: ecoreg.rds allfits_sum_lme4.rds allfits_sum_gamm4.rds bestmodels_gamm4.rds allfits_restr_gamm4.rds utils.R gamm4_utils.R make_ME.png
 

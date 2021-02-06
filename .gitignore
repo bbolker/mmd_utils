@@ -12,3 +12,6 @@ ecoreg_means.RData
 \#*
 *~
 .RData
+## large files, get from Google drive
+full_data.RData
+full_data_LAND.RData

@@ -739,3 +739,9 @@ extract.merMod.cov <- function(model) {
     Matrix::diag(SigHat) = Matrix::diag(SigHat) + s2e/model@resp$weights
     return(SigHat)
 }
+
+## https://www.labnol.org/internet/direct-links-for-google-drive/28356/
+get_googledrive <- function(gid,dest) {
+    download.file(sprintf("https://drive.google.com/uc?export=download&id=%s",gid),
+                  destfile=dest)
+}

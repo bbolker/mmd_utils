@@ -165,12 +165,3 @@ ecoreg <- as.data.frame(ecoreg)
 stopifnot(chksc(ecoreg$NPP_log))
 
 saveRDS(ecoreg, file="ecoreg.rds")
-
-
-
-
-
-
-
-
-
