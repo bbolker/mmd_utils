@@ -6,6 +6,9 @@ NCORES=4
 fulldata=1pR9ymyfS1POyQj3Jhzj7GXh5rEJ5tMN1
 fullland=1oJGNtoj5RvD-z_43tajUOnu5qzHvuPeb
 
+install_packages:
+	Rscript --vanilla -e "source('utils.R'); install_all_pkgs()"
+
 full_data.RData:
 	Rscript --vanilla -e "source('utils.R'); get_googledrive(\"$(fulldata)\",dest='full_data.RData')"
 
