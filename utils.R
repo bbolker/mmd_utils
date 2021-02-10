@@ -361,6 +361,7 @@ pkgList <- c('lme4'         ## lmer etc.
             ,'plotrix'
             ,'sp'
             ,'colorspace'
+            ,'TMB'
             ,'remotes')
 
 install_all_pkgs <- function() {
@@ -377,7 +378,7 @@ install_all_pkgs <- function() {
 
 load_all_pkgs <- function() {
     if (!require("remef", quietly=TRUE)) {
-        stop("install remef via remotes::install_github('https://github.com/hohenstein/remef')")
+        stop("install remef via remotes::install_github('hohenstein/remef')")
     }
     sapply(pkgList,library,character.only=TRUE)
     stopifnot(packageVersion("lme4")>="1.1-14")
@@ -745,4 +746,23 @@ extract.merMod.cov <- function(model) {
 get_googledrive <- function(gid,dest) {
     download.file(sprintf("https://drive.google.com/uc?export=download&id=%s",gid),
                   destfile=dest)
+}
+
+
+read.dot <- function (f) {
+    lines <- readLines(f)
+    body <- lines[grep("->", lines, fixed = TRUE)]
+    nodePairs <- sub("^[[:space:]]+\"", "\"", sub("\"[;[:space:]]+$", 
+        "\"", unlist(strsplit(body, "->"))))
+    nodeLists <- split(nodePairs, 1:length(nodePairs)%%2)
+    nodes <- unique(nodePairs)
+    edges <- data.frame(orig = nodeLists[[2]], dest = nodeLists[[1]])
+    n <- length(nodes)
+    graph <- matrix(0, n, n, dimnames = list(nodes, nodes))
+    for (node in nodes) {
+        graph[node, nodes %in% edges$dest[edges$orig == node]] <- 1
+    }
+    ## retrieve names
+    labels <- lines[grep("label=", lines, fixed=TRUE)]
+    return(graph)
 }

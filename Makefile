@@ -28,7 +28,7 @@ ecoreg.rds: full_data.RData teow_data.RData proc_data.R biome_defs.csv olson_def
 
 ## all combinations of fits
 allfits_lme4.rds: ecoreg.rds fit_utils.R fit_batch.R
-	Rscript --vanilla fit_batch.R lme4 >allfits_lme4.Rout
+	Rscript --vanilla fit_batch.R lme4 > allfits_lme4.Rout
 
 allfits_gamm4.rds: ecoreg.rds fit_utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R gamm4 FALSE $(NCORES) >allfits_gamm4.Rout
@@ -67,11 +67,15 @@ allprofs.rds: allfits_lme4.rds
 ## may need to edit /etc/ImageMagick-6/policy.xml
 ## from https://github.com/lindenb/makefile2graph
 ## https://unix.stackexchange.com/questions/145402/regex-alternation-or-operator-foobar-in-gnu-or-bsd-sed
-make_ME.dot: Makefile
-	exec make -nd MixedEffects.html | ./make2graph | sed -E 's/red|green/gray/' >make_ME.dot 
+makefile2graph:
+	git clone https://github.com/lindenb/makefile2graph
+	cd makefile2graph; make
+
+make_ME.dot: Makefile makefile2graph
+	exec make -nd MixedEffects.html | makefile2graph/make2graph | sed -E 's/red|green/gray/' >make_ME.dot 
 
 make_figs.dot: Makefile
-	exec make -nd figures.html | ./make2graph | sed -E 's/red|green/gray/' >make_figs.dot 
+	exec make -nd figures.html | makefile2graph/make2graph | sed -E 's/red|green/gray/' >make_figs.dot 
 
 clean:
 	rm -f *~ .#* .RData
@@ -88,7 +92,7 @@ from_cw:
 	Rscript -e "rmarkdown::render(\"$<\")"
 
 make_%.png: make_%.dot
-	dot -Tpng $< >$@
+	./do_dot $< >$@
 
 ## update rds files so we don't have to re-make
 update: fit_utils.R

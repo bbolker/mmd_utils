@@ -1,0 +1,6 @@
+#!/bin/bash
+if dot -Tpng $1; then
+   echo "OK"
+else
+   echo "'dot' is not working. Install graphviz (e.g. 'sudo apt install graphviz') or touch target to proceed?"
+fi

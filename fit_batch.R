@@ -1,6 +1,6 @@
 args <- commandArgs(trailingOnly=TRUE)
 ## arguments: platform, restricted fit?, num cores, include plants?, exclude fir?
-args <- c("gamm4",FALSE,1,TRUE,TRUE)
+## args <- c("gamm4",FALSE,1,TRUE,TRUE)
 print(args)
 ## 'lme4', 'gamm4', 'brms'
 platform <- if (length(args)<1) "lme4" else args[1]
@@ -15,6 +15,9 @@ cores <- if (length(args)<3) {
 ## include plants?
 include_plants <- if (length(args)<4) TRUE else as.logical(args[4])
 exclude_fire <- if (length(args)<5) FALSE else as.logical(args[5])
+
+cat(sprintf("platform=%s restr=%d cores=%d include_plants=%d exclude_fire=%d",
+            platform,restr,cores,include_plants, exclude_fire),"\n")
 
 ecoreg <- readRDS("ecoreg.rds")
 source("fit_utils.R")
