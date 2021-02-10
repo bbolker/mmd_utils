@@ -1,5 +1,6 @@
 ## To do
 
+- use Cairo output
 - figures
     - pretty labels in Rsq/coef plots
     - faceting (i.e. compact multi-panel plots by suppressing redundant scales/axis labels)

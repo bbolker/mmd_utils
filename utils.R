@@ -336,33 +336,36 @@ plotfun <- function(model=best_model,
 
 ## test
 
-pkgList <- c('lme4'         ## lmer etc.
-            ,'gamm4'       ## spatial fits
-            ,'bbmle'       ## AICtab cosmetic
-            ,'broom.mixed' ## better coef tables
-            ,'brms'
-            ,'data.table' ## 
-            ,'lattice'   ## diagnostic plots
-            ,'gridExtra' ## arrange plots
-            ,'ggplot2'
-            ,'viridis'
-            ,'plotly'
-            ,'cowplot'
-            ,'ggstance'  ## horizontal geoms
-            ,'plyr'      ## manipulation -- LOAD THIS FIRST
-            ,'dplyr'     ## data manipulation
-            ,'tidyr'     ## ditto
-            ,'tibble'    ## ditto: rownames_to_column
-            ,'remef'     ## remotes::install_github('https://github.com/hohenstein/remef')
-            ,'r2glmm'
-            ,'raster'
-            ,'rgdal'
-            ,'fields'
-            ,'plotrix'
-            ,'sp'
-            ,'colorspace'
-            ,'TMB'
-            ,'remotes')
+pkgList <- c(
+    'plyr'       ## manipulation -- LOAD THIS FIRST
+  , 'Cairo'
+  ,'TMB'
+  ,'bbmle'       ## AICtab cosmetic
+  ,'brms'
+  ,'broom.mixed' ## better coef tables
+  ,'colorspace'
+  ,'cowplot'
+  ,'data.table' ## 
+  ,'dplyr'      ## data manipulation
+  ,'fields'
+  ,'gamm4'      ## spatial fits
+  ,'ggplot2'
+  ,'ggstance'   ## horizontal geoms
+  ,'gridExtra'  ## arrange plots
+  ,'lattice'    ## diagnostic plots
+  ,'lme4'       ## lmer etc.
+  ,'plotly'
+  ,'plotrix'
+  ,'r2glmm'
+  ,'raster'
+  ,'remef'      ## remotes::install_github('https://github.com/hohenstein/remef')
+  ,'remotes'
+  ,'rgdal'
+  ,'sp'
+  ,'tibble'     ## ditto: rownames_to_column
+  ,'tidyr'      ## ditto
+  ,'viridis'
+)
 
 install_all_pkgs <- function() {
     i1 <- installed.packages()

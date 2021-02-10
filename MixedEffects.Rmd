@@ -36,7 +36,7 @@ graphics_setup()
 
 ```{r knitr_setup,echo=FALSE}
 library(knitr)
-opts_chunk$set(error=FALSE)
+opts_chunk$set(error=FALSE,dev.args = list(png = list(type = "cairo")))
 ```
 
 Data from Enric (includes area and lat/long coordinates):

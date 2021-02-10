@@ -3,6 +3,8 @@ NCORES=4
 %.Rout: %.R
 	Rscript --vanilla $< $@
 
+target: MixedEffects.html
+
 fulldata=1pR9ymyfS1POyQj3Jhzj7GXh5rEJ5tMN1
 fullland=1oJGNtoj5RvD-z_43tajUOnu5qzHvuPeb
 
