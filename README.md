@@ -1,5 +1,9 @@
 # fire/diversity analyses with mixed models
 
+## manuscript draft
+
+The draft of the manuscript is [here](https://docs.google.com/document/d/1cW7Yw_bLQnf1R_BUTExNCrSCXC4fzAZCG4p-DpJkm0U/edit)
+
 ## model summaries
 
 - `allfits_(lme4|gamm4|brms).rds` are files containing lists of fits: 27 fits (all 3^3 combinations of intercept/diag/full covariance structures for biome, floral realm (FR), and their interaction) x 3 or 4 taxa (mammals, amphibians, birds, and possibly plants)

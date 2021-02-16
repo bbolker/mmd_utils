@@ -189,6 +189,30 @@ predfun <- function(model=best_model,
                        "plants"="Plants~(species/km^2)",
                        "area_km2"="Ecoregion~area~(km^{2})")
 
+## without units - doesn't need to be an expression so change ~ back to space
+auto_lab_text_nounits <- gsub("~"," ",
+                              gsub("~[(].*$","",auto_lab_text))
+
+auto_lab_short <- c(NPP="NPP",NPP_cv="NPP CV",
+                    Feat="Fire",Feat_cv="Fire CV",
+                    area_km2="Area")
+
+test <- c("NPP_log_sc", "Feat_log_sc", "NPP_cv_sc", "Feat_cv_sc", "area_km2_log_sc", 
+"NPP_log_sc:Feat_log_sc", "NPP_log_sc:NPP_cv_sc", "NPP_log_sc:Feat_cv_sc", 
+"Feat_log_sc:NPP_cv_sc", "Feat_log_sc:Feat_cv_sc", "NPP_cv_sc:Feat_cv_sc")
+trans_labs <- function(x) {
+    ## match name followed by _, :, end of line
+    ## (?!_) is a negative lookahead; exclude stuff followed by _,
+    ## and don't count it for substitution purposes
+    w <- function(y) sprintf("%s(?!_)",y)
+    x <- gsub("_(log|sc)","",x)
+    for (i in seq_along(auto_lab_short)) {
+        x <- gsub(w(names(auto_lab_short)[i]),auto_lab_short[i],x,
+                  perl=TRUE)
+    }
+    return(x)
+}
+                    
 ##' @param model fitted model
 ##' @param data data frame containing values
 ##' @param xvar  x-variable

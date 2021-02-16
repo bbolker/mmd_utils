@@ -214,10 +214,16 @@ Enric and I decided that it was probably best to go with the gamm4-best models,
 with some caution expressed about the effects that were marginal. Here are the final(ish?) results, with NPP effects added back in:
 
 ```{r coeftab2_gamm4only,message=FALSE,echo=FALSE}
-ctx <- gamm4_best2_coef %>%
-    filter(effect=="fixed") %>% 
-    mutate(sig=factor((lwr*upr)>0),
-           term=reorder(term,estimate))
+ctx <- (gamm4_best2_coef
+    %>% filter(effect=="fixed",taxon!="plants_log")
+    %>% mutate(sig=factor((lwr*upr)>0)
+             , term=trans_labs(as.character(term))
+             , term=reorder(factor(term),estimate)
+             , taxon=factor(taxon,
+                            levels=paste0(names(auto_lab_text_nounits),"_log"),
+                            labels=auto_lab_text_nounits))
+)
+
 ggplot(ctx,aes(estimate,term,colour=sig))+
     geom_linerangeh(aes(xmin=lwr,xmax=upr))+
     geom_point(position=pd,fill="white")+
@@ -225,10 +231,10 @@ ggplot(ctx,aes(estimate,term,colour=sig))+
     facet_wrap(~taxon)+  ## ncol=1 might be nice, but too skinny
     labs(x="",y="")+
     scale_colour_manual(values=c("black","orange"),guide=FALSE)+
-    zmargin
+    zmargin +
+    theme(axis.text.x=element_text(size=6))
+ggsave(file="coeftab.png",width=8,height=3,type="cairo-png")
 ```
-
-
 
 ## Plotting functions
 

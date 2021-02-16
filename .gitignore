@@ -15,3 +15,5 @@ ecoreg_means.RData
 ## large files, get from Google drive
 full_data.RData
 full_data_LAND.RData
+*.rds
+makefile2graph
