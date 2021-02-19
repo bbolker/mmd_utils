@@ -213,7 +213,7 @@ interactions).
 Enric and I decided that it was probably best to go with the gamm4-best models,
 with some caution expressed about the effects that were marginal. Here are the final(ish?) results, with NPP effects added back in:
 
-```{r coeftab2_gamm4only,message=FALSE,echo=FALSE}
+```{r coeftab2_gamm4only,message=FALSE,echo=FALSE,fig.width=8,fig.height=3}
 ctx <- (gamm4_best2_coef
     %>% filter(effect=="fixed",taxon!="plants_log")
     %>% mutate(sig=factor((lwr*upr)>0)
