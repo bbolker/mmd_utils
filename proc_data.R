@@ -14,7 +14,8 @@ library(data.table)
 #   compute ECOREGION MEANS -- working data set
 ### -------------------------------------------------------------------------------------
 
-load("full_data.RData")
+## FIXME: change to rds file ? saveRDS()/readRDS() rather than save()/load()
+L <- load("full_data.RData")
 full_data <- data.table(full_data)
 
 ## !!! NOTE !!! only data from land masses is retained! 
@@ -46,22 +47,26 @@ ecoreg = as.data.frame(ecoreg)
 
 ## read realm/biome definitions
 read_fun <- function(x) {
-    read.csv(x,quote="'",stringsAsFactors=FALSE,
-                                 strip.white=TRUE,
-                                 comment="#",
-                                 ## treat 'NA' in abbrevs as a real value!
-                                 na.strings="")
+    read.csv(x,
+             quote="'",
+             stringsAsFactors=FALSE,
+             strip.white=TRUE,
+             comment="#",
+             ## treat 'NA' in abbrevs (Nearctic='NA') as a real value!
+             na.strings="")
 }
 
 biome_defs <- read_fun("biome_defs.csv")
 flor_defs <- read_fun("olson_defs.csv")
 
-load("teow_data.RData")
+L <- load("teow_data.RData")  ## FIXME: rds file instead?
 ## selecting only ecoregions within the dataset within the shapefile
 ## keep only eco_id, area_km2, x, y 
-xy_area_teow <- data.table(subset(teow_data,ECO_ID %in% ecoreg$eco_id,
+xy_area_teow <- data.table(subset(teow_data,
+                                  ECO_ID %in% ecoreg$eco_id,
                                   select=c(ECO_ID,area_km2,Shape_Area,x,y)))
 setnames(xy_area_teow,c('eco_id','area_km2','Shape_Area','x','y'))
+
 ## selecting biggest 'Shape_Area' by ecoregion -- using data.table
 ## rationale to select unique rows from a data table 
 ## in data.table .I represents the row number in the original data set
@@ -79,7 +84,9 @@ nm <- names(ecoreg)
 grpvars <- c("biome",grep("_(realms|regions)$",nm,value=TRUE))
 ## potential response variables:
 ##  plants, plus everything starting with m (amph, birds, mamm)
+## FIXME: switch to simpler version after testing?
 respvars <- c("plants",nm[grepl("^m",nm) & !grepl("regions$",nm)])
+## respvars <- c("plants","mmamm","mbirds","mamph")
 spatvars <- c("x","y")
 ## Adding three additional columns that will be needed to assign the residuals to each ecoregion
 ## n.b. ecoreg is still a data.table, need with=FALSE
@@ -98,12 +105,13 @@ for (v in grpvars) {
 
 ## set factor names
 ecoreg$biome <- factor(ecoreg$biome,
-                       levels=seq(nrow(biome_defs)),
+                       levels=seq(nrow(biome_defs)), ## biome_defs$code ?
                        labels=biome_defs$abbrev)
 ecoreg$flor_realms <- factor(ecoreg$flor_realms,
                        levels=seq(nrow(flor_defs)),
                        labels=flor_defs$name)
 
+## create floristic realm/biom interaction variable
 ## better ordering?
 ecoreg$biome_FR <- factor(paste(flor_defs$abbrev[ecoreg$flor_realms],
                             ecoreg$biome,sep=":"))
@@ -122,14 +130,20 @@ for (v in respvars) {
 
 ## non-CV predictors; log and center/scale
 log_sc_vars <- grep("_cv_inter",predvars,invert=TRUE,value=TRUE)
+
 for (v in log_sc_vars) {
-    scv <- gsub("(_inter|_mean)","",paste0(v,"_log_sc"))
+    scv <- gsub("(_inter|_mean)","",paste0(v,"_log_sc")) ## rename
     tmpvar <- log(ecoreg[[v]])
     tmpvar <- drop(scale(tmpvar,scale=TRUE,center=TRUE))
     ## add logged attribute **after** scaling
     attr(tmpvar,"logged") <- TRUE
     ecoreg[[scv]] <- tmpvar
 }
+
+## check that scaled vars still have attributes
+names(ecoreg)
+x <- ecoreg$NPP_log_sc
+attributes(x)
 
 ## center *and* scale CVs
 ctr_vars <- grep("_cv_inter",predvars,value=TRUE)      

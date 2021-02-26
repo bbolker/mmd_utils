@@ -224,6 +224,9 @@ ctx <- (gamm4_best2_coef
                             labels=auto_lab_text_nounits))
 )
 
+## RESCALE coefficients:
+## coef <- coef*attr(ecoreg$NPP_log_sc,"scaled:scale")
+
 ggplot(ctx,aes(estimate,term,colour=sig))+
     geom_linerangeh(aes(xmin=lwr,xmax=upr))+
     geom_point(position=pd,fill="white")+
@@ -235,6 +238,8 @@ ggplot(ctx,aes(estimate,term,colour=sig))+
     theme(axis.text.x=element_text(size=6))
 ggsave(file="coeftab.png",width=8,height=3,type="cairo-png")
 ```
+
+Can we re/unscale parameters?
 
 ## Plotting functions
 
