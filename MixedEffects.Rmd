@@ -217,6 +217,7 @@ with some caution expressed about the effects that were marginal. Here are the f
 ctx <- (gamm4_best2_coef
     %>% filter(effect=="fixed",taxon!="plants_log")
     %>% mutate(sig=factor((lwr*upr)>0)
+             , term_orig=term
              , term=trans_labs(as.character(term))
              , term=reorder(factor(term),estimate)
              , taxon=factor(taxon,
@@ -236,10 +237,59 @@ ggplot(ctx,aes(estimate,term,colour=sig))+
     scale_colour_manual(values=c("black","orange"),guide=FALSE)+
     zmargin +
     theme(axis.text.x=element_text(size=6))
-ggsave(file="coeftab.png",width=8,height=3,type="cairo-png")
+ggsave(file="coeftab.png",width=8,height=3)
 ```
 
-Can we re/unscale parameters?
+Can we re/unscale parameters? How?
+(point estimate gets multiplied by scale
+
+```{r ctx_rescaled, echo=FALSE}
+rescale_fun <- function(x, name) {
+    ss <- strsplit(name,":")[[1]]
+    for (s in ss) {
+        sc <- attr(ecoreg[[s]],"scaled:scale")
+        if (is.null(sc)) stop("uh-oh, ",s," has no scale")
+        x <- x*sc
+    }
+    return(x)
+}
+ctx_rescaled <- ctx
+for (v in c("estimate","lwr","upr")) {
+    ctx_rescaled[[v]] <-
+        purrr::map2_dbl(ctx_rescaled[[v]], ctx$term_orig, rescale_fun)
+}
+ctx_rescaled <- mutate(ctx_rescaled,
+              type=case_when(
+                  grepl("log",term_orig) & grepl("cv",term_orig) ~ "mixed",
+                  grepl("log",term_orig) ~ "log",
+                  grepl("cv",term_orig) ~ "cv"))
+```
+
+Order by 
+```{r ctx_rescaled_plot,fig.width=8,fig.height=8}
+std_order <- c("Area","NPP","Fire","NPP CV","Fire CV")
+oo <- outer(std_order[-1],std_order[-1],paste,sep=":")
+std_order2 <- c(std_order,oo[upper.tri(oo)])
+ctx_rescaled$term <- factor(ctx_rescaled$term, levels=rev(std_order2))
+
+ggplot(ctx_rescaled,aes(estimate,term,colour=sig))+
+    geom_linerangeh(aes(xmin=lwr,xmax=upr))+
+    geom_point(position=pd,fill="white")+
+    geom_vline(xintercept=0,lty=2)+
+    facet_wrap(~taxon) +
+    labs(x="",y="")+
+    scale_colour_manual(values=c("black","orange"),guide=FALSE)+
+    zmargin +
+    theme(axis.text.x=element_text(size=6))
+ggsave(file="coeftab2.png",width=8,height=4)
+```
+```{r}
+ctx_rescaled %>% dplyr::select(taxon,term,estimate,lwr,upr) %>% arrange(term,taxon)
+```
+
+TO DO: traditional order
+Amph/Birds/Mammals?
+check NPP CV
 
 ## Plotting functions
 
