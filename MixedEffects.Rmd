@@ -240,38 +240,45 @@ ggplot(ctx,aes(estimate,term,colour=sig))+
 ggsave(file="coeftab.png",width=8,height=3)
 ```
 
-Can we re/unscale parameters? How?
-(point estimate gets multiplied by scale
+We can rescale parameters: if the original regression fitted
+```
+b0 + b1s*(x1/sd1) + b2s*(x2/sd2) + b3s*(x1/sd1)*(x2/sd2)
+```
+and I want to rescale to the equivalent of `b0 + b1*x1 + b2*x2 + b3*x1*x2` then
+I need to multiply by *all* of the corresponding standard deviations: e.g. `b3=b3s*sd1*sd2`
+
 
 ```{r ctx_rescaled, echo=FALSE}
 rescale_fun <- function(x, name) {
     ss <- strsplit(name,":")[[1]]
     for (s in ss) {
-        sc <- attr(ecoreg[[s]],"scaled:scale")
+        sc <- attr(ecoreg[[s]],"scaled:scale") ## sd of original variable
         if (is.null(sc)) stop("uh-oh, ",s," has no scale")
         x <- x*sc
     }
     return(x)
 }
+## %x% is the general R syntax for an operator (*,+,-,^,**,:)
+## %*% is matrix multiplication, %o% outer product, %% is modulus, %/% is integer division
+## you can define any other operator by surrounding it by %
+## tidyverse uses %>%
+## debug(rescale_fun)
+## rescale_fun(2.5,name="NPP_log_sc:Feat_log_sc")
 ctx_rescaled <- ctx
 for (v in c("estimate","lwr","upr")) {
     ctx_rescaled[[v]] <-
         purrr::map2_dbl(ctx_rescaled[[v]], ctx$term_orig, rescale_fun)
 }
-ctx_rescaled <- mutate(ctx_rescaled,
-              type=case_when(
-                  grepl("log",term_orig) & grepl("cv",term_orig) ~ "mixed",
-                  grepl("log",term_orig) ~ "log",
-                  grepl("cv",term_orig) ~ "cv"))
 ```
 
-Order by 
-```{r ctx_rescaled_plot,fig.width=8,fig.height=8}
-std_order <- c("Area","NPP","Fire","NPP CV","Fire CV")
-oo <- outer(std_order[-1],std_order[-1],paste,sep=":")
-std_order2 <- c(std_order,oo[upper.tri(oo)])
-ctx_rescaled$term <- factor(ctx_rescaled$term, levels=rev(std_order2))
+Put in original order:
 
+```{r ctx_rescaled_plot,fig.width=8,fig.height=3,echo=FALSE}
+std_order <- c("Area","NPP","Fire","NPP CV","Fire CV")
+## create interaction terms
+oo <- outer(std_order[-1],std_order[-1],paste,sep=":")
+std_order2 <- c(std_order,oo[upper.tri(oo)]) ## append interactions to main effects
+ctx_rescaled$term <- factor(ctx_rescaled$term, levels=rev(std_order2))
 ggplot(ctx_rescaled,aes(estimate,term,colour=sig))+
     geom_linerangeh(aes(xmin=lwr,xmax=upr))+
     geom_point(position=pd,fill="white")+
