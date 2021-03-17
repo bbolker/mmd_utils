@@ -290,13 +290,18 @@ ggplot(ctx_rescaled,aes(estimate,term,colour=sig))+
     theme(axis.text.x=element_text(size=6))
 ggsave(file="coeftab2.png",width=8,height=4)
 ```
-```{r}
-ctx_rescaled %>% dplyr::select(taxon,term,estimate,lwr,upr) %>% arrange(term,taxon)
+```{r est_tab,results="asis",echo=FALSE}
+(ctx_rescaled
+    ## reverse order - now top to bottom
+    %>% mutate(across(term, ~factor(.,levels=rev(levels(.)))))
+    %>% dplyr::select(taxon,term,estimate,lwr,upr)
+    %>% arrange(term,taxon)
+    %>% mutate(est=sprintf("%1.2g (%1.2g, %1.2g)",estimate,lwr,upr))
+    %>% dplyr::select(taxon, term, est)
+    %>% pivot_wider(names_from=taxon,values_from=est)
+    %>% knitr::kable()
+)
 ```
-
-TO DO: traditional order
-Amph/Birds/Mammals?
-check NPP CV
 
 ## Plotting functions
 
@@ -346,28 +351,38 @@ Everything else is going to be pretty subtle (provided of course that
 we trust this particular way of estimating $R^2$).
 
 ```{r rsq_calc}
-all_rsq <- purrr::map_dfr(best_models,
-                   ~r2beta(.$mer),.id="taxon") %>%
-    mutate(Effect=as.character(Effect),
-           Effect=gsub("^X","",Effect),
-           Effect=reorder(factor(Effect),Rsq))           
+all_rsq <- (purrr::map_dfr(best_models,
+                           ~r2beta(.$mer),.id="taxon")
+    %>% filter(taxon !="plants_log")
+    %>%  mutate(Effect=as.character(Effect),
+                Effect=gsub("^X","",Effect),
+                Effect=trans_labs(Effect),
+                Effect=factor(Effect,levels=rev(c("Model",std_order2)))
+                )
+)
 ```
 
 ```{r rsq_plot}
 rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
     geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
                    position=position_dodgev(height=0.5))+
-    scale_colour_brewer(palette="Dark2")+
+    scale_colour_brewer(palette="Dark2",labels=c("Amphibians","Birds","Mammals"))+
+    scale_shape(labels=c("Amphibians","Birds","Mammals"))+
     ## scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
     labs(y="")
 print(rsqplot)
 ```
 
+```{r echo=FALSE, eval=FALSE}
+library(ggforce)
+bigvals <- c("Model","NPP","Area")
+rsqplot + facet_zoom(x=Effect %in% bigvals, zoom.data=Effect %in% bigvals, show.area=FALSE)
+```
 Plot in two panels:
 
 ```{r rsqplot2}
-all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP_log_sc","log(area_km2)"))
-r1 <- rsqplot %+% subset(all_rsq,upper)
+all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP","Area"))
+r1 <- rsqplot %+% subset(all_rsq,upper) + scale_x_continuous(position="top")
 r2 <- rsqplot %+% subset(all_rsq,!upper)
 ## facet_wrap doesn't have 'space' argument ...
 ## rsqplot %+% all_rsq +facet_wrap(~upper,ncol=1,scales="free")
@@ -384,11 +399,27 @@ p1 <- plot_grid(r1
                             fill="black",
                             colour=NA,alpha=0.02)
                 + theme(legend.position="none"),
-                r2+theme(legend.position="none"),
+                r2+labs(x=expression(R^2)) + theme(legend.position="none"),
                 ncol=1,
                 align="v",rel_heights=c(0.3,0.7),axis="b")
 ## add legend
-plot_grid(p1,L,rel_widths=c(2,0.4))
+pg <- plot_grid(p1,L,rel_widths=c(2,0.4))
+print(pg)
+ggsave(pg,file="rsqplot.png")
+```
+
+```{r rsqtab, results="asis"}
+(all_rsq
+    ## rename to match coef tab (reuse code)
+    %>% rename(term="Effect",lwr="lower.CL",upr="upper.CL",estimate="Rsq")
+    %>% mutate(across(term, ~factor(.,levels=rev(levels(.)))))
+    %>% dplyr::select(taxon,term,estimate,lwr,upr)
+    %>% arrange(term,taxon)
+    %>% mutate(est=sprintf("%1.2g (%1.2g, %1.2g)",estimate,lwr,upr))
+    %>% dplyr::select(taxon, term, est)
+    %>% pivot_wider(names_from=taxon,values_from=est)
+    %>% knitr::kable()
+)
 ```
 
 What about a combined "fire $R^2$"? (**not working yet**)
