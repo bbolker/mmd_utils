@@ -93,10 +93,21 @@ spatvars <- c("x","y")
 ## https://stackoverflow.com/questions/32184252/how-to-select-columns-in-data-table-using-a-character-vector-of-certain-column-n
 ecoreg <- ecoreg[,c('eco_id','Ncells',respvars,predvars,grpvars,spatvars), with=FALSE]
 
+nzeros <- sapply(predvars, function(v) sum(ecoreg[[v]]==0, na.rm=TRUE))
+print(nzeros)
+
+nNAs <- sapply(predvars, function(v) sum(is.na(ecoreg[[v]])))
+print(nNAs)
+
+nbad <- sapply(predvars, function(v) sum(is.na(ecoreg[[v]]) | ecoreg[[v]]<=0))
+print(nbad)
+
+
 ## select non-zero vals
 for (v in predvars) {
     ecoreg <- ecoreg[ecoreg[[v]]>0,]
 }
+
 ## convert to factors
 for (v in grpvars) {
     ecoreg[[v]] <- factor(ecoreg[[v]])

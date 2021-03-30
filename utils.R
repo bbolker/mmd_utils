@@ -793,3 +793,8 @@ read.dot <- function (f) {
     labels <- lines[grep("label=", lines, fixed=TRUE)]
     return(graph)
 }
+
+replace_value_chr <- function(x, from, to) {
+    replace(as.character(x), which(x==from), to)
+}
+    

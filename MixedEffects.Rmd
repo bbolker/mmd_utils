@@ -8,7 +8,14 @@ output:
 ---
 
 This is an attempt at a streamlined and yet complete, relatively *a priori*/non-
-snooped model analysis. **Note** that this version is an overhaul, with some missing components from the older results: see `MixedEffects_older.Rmd` ...
+snooped model analysis.
+
+The manuscript in progress is [here](https://docs.google.com/document/d/1cW7Yw_bLQnf1R_BUTExNCrSCXC4fzAZCG4p-DpJkm0U/edit).
+
+**FIXME**:
+
+- fire $R^2$
+- decide on ordering of plots/tables (Area/NPP/Fire/interactions, or by $R^2$ magnitude?)
 
 Some parts of the analysis have been moved into separate `.R` files: the overall workflow is
 
@@ -19,7 +26,7 @@ source("utils.R")
 source("gamm4_utils.R")
 ```
 
-Packages used/versions:
+itPackages used/versions:
 ```{r load_packages,message=FALSE}
 load_all_pkgs()
 library('pander')  ## for tables
@@ -50,7 +57,7 @@ Limit all observations with all predictor variables > 0 and no biome 98/99; set 
 ## Model fitting
 
 This can now be done semi-automatically (i.e., fit all combinations
-of random effects) by using the function `fit_all` from the `utils.R`
+of random effects) by using the function `fit_all` from the `fit_utils.R`
 file (sourced above), e.g. `fit_all(response="mbirds_log")`
 
 The `fit_batch.R` code has already run all
@@ -274,10 +281,14 @@ for (v in c("estimate","lwr","upr")) {
 Put in original order:
 
 ```{r ctx_rescaled_plot,fig.width=8,fig.height=3,echo=FALSE}
-std_order <- c("Area","NPP","Fire","NPP CV","Fire CV")
+## 
+std_order <- c("Area","NPP","NPP CV","Fire","Fire CV")
 ## create interaction terms
 oo <- outer(std_order[-1],std_order[-1],paste,sep=":")
 std_order2 <- c(std_order,oo[upper.tri(oo)]) ## append interactions to main effects
+## fix reordering of interaction
+ctx_rescaled$term <- replace_value_chr(ctx_rescaled$term,
+                                       "Fire:NPP CV","NPP CV:Fire")
 ctx_rescaled$term <- factor(ctx_rescaled$term, levels=rev(std_order2))
 ggplot(ctx_rescaled,aes(estimate,term,colour=sig))+
     geom_linerangeh(aes(xmin=lwr,xmax=upr))+
@@ -353,12 +364,15 @@ we trust this particular way of estimating $R^2$).
 ```{r rsq_calc}
 all_rsq <- (purrr::map_dfr(best_models,
                            ~r2beta(.$mer),.id="taxon")
+    %>% as_tibble()
     %>% filter(taxon !="plants_log")
     %>%  mutate(Effect=as.character(Effect),
                 Effect=gsub("^X","",Effect),
                 Effect=trans_labs(Effect),
+                Effect=replace_value_chr(Effect, "Fire:NPP CV","NPP CV:Fire"),
                 Effect=factor(Effect,levels=rev(c("Model",std_order2)))
                 )
+    %>% dplyr::select(taxon,Effect,Rsq,upper.CL,lower.CL)
 )
 ```
 
@@ -408,8 +422,9 @@ print(pg)
 ggsave(pg,file="rsqplot.png")
 ```
 
-```{r rsqtab, results="asis"}
+```{r rsqtab, results="asis", echo=FALSE}
 (all_rsq
+    %>% dplyr::select(-upper)
     ## rename to match coef tab (reuse code)
     %>% rename(term="Effect",lwr="lower.CL",upr="upper.CL",estimate="Rsq")
     %>% mutate(across(term, ~factor(.,levels=rev(levels(.)))))
@@ -541,7 +556,7 @@ ggplot(coefs_plants,aes(x,y,colour=NPP_log_sc))+
 
 ## No-fire predictions
 
-```{r}
+```{r nofire}
 predList_fire <- lapply(best_models,
        predfun,
        auxvar=NULL,grpvar=NULL)
