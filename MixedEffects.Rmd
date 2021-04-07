@@ -13,9 +13,9 @@ snooped model analysis.
 The manuscript in progress is [here](https://docs.google.com/document/d/1cW7Yw_bLQnf1R_BUTExNCrSCXC4fzAZCG4p-DpJkm0U/edit).
 
 - decide on ordering of plots/tables (Area/NPP/Fire/interactions, or by $R^2$ magnitude?)
-- document/
+- document $R^2$ stuff better, remember we need to install BMB's fork of `r2glmm` (for now):
 
-```{r}
+```{r r2glmm, message=FALSE}
 remotes::install_github("bbolker/r2glmm")
 ```
 
@@ -493,20 +493,29 @@ for (i in seq(nrow(R2_vals))) {
     res <- with(R2_vals[i,],
                 tibble(taxon=taxon,method=method,clust.id=clust.id,
                        get_fire_R2(taxon,method,clust.id)))
-    with(res[1,],cat(taxon,method,clust.id,Rsq,"\n"))
+    ## with(res[1,],cat(taxon,method,clust.id,Rsq,"\n"))
     R2_list <- c(R2_list,list(res))
 }
-all_R2 <- bind_rows(R2_list)
+all_R2 <- bind_rows(R2_list) %>% mutate(effect=factor(effect,levels=c("fire","nonfire","model")))
 ```
 
-```{r plot_all_Rsq,echo=FALSE}
+```{r plot_all_Rsq,echo=FALSE,fig.width=10,fig.height=2.75}
 print(ggplot(all_R2,aes(Rsq,taxon,colour=clust.id,shape=method))
       + facet_wrap(~effect,scale="free")
       + geom_pointrange(aes(xmin=lower.CL,xmax=upper.CL),
-                    position=position_dodge(width=0.2)))
+                        position=position_dodge(width=0.25))
+      )
 ```
 
-Bottom line: results don't depend very much on cluster/method, are reasonable.
+Bottom line: results don't depend very much on method, are reasonable. But overall magnitude *does* depend
+on which cluster is chosen (why does this affect NSJ method ...?)
+
+From @jaeger_r2_2017:
+
+> More specifically, $R^2_{\beta^*}$ measures the multivariate association
+> between the outcome and the fixed effects within the context of correlated observations,
+> while $R^2_{NSJ(m)}$ measures the proportion of explained variance assuming that unexplained
+> variance may be estimated with a scalar and correlation between observations may be ignored.
 
 ```{r fire_R2_tab, results="asis",echo=FALSE}
 (all_R2
@@ -645,3 +654,5 @@ For analysis, we log-transformed all response and predictor variables except the
 For ease of interpretation, we scaled and centered all predictor variables for ease of interpretation; this allows parameter estimates to be interpreted as relative effect sizes across predictors with different units, i.e. the expected change in the response (log-diversity) from an increase of 1 standard deviation in the predictor (CITE: Schielzeth 2010). The data were grouped at three levels: biome (e.g. tropical forest), realm (e.g. Neotropics), and their interaction (e.g. Neotropical forests).
 	
 As fixed-effect (overall, global-scale) predictors, we incorporated ecoregion area (km^2); annual NPP (G C/m^2/year); average fraction of NPP consumed by fire annually (proportion); and the interannual coefficient of variation of NPP and fire losses, as well as the pairwise interactions of all of these predictors except for area. In principle we would also like to allow all the effects of all of these predictors, and their interactions, to vary at all three grouping levels (biome, realm, biome $\times$ realm), and to estimate all of the correlations among them. For example, it would be interesting to know if biomes where diversity was more sensitive to NPP also had diversity that was more sensitive to fire, or realms where diversity was more sensitive to variation in fire were *less* sensitive to variation in NPP. However, the full model with correlated variation at all three levels is very complex; the covariance matrix for each level has 15 parameters (for the covariance matrix of an intercept plus four predictors, we have (5x6)/2=15 independent values in a 5x5 symmetric matrix). This leads to poorly estimated parameters, and often to singular fits where some variances are estimated as zero or correlations as $\pm 1$ (CITE Barr et al 2013, others?). We thus allowed for some simplified versions of the model, either assuming the variation across groups was uncorrelated (5 parameters in a diagonal covariance matrix vs. 15 in an unstructured matrix) or assuming that only the intercept varied across groups (1 parameter). For each taxon we fitted all 27 possible model combinations ((intercept-only, independent, full) $\times$ (biome, realm, biome $\times$ realm)), checked for singularity, and computed the AIC. We selected the non-singular model with the best (lowest) AIC.
+
+## References
