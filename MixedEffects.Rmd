@@ -12,10 +12,12 @@ snooped model analysis.
 
 The manuscript in progress is [here](https://docs.google.com/document/d/1cW7Yw_bLQnf1R_BUTExNCrSCXC4fzAZCG4p-DpJkm0U/edit).
 
-**FIXME**:
-
-- fire $R^2$
 - decide on ordering of plots/tables (Area/NPP/Fire/interactions, or by $R^2$ magnitude?)
+- document/
+
+```{r}
+remotes::install_github("bbolker/r2glmm")
+```
 
 Some parts of the analysis have been moved into separate `.R` files: the overall workflow is
 
@@ -394,7 +396,7 @@ rsqplot + facet_zoom(x=Effect %in% bigvals, zoom.data=Effect %in% bigvals, show.
 ```
 Plot in two panels:
 
-```{r rsqplot2}
+```{r rsqplot2,message=FALSE}
 all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP","Area"))
 r1 <- rsqplot %+% subset(all_rsq,upper) + scale_x_continuous(position="top")
 r2 <- rsqplot %+% subset(all_rsq,!upper)
@@ -437,57 +439,88 @@ ggsave(pg,file="rsqplot.png")
 )
 ```
 
-What about a combined "fire $R^2$"? (**not working yet**)
+What about a combined "fire $R^2$"?
 
-```{r cmp_R2_2}
+```{r cmp_R2_2, echo=FALSE}
 library(Matrix)
-get_fire_R2 <- function(taxon, method="sgv", which_clust=NULL) {
+get_fire_R2 <- function(taxon, method="sgv", clust.id=NULL) {
     model <- best_models[[grep(taxon, names(best_models))]]$mer
+    X <- as.matrix(getME(model,"X"))
+    beta <- fixef(model)
+    if (is.null(clust.id)) {
+        clust.id <- tail(names(model@flist),1)
+    }
+    data <- model.frame(model)
+    obsperclust <- as.numeric(table(data[[clust.id]]))
+    nclusts <- length(obsperclust)
     SigHat <- as.matrix(extract.merMod.cov(model))
     ## what is this step doing ???
     SigHat <- calc_sgv(nblocks=nclusts, blksizes=obsperclust, vmat=SigHat)
-    X <- as.matrix(getME(model,"X"))
-    beta <- fixef(model)
-    if (is.null(which_clust)) {
-        which_clust <- length(model@flist)
-    }
-    clust.id <- names(model@flist)[which_clust]
-    data <- model.frame(model)
-    obsperclust <- as.numeric(table(data[, clust.id]))
-    nclusts <- length(obsperclust)
     p <- length(beta)
     C_model <- cbind(0,diag(p-1))
+    nb <- gsub("^X","",names(beta))
+    dimnames(C_model) <- list(nb[-1],nb)
     C_fire <- C_model
     C_fire <- C_fire[grep("Feat",names(beta))-1,]
-    
-    r2_model <- cmp_R2(c=C_model, x=X, SigHat=SigHat, beta=beta, method = method,
-                       obsperclust=obsperclust, nclusts=nclusts)
-    r2_fire <- cmp_R2(c=C_fire, x=X, SigHat=SigHat, beta=beta, method = method,
-                      obsperclust=obsperclust, nclusts=nclusts)
-    R2 <- data.frame(effect=c("model","fire"),
-                     rbind(r2_model,r2_fire))
-    R2 = within(R2, {
-        lower.CL = stats::qbeta(0.025, v1/2, v2/2, ncp)
-        upper.CL = stats::qbeta(0.975, v1/2, v2/2, ncp)
-    })
+    C_nonfire <- C_model
+    C_nonfire <- C_model[grep("Feat",names(beta),invert=TRUE)-1,]
+    R2 <- (purrr::map_dfr(list(model=C_model,fire=C_fire,nonfire=C_nonfire),
+                         cmp_R2, x=X, SigHat=SigHat,
+                         beta=beta, method = method,
+                         obsperclust=obsperclust, nclusts=nclusts,
+                         .id="effect") 
+        %>% mutate(
+            lower.CL = stats::qbeta(0.025, v1/2, v2/2, ncp),
+            upper.CL = stats::qbeta(0.975, v1/2, v2/2, ncp)
+        ))
     return(R2)
 }
-R2_vals <- expand.grid(taxon=c("mamm","bird","amph"),
-                       method=c("sgv","nsj"),
-                       which_clust=c("biome_FR","biome","flor_realms"))
-R2_list <- list()
-for (i in seq(nrow(R2_vals))) {
-    R2_list <- c(R2_list,list(with(R2_vals[i,],
-                                   tibble(taxon=taxon,method=method,clust=which_clust,
-                                          get_fire_R2(taxon,method,which_clust)))))
-}
-all_R2 <- bind_rows(R2_list)
-ggplot(all_R2,aes(Rsq,clust,colour=effect,shape=method)) + facet_wrap(~taxon) +
-    geom_pointrange(aes(xmin=lower.CL,xmax=upper.CL),
-                    position=position_dodge(width=0.2))
+gfr1 <- get_fire_R2("amph")
+stopifnot(isTRUE(all.equal(gfr1$Rsq[1],0.5813195,
+                           tolerance=1e-5)))
+stopifnot(identical(gfr1, get_fire_R2("amph",method="sgv")),
+          identical(gfr1, 
+                    get_fire_R2("amph",method="sgv",clust.id="flor_realms")))
 ```
 
-    
+```{r calc_fire_R2,echo=FALSE}
+## watch out for factor vs char!
+R2_vals <- purrr::cross_df(list(taxon=c("mamm","bird","amph"),
+                       method=c("sgv","nsj"),
+                       clust.id=c("biome_FR","biome","flor_realms")))
+R2_list <- list()
+for (i in seq(nrow(R2_vals))) {
+    res <- with(R2_vals[i,],
+                tibble(taxon=taxon,method=method,clust.id=clust.id,
+                       get_fire_R2(taxon,method,clust.id)))
+    with(res[1,],cat(taxon,method,clust.id,Rsq,"\n"))
+    R2_list <- c(R2_list,list(res))
+}
+all_R2 <- bind_rows(R2_list)
+```
+
+```{r plot_all_Rsq,echo=FALSE}
+print(ggplot(all_R2,aes(Rsq,taxon,colour=clust.id,shape=method))
+      + facet_wrap(~effect,scale="free")
+      + geom_pointrange(aes(xmin=lower.CL,xmax=upper.CL),
+                    position=position_dodge(width=0.2)))
+```
+
+Bottom line: results don't depend very much on cluster/method, are reasonable.
+
+```{r fire_R2_tab, results="asis",echo=FALSE}
+(all_R2
+    %>% filter(method=="sgv",clust.id=="flor_realms")
+    %>% dplyr::select(taxon,effect,Rsq,upper.CL,lower.CL)
+    %>% rename(lwr="lower.CL",upr="upper.CL",estimate="Rsq")
+    %>% transmute(taxon,effect,
+                  est=sprintf("%1.2g (%1.2g, %1.2g)",estimate,lwr,upr))
+    %>% pivot_wider(names_from=effect, values_from=est)
+   %>% knitr::kable()
+)
+```
+
+
 ## Models fitted with only biome and flor_realms
 
 (from `fit_batch.R`): diagonal (independent) random effects
