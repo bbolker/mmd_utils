@@ -439,18 +439,55 @@ ggsave(pg,file="rsqplot.png")
 
 What about a combined "fire $R^2$"? (**not working yet**)
 
-```{r cmp_R2}
-x <- best_models[[1]]
-SigHat <- extract.merMod.cov(x$mer)
-X <- getME(x$mer,"X")
-beta <- fixef(x)
-C <- matrix(0,nrow=1,ncol=length(beta))
-C[grepl("Feat",names(beta))] <- 1
-## doesn't work yet ...
-## cmp_R2(c=C, x=X, SigHat=SigHat, beta=beta, method = 'nsj')
-## what should obsperclust, nclusts, be for a crossed RE model??
+```{r cmp_R2_2}
+library(Matrix)
+get_fire_R2 <- function(taxon, method="sgv", which_clust=NULL) {
+    model <- best_models[[grep(taxon, names(best_models))]]$mer
+    SigHat <- as.matrix(extract.merMod.cov(model))
+    ## what is this step doing ???
+    SigHat <- calc_sgv(nblocks=nclusts, blksizes=obsperclust, vmat=SigHat)
+    X <- as.matrix(getME(model,"X"))
+    beta <- fixef(model)
+    if (is.null(which_clust)) {
+        which_clust <- length(model@flist)
+    }
+    clust.id <- names(model@flist)[which_clust]
+    data <- model.frame(model)
+    obsperclust <- as.numeric(table(data[, clust.id]))
+    nclusts <- length(obsperclust)
+    p <- length(beta)
+    C_model <- cbind(0,diag(p-1))
+    C_fire <- C_model
+    C_fire <- C_fire[grep("Feat",names(beta))-1,]
+    
+    r2_model <- cmp_R2(c=C_model, x=X, SigHat=SigHat, beta=beta, method = method,
+                       obsperclust=obsperclust, nclusts=nclusts)
+    r2_fire <- cmp_R2(c=C_fire, x=X, SigHat=SigHat, beta=beta, method = method,
+                      obsperclust=obsperclust, nclusts=nclusts)
+    R2 <- data.frame(effect=c("model","fire"),
+                     rbind(r2_model,r2_fire))
+    R2 = within(R2, {
+        lower.CL = stats::qbeta(0.025, v1/2, v2/2, ncp)
+        upper.CL = stats::qbeta(0.975, v1/2, v2/2, ncp)
+    })
+    return(R2)
+}
+R2_vals <- expand.grid(taxon=c("mamm","bird","amph"),
+                       method=c("sgv","nsj"),
+                       which_clust=c("biome_FR","biome","flor_realms"))
+R2_list <- list()
+for (i in seq(nrow(R2_vals))) {
+    R2_list <- c(R2_list,list(with(R2_vals[i,],
+                                   tibble(taxon=taxon,method=method,clust=which_clust,
+                                          get_fire_R2(taxon,method,which_clust)))))
+}
+all_R2 <- bind_rows(R2_list)
+ggplot(all_R2,aes(Rsq,clust,colour=effect,shape=method)) + facet_wrap(~taxon) +
+    geom_pointrange(aes(xmin=lower.CL,xmax=upper.CL),
+                    position=position_dodge(width=0.2))
 ```
 
+    
 ## Models fitted with only biome and flor_realms
 
 (from `fit_batch.R`): diagonal (independent) random effects
