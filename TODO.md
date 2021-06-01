@@ -1,5 +1,9 @@
 ## To do
 
+- sort out R^2: are gamm4 KR results really sensible??? should we be including the sos() smooth? compare lme4 fits? SGV fits?
+- decide on which panels, tables, etc. to use
+- compare elasticities with scaled parameters/R^2, especially for mammals NPP and fire effects, explain the change in rank clearly; graphics? numerical illustrations?
+
 - figures
     - pretty labels in Rsq/coef plots
     - faceting (i.e. compact multi-panel plots by suppressing redundant scales/axis labels)

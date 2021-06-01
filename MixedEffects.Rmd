@@ -16,8 +16,10 @@ The manuscript in progress is [here](https://docs.google.com/document/d/1cW7Yw_b
 - document $R^2$ stuff better, remember we need to install BMB's fork of `r2glmm` (for now):
 
 ```{r r2glmm, message=FALSE}
+if (packageVersion("r2glmm") < "0.1.2.9002") stop("need hacked r2glmm")
 remotes::install_github("bbolker/r2glmm")
 ```
+
 
 Some parts of the analysis have been moved into separate `.R` files: the overall workflow is
 
@@ -363,9 +365,20 @@ NPP (of course), fire (for mammals and ?birds?), and fire CV (for amphibians).
 Everything else is going to be pretty subtle (provided of course that
 we trust this particular way of estimating $R^2$).
 
-```{r rsq_calc}
-all_rsq <- (purrr::map_dfr(best_models,
-                           ~r2beta(.$mer),.id="taxon")
+```{r rsq_calc, cache=TRUE}
+get_rsq <- function(taxon) {
+  model <- best_models[[taxon]]
+  df <- model.frame(model$mer)
+  names(df)[1] <- taxon
+  formula <- reformulate("(NPP_log_sc+NPP_cv_sc + Feat_log_sc+Feat_cv_sc)^2", response = taxon)
+  mm <- model.matrix(formula, df)
+  r2beta(best_models[[taxon]], formula=formula, random=NULL, method="kr", data=df,
+         partial.terms=colnames(mm)[-1])
+}
+nn <- names(best_models)
+names(nn) <- nn ## ugh, for map_dfr
+all_rsq <- purrr::map_dfr(nn, get_rsq, .id="taxon")
+mutate_rsq <- (.  
     %>% as_tibble()
     %>% filter(taxon !="plants_log")
     %>%  mutate(Effect=as.character(Effect),
@@ -376,10 +389,12 @@ all_rsq <- (purrr::map_dfr(best_models,
                 )
     %>% dplyr::select(taxon,Effect,Rsq,upper.CL,lower.CL)
 )
+
+all_rsq2 <- all_rsq %>% mutate_rsq()
 ```
 
 ```{r rsq_plot}
-rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
+rsqplot <- ggplot(all_rsq2, aes(Rsq,Effect,colour=taxon,shape=taxon))+
     geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
                    position=position_dodgev(height=0.5))+
     scale_colour_brewer(palette="Dark2",labels=c("Amphibians","Birds","Mammals"))+
@@ -397,13 +412,13 @@ rsqplot + facet_zoom(x=Effect %in% bigvals, zoom.data=Effect %in% bigvals, show.
 Plot in two panels:
 
 ```{r rsqplot2,message=FALSE}
-all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP","Area"))
-r1 <- rsqplot %+% subset(all_rsq,upper) + scale_x_continuous(position="top")
-r2 <- rsqplot %+% subset(all_rsq,!upper)
+all_rsq2$upper <- with(all_rsq2,Effect %in% c("Model","NPP","Area"))
+r1 <- rsqplot %+% subset(all_rsq2,upper) + scale_x_continuous(position="top")
+r2 <- rsqplot %+% subset(all_rsq2,!upper)
 ## facet_wrap doesn't have 'space' argument ...
-## rsqplot %+% all_rsq +facet_wrap(~upper,ncol=1,scales="free")
+## rsqplot %+% all_rsq2 +facet_wrap(~upper,ncol=1,scales="free")
 ## facet_grid doesn't use axes for all facets ...
-## rsqplot %+% all_rsq +facet_grid(upper~.,scales="free",space="free") +
+## rsqplot %+% all_rsq2 +facet_grid(upper~.,scales="free",space="free") +
 ##    theme(strip.text=element_blank())
 ## https://cran.r-project.org/web/packages/cowplot/vignettes/shared_legends.html
 L <- get_legend(r1)
@@ -425,8 +440,7 @@ ggsave(pg,file="rsqplot.png")
 ```
 
 ```{r rsqtab, results="asis", echo=FALSE}
-(all_rsq
-    %>% dplyr::select(-upper)
+rsq_tab <- (.
     ## rename to match coef tab (reuse code)
     %>% rename(term="Effect",lwr="lower.CL",upr="upper.CL",estimate="Rsq")
     %>% mutate(across(term, ~factor(.,levels=rev(levels(.)))))
@@ -437,78 +451,52 @@ ggsave(pg,file="rsqplot.png")
     %>% pivot_wider(names_from=taxon,values_from=est)
     %>% knitr::kable()
 )
+print(all_rsq2 %>% rsq_tab)
 ```
 
-What about a combined "fire $R^2$"?
+What about a combined "fire $R^2$"? "NPP $R^2$?"
 
 ```{r cmp_R2_2, echo=FALSE}
-library(Matrix)
-get_fire_R2 <- function(taxon, method="sgv", clust.id=NULL) {
-    model <- best_models[[grep(taxon, names(best_models))]]$mer
-    X <- as.matrix(getME(model,"X"))
-    beta <- fixef(model)
-    if (is.null(clust.id)) {
-        clust.id <- tail(names(model@flist),1)
-    }
-    data <- model.frame(model)
-    obsperclust <- as.numeric(table(data[[clust.id]]))
-    nclusts <- length(obsperclust)
-    SigHat <- as.matrix(extract.merMod.cov(model))
-    ## what is this step doing ???
-    SigHat <- calc_sgv(nblocks=nclusts, blksizes=obsperclust, vmat=SigHat)
-    p <- length(beta)
-    C_model <- cbind(0,diag(p-1))
-    nb <- gsub("^X","",names(beta))
-    dimnames(C_model) <- list(nb[-1],nb)
-    C_fire <- C_model
-    C_fire <- C_fire[grep("Feat",names(beta))-1,]
-    C_nonfire <- C_model
-    C_nonfire <- C_model[grep("Feat",names(beta),invert=TRUE)-1,]
-    R2 <- (purrr::map_dfr(list(model=C_model,fire=C_fire,nonfire=C_nonfire),
-                         cmp_R2, x=X, SigHat=SigHat,
-                         beta=beta, method = method,
-                         obsperclust=obsperclust, nclusts=nclusts,
-                         .id="effect") 
-        %>% mutate(
-            lower.CL = stats::qbeta(0.025, v1/2, v2/2, ncp),
-            upper.CL = stats::qbeta(0.975, v1/2, v2/2, ncp)
-        ))
-    return(R2)
+special_R2 <- function(model, type="fire") {
+  fire_terms <- "(Feat_log_sc * Feat_cv_sc) + (NPP_log_sc + NPP_cv_sc):(Feat_log_sc + Feat_cv_sc)"
+  NPP_terms <- "(NPP_log_sc * NPP_cv_sc) + (NPP_log_sc + NPP_cv_sc):(Feat_log_sc + Feat_cv_sc)"
+  ## update(formula(best_models[[1]]), as.formula(sprintf(". ~ . - (%s)", fire_terms)))
+  terms <- switch(type,
+                  fire=fire_terms,
+                  NPP=NPP_terms)
+  ## ugh
+  taxon <- deparse1(formula(model$gam)[[2]])
+  df <- model.frame(model$mer)
+  names(df)[1] <- taxon
+  formula <- reformulate("(NPP_log_sc+NPP_cv_sc + Feat_log_sc+Feat_cv_sc)^2", response = taxon)
+  r2beta(model, formula = formula, partial.terms = terms, method="KR", random=NULL,
+         data=df)
 }
-gfr1 <- get_fire_R2("amph")
-stopifnot(isTRUE(all.equal(gfr1$Rsq[1],0.5813195,
-                           tolerance=1e-5)))
-stopifnot(identical(gfr1, get_fire_R2("amph",method="sgv")),
-          identical(gfr1, 
-                    get_fire_R2("amph",method="sgv",clust.id="flor_realms")))
+
+get_taxon_rsq <- function(t) {
+  (purrr::map_dfr(
+              best_models, .id="taxon", ~ special_R2(., t))
+    %>% as_tibble()
+    %>% filter(taxon !="plants_log")
+    %>% mutate(across(Effect, ~ ifelse(. == "Model", "Model", t)))
+    %>% dplyr::select(taxon,Effect,Rsq,upper.CL,lower.CL)
+  )
+}
 ```
 
-```{r calc_fire_R2,echo=FALSE}
-## watch out for factor vs char!
-R2_vals <- purrr::cross_df(list(taxon=c("mamm","bird","amph"),
-                       method=c("sgv","nsj"),
-                       clust.id=c("biome_FR","biome","flor_realms")))
-R2_list <- list()
-for (i in seq(nrow(R2_vals))) {
-    res <- with(R2_vals[i,],
-                tibble(taxon=taxon,method=method,clust.id=clust.id,
-                       get_fire_R2(taxon,method,clust.id)))
-    ## with(res[1,],cat(taxon,method,clust.id,Rsq,"\n"))
-    R2_list <- c(R2_list,list(res))
-}
-all_R2 <- bind_rows(R2_list) %>% mutate(effect=factor(effect,levels=c("fire","nonfire","model")))
+```{r fn_rsq, cache=TRUE}
+tt <- c("fire", "NPP")
+fn_rsq <- purrr::map_dfr(setNames(tt,tt), .id="type", get_taxon_rsq)
 ```
+
 
 ```{r plot_all_Rsq,echo=FALSE,fig.width=10,fig.height=2.75}
-print(ggplot(all_R2,aes(Rsq,taxon,colour=clust.id,shape=method))
-      + facet_wrap(~effect,scale="free")
+fn_rsq  <- fn_rsq %>% mutate(across(Effect, ~ factor(., levels=c("Model","NPP","fire"))))
+print(ggplot(fn_rsq,aes(Rsq,taxon, colour=Effect))
       + geom_pointrange(aes(xmin=lower.CL,xmax=upper.CL),
                         position=position_dodge(width=0.25))
       )
 ```
-
-Bottom line: results don't depend very much on method, are reasonable. But overall magnitude *does* depend
-on which cluster is chosen (why does this affect NSJ method ...?)
 
 From @jaeger_r2_2017:
 
@@ -518,14 +506,10 @@ From @jaeger_r2_2017:
 > variance may be estimated with a scalar and correlation between observations may be ignored.
 
 ```{r fire_R2_tab, results="asis",echo=FALSE}
-(all_R2
-    %>% filter(method=="sgv",clust.id=="flor_realms")
-    %>% dplyr::select(taxon,effect,Rsq,upper.CL,lower.CL)
-    %>% rename(lwr="lower.CL",upr="upper.CL",estimate="Rsq")
-    %>% transmute(taxon,effect,
-                  est=sprintf("%1.2g (%1.2g, %1.2g)",estimate,lwr,upr))
-    %>% pivot_wider(names_from=effect, values_from=est)
-   %>% knitr::kable()
+(fn_rsq
+  %>% filter(!(Effect=="Model" & type=="fire"))
+  %>% mutate(across(Effect, ~ factor(., levels=rev(levels(.)))))
+  %>% rsq_tab()
 )
 ```
 
