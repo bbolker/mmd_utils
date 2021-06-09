@@ -1,6 +1,10 @@
 ## To do
 
 - sort out R^2: are gamm4 KR results really sensible??? should we be including the sos() smooth? compare lme4 fits? SGV fits?
+    - try R^2 on lme4 models where I didn't have to hack so much.  What is "null" model ?
+- add Erica Newman to GH repo?
+- check Enric's FC_FCC stuff: google drive/fire_diversity/FC_FCC_20201019.Rmd
+
 - decide on which panels, tables, etc. to use
 - compare elasticities with scaled parameters/R^2, especially for mammals NPP and fire effects, explain the change in rank clearly; graphics? numerical illustrations?
 

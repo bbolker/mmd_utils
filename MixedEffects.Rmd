@@ -327,6 +327,15 @@ best_models <- readRDS("bestmodels_gamm4.rds")
 names(best_models)
 ```
 
+```{r}
+allfits_lme4 <- readRDS("allfits_lme4.rds")
+best_models_lme4 <- apply(lme4_best_models, 1,
+                          function(r) {
+                            allfits_lme4[[r[["taxon"]]]][[r[["model"]]]]
+                          })
+names(best_models_lme4) <- names(allfits_lme4)[1:3] ## skip plants_log
+```
+
 `plotfun()` takes arguments:
 
 - `model`: fitted model
@@ -365,16 +374,25 @@ NPP (of course), fire (for mammals and ?birds?), and fire CV (for amphibians).
 Everything else is going to be pretty subtle (provided of course that
 we trust this particular way of estimating $R^2$).
 
-```{r rsq_calc, cache=TRUE}
-get_rsq <- function(taxon) {
-  model <- best_models[[taxon]]
-  df <- model.frame(model$mer)
-  names(df)[1] <- taxon
-  formula <- reformulate("(NPP_log_sc+NPP_cv_sc + Feat_log_sc+Feat_cv_sc)^2", response = taxon)
-  mm <- model.matrix(formula, df)
-  r2beta(best_models[[taxon]], formula=formula, random=NULL, method="kr", data=df,
-         partial.terms=colnames(mm)[-1])
+```{r rsq_calc, cache=TRUE, echo=FALSE}
+get_rsq <- function(taxon, models = best_models, df = NULL) {
+  model <- models[[taxon]]
+  if (is(model, "gamm4")) {
+    if (is.null(df)) df <- model.frame(model$mer)
+    ## hack area (not sure why other vars are already present
+    ## in unmunged-name form??
+    if (!"area_km2_log_sc" %in% names(df))
+      df$area_km2_log_sc <- df$X.area_km2_log_sc
+    names(df)[1] <- taxon
+    formula <- reformulate(c("(NPP_log_sc+NPP_cv_sc + Feat_log_sc+Feat_cv_sc)^2", "area_km2_log_sc"), response = taxon)
+    mm <- model.matrix(formula, df)
+    r2beta(models[[taxon]], formula=formula, random=NULL, method="kr", data=df,
+           partial.terms=colnames(mm)[-1])
+  } else {
+    r2beta(models[[taxon]], method="kr", partial = TRUE)
+  }
 }
+
 nn <- names(best_models)
 names(nn) <- nn ## ugh, for map_dfr
 all_rsq <- purrr::map_dfr(nn, get_rsq, .id="taxon")
@@ -393,6 +411,29 @@ mutate_rsq <- (.
 all_rsq2 <- all_rsq %>% mutate_rsq()
 ```
 
+```{r lme4_rq_calc, cache=TRUE}
+## try with plain old lme4 so we don't need hacked gamm4 stuff ...
+nn4 <- names(best_models_lme4)
+names(nn4) <- nn4
+r2beta(best_models_lme4[["mamph_log"]], method="kr", partial = TRUE)
+all_rsq_lme4 <- purrr::map_dfr(best_models_lme4,
+                               function(n) r2beta(n , method="kr",
+                                                   partial = TRUE),
+                               .id="taxon")
+all_rsq_lme4_2 <- all_rsq_lme4 %>% mutate_rsq()
+all_rsq_lme4_sgv <- purrr::map_dfr(best_models_lme4,
+                               function(n) r2beta(n , method="sgv",
+                                                   partial = TRUE),
+                               .id="taxon")
+all_rsq_lme4_sgv_2 <- all_rsq_lme4_sgv %>% mutate_rsq()
+all_rsq_sgv_2 <- purrr::map_dfr(best_models,
+                               function(n) r2beta(n , method="sgv",
+                                                   partial = TRUE),
+                               .id="taxon") %>% mutate_rsq()
+
+```
+
+
 ```{r rsq_plot}
 rsqplot <- ggplot(all_rsq2, aes(Rsq,Effect,colour=taxon,shape=taxon))+
     geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
@@ -402,6 +443,18 @@ rsqplot <- ggplot(all_rsq2, aes(Rsq,Effect,colour=taxon,shape=taxon))+
     ## scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
     labs(y="")
 print(rsqplot)
+```
+
+Redraw R^2 plot but based on lme4 fits (less chance that my R^2 hacking screwed something up ...); still weird, although slightly differently weird (maybe worse?)
+
+```{r rsq_plot_lme4}
+xsc <- scale_x_continuous(limits=c(0,1))
+plot_grid(rsqplot %+% all_rsq_lme4_2 + ggtitle("lme4, kr") + xsc,
+          rsqplot + ggtitle("gamm4, kr") + xsc,
+          rsqplot %+% all_rsq_lme4_sgv_2 + ggtitle("lme4, sgv") + xsc,
+          rsqplot %+% all_rsq_sgv_2 + ggtitle("gamm4, sgv") + xsc
+          )
+ggsave("rsq_comp.png")
 ```
 
 ```{r echo=FALSE, eval=FALSE}
