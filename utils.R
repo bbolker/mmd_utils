@@ -15,7 +15,7 @@ pfun <- function(x) print(summary(x),correlation=FALSE)
 ##
 cplot <- function(x) {
     vv <- VarCorr(x)[[1]]
-    cc <- cov2cor(vv)            
+    cc <- cov2cor(vv)
     corrplot.mixed(cc,upper="ellipse")
 }
 
@@ -43,7 +43,7 @@ get_best_name_fitlist <- function(fitlist,allow_sing=FALSE) {
 ##' gg0 <- ggplot(pp2,aes(NPP_log,mbirds_log,colour=biome))+geom_line(aes(group=biome))+
 ##'     geom_point(data=ecoreg,aes(shape=flor_realms))
 ##' ggplotly(gg0)
-##' 
+##'
 predfun <- function(model=best_model,
                     data = ecoreg,
                     xvar="NPP_log_sc",
@@ -156,7 +156,7 @@ predfun <- function(model=best_model,
                                        mean=pdata[[mrespvar]],sd=sqrt(pvar1)),
                            upr = qnorm(1-alpha/2,
                                        mean=pdata[[mrespvar]],sd=sqrt(pvar1)))
-    
+
 
     }
     if (!is.na(pred_lower_lim)) {
@@ -197,8 +197,8 @@ auto_lab_short <- c(NPP="NPP",NPP_cv="NPP CV",
                     Feat="Fire",Feat_cv="Fire CV",
                     area_km2="Area")
 
-test <- c("NPP_log_sc", "Feat_log_sc", "NPP_cv_sc", "Feat_cv_sc", "area_km2_log_sc", 
-"NPP_log_sc:Feat_log_sc", "NPP_log_sc:NPP_cv_sc", "NPP_log_sc:Feat_cv_sc", 
+test <- c("NPP_log_sc", "Feat_log_sc", "NPP_cv_sc", "Feat_cv_sc", "area_km2_log_sc",
+"NPP_log_sc:Feat_log_sc", "NPP_log_sc:NPP_cv_sc", "NPP_log_sc:Feat_cv_sc",
 "Feat_log_sc:NPP_cv_sc", "Feat_log_sc:Feat_cv_sc", "NPP_cv_sc:Feat_cv_sc")
 trans_labs <- function(x) {
     ## match name followed by _, :, end of line
@@ -212,7 +212,7 @@ trans_labs <- function(x) {
     }
     return(x)
 }
-                    
+
 ##' @param model fitted model
 ##' @param data data frame containing values
 ##' @param xvar  x-variable
@@ -369,7 +369,7 @@ pkgList <- c(
   ,'broom.mixed' ## better coef tables
   ,'colorspace'
   ,'cowplot'
-  ,'data.table' ## 
+  ,'data.table' ##
   ,'dplyr'      ## data manipulation
   ,'fields'
   ,'gamm4'      ## spatial fits
@@ -388,7 +388,8 @@ pkgList <- c(
   ,'sp'
   ,'tibble'     ## ditto: rownames_to_column
   ,'tidyr'      ## ditto
-  ,'viridis'
+   ,'viridis'
+    , 'patchwork'
 )
 
 install_all_pkgs <- function() {
@@ -573,9 +574,9 @@ remef_allran <- function(x, data,
                 mm_fixed[,col] <- switch(set_other,
                          mean=mean(mm_fixed[,col],na.rm=TRUE),
                          median=median(mm_fixed[,col],na.rm=TRUE),
-                         zero=0)                
+                         zero=0)
             }
-        } 
+        }
         pp_fixed <- mm_fixed %*% cc
         if (length(na.act)>0)  {
             ## drop NA values (even those in response), in order for preds to match residuals
@@ -612,7 +613,7 @@ remef_2 <- function(x,data,response,
     data[,fixed_keep] <- 0
     pp <- predict(x,newdata=data) ## or fitted()
     return(response-pp)
-}    
+}
 
 
 ##' undo the effects of scale()
@@ -661,7 +662,7 @@ backtrans_magic <- function(x,xname,y=NULL,log=NULL) {
         r <- exp(r)
         attr(r,"logged") <- NULL
     }
-    ## attempt 
+    ## attempt
     attr(r,"name") <- gsub(re,"",xname)
     return(r)
 }
@@ -672,7 +673,7 @@ copy_attributes <- function(x,y,attrs=c("logged","scaled:scale","scaled:center")
     }
     return(y)
 }
-    
+
 ##' back-transform one or more variables
 ##' @param data  data frame to back-transform
 ##' @param xname response variable
@@ -699,7 +700,7 @@ backtrans_var <- function(data,xname,otherdata=NULL,othervars=NULL,...) {
     attr(data,"transvar") <- new_var
     return(data)
 }
-    
+
 ## fix_NAs needed for remef() results: remef_allran does it automatically
 fix_NAs <- function(rem,model) {
     if (!is.null(nastuff <- attr(model.frame(model),"na.action"))) {
@@ -745,12 +746,12 @@ remef_plot <- function(taxon="mbirds_log",xvar="NPP_log",
     m <- best_models[[taxon]]
     if (is.null(title)) {
         title <- if (is.null(auxvar)) xvar else {
-             paste(xvar,auxvar,sep=":")                                     
+             paste(xvar,auxvar,sep=":")
                                               }
     }
     pp <- (plotfun(m,xvar=xvar,respvar="partial_res",
                    auxvar=auxvar,data=ecoreg,
-                   backtrans=TRUE,log="xy") 
+                   backtrans=TRUE,log="xy")
       + theme(legend.position="none")
       + ggtitle(title)
     )
@@ -779,7 +780,7 @@ get_googledrive <- function(gid,dest) {
 read.dot <- function (f) {
     lines <- readLines(f)
     body <- lines[grep("->", lines, fixed = TRUE)]
-    nodePairs <- sub("^[[:space:]]+\"", "\"", sub("\"[;[:space:]]+$", 
+    nodePairs <- sub("^[[:space:]]+\"", "\"", sub("\"[;[:space:]]+$",
         "\"", unlist(strsplit(body, "->"))))
     nodeLists <- split(nodePairs, 1:length(nodePairs)%%2)
     nodes <- unique(nodePairs)
@@ -797,4 +798,4 @@ read.dot <- function (f) {
 replace_value_chr <- function(x, from, to) {
     replace(as.character(x), which(x==from), to)
 }
-    
+

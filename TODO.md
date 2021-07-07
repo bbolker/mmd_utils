@@ -2,7 +2,6 @@
 
 - sort out R^2: are gamm4 KR results really sensible??? should we be including the sos() smooth? compare lme4 fits? SGV fits?
     - try R^2 on lme4 models where I didn't have to hack so much.  What is "null" model ?
-- add Erica Newman to GH repo?
 - check Enric's FC_FCC stuff: google drive/fire_diversity/FC_FCC_20201019.Rmd
 
 - decide on which panels, tables, etc. to use
@@ -11,12 +10,14 @@
 - figures
     - pretty labels in Rsq/coef plots
     - faceting (i.e. compact multi-panel plots by suppressing redundant scales/axis labels)
-- continue writing methods
 - fire comparisons
     - combined fire R^2 with `cmp_R2`
 	- zero-fire predictions
     - no-fire models
-- get data for Enric's figures
+- Feat -> Fire (fraction 
+- try redrawing Figure 2
+
+
 
 ### low
 

@@ -682,7 +682,69 @@ predList_nofire <- lapply(best_models,
        exclude_fire=TRUE)
 ```
 
+##
 
+```{r barplots}
+## (ecoreg
+##   %>% group_by(biome)
+##   %>% summarise(across(area_km2, ~sum(.)/1e6))
+##   %>% dplyr::select(biome, area_km2)
+##   %>% arrange(area_km2)
+## )
+
+e_mean <- (ecoreg
+  %>% group_by(biome)
+  %>% mutate(across(area_km2, ~ sum(.) / 1e6)) ## set area to **sum** of area (millions of km^2)
+  %>% summarise(across(c(NPP_mean, Feat_mean, mamph, mbirds, mmamm, area_km2), mean, na.rm = TRUE))
+  %>% mutate(across(biome, ~ reorder(factor(.), NPP_mean)))
+  %>% mutate(across(Feat_mean, ~ . * 100)) ## convert to pct
+)
+
+## compute positions for area-stacked chart
+e_mean2 <- e_mean %>% arrange(biome) %>%
+  mutate(tot_area = cumsum(area_km2),
+         prev_area = c(0, tot_area[1:n()-1]),
+         mid = (prev_area+tot_area)/2)
+
+inter <- 1 ## inter-bar spacing
+mkplot <- function(var, colour, type="rect", xlab = "", title= "") {
+  g1 <- ggplot(e_mean2)
+  if (type=="rect") {
+    g1 <- g1 + geom_rect(xmin=0, aes(xmax={{var}}, ymin=prev_area+inter, ymax=tot_area-inter),
+                         fill = colour) +
+      theme(axis.text.y = element_text(size=7)) ## try to avoid overlapping labels ( + 'inter')
+    ylabs <- e_mean2$biome
+  } else {
+    g1 <- g1 + geom_point(aes(x={{var}}, y = mid), colour = colour, size=5) +
+      geom_segment(x=0, aes(xend = {{var}}, y = mid, yend = mid), colour = colour, size=1)
+    g1 <- g1 + theme(axis.text.y = element_blank())
+    ylabs <- NULL
+  }
+  v <- e_mean2[[deparse(substitute(var))]] ## ugh
+  g1 +
+    scale_y_continuous(breaks=e_mean2$mid, labels=ylabs,
+                       limits=c(min(e_mean2$prev_area) - inter, max(e_mean2$tot_area+inter))) +
+    scale_x_continuous(limits=c(0,max(v)*1.05), expand=c(0,0)) +
+    labs(x=xlab, title= title) +
+    theme(axis.title.y = element_blank()) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(plot.margin = margin(t=5.5, r=1, b=5.5, l=1, unit="pt"))
+}
+
+cols <- c("darkolivegreen3", "orangered", "grey80", "grey60", "grey40")
+plot_list <- list(mkplot(NPP_mean, cols[1], xlab=expression(g~C/m^{2}/year), title="NPP"),
+     mkplot(Feat_mean, cols[2], type = "point", xlab="% of NPP", title = "Fire loss"),
+     mkplot(mamph, cols[3], type = "point", xlab=expression(species/(10~km^{2})), title="Amphibian\nrichness"),
+     mkplot(mbirds, cols[4], type = "point", xlab=expression(species/(10~km^{2})), title="Bird\nrichness"),
+     mkplot(mmamm, cols[5], type = "point", xlab=expression(species/(10~km^{2})), title="Mammal\nrichness")
+     )
+
+`library(patchwork)
+## give NPP a little extra space
+wrap_plots(plot_list, nrow=1, widths=c(1.2, rep(1,4)))
+ggsave("fig2.pdf",width=14, height=8)
+ggsave("fig2.svg",width=14, height=8)
+```
 
 ## Methods description
 
