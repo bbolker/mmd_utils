@@ -12,10 +12,12 @@ output:
 
 ![](make_figs.png)
 
+Data in google drive (linked to `googledrive` ...
+
 ```{r get_utils,warning=FALSE,message=FALSE}
 source("utils.R")
 source("gamm4_utils.R")
-do_maps <- FALSE ## skip map drawing in absence of source files ... ?
+do_maps <- FALSE ## skip map drawing sometimes (slow!)
 ```
 
 ```{r load_packages,message=FALSE,warning=FALSE}
@@ -35,21 +37,28 @@ Load data and model results
 ```{r source_files}
 best_models <- readRDS("bestmodels_gamm4.rds")
 ecoreg <- readRDS("ecoreg.rds")
-load('full_data_LAND.RData') 
+load('full_data_LAND.RData')
+data_dir <- "bigdata"
 ## might need allfits_sum_gamm4.rds too, for profile CIs?
 ```
 
+```{r}
+L <- load("full_data.RData")
+```
+
 Additional data (includes area and lat/long coordinates)
-```{r get_data, eval=do_maps}
+
+```{r get_data, eval=do_maps, warning=FALSE}
 # full data set (only working variables) - to use in Figure 3
-load(file='D:/Enric/8.Fire_Biodiversity/GFED4s/FireDiversityDataset_20170504.RData') # full data set with all the original vars, including fraction burned
+## slow
+load(file=file.path(data_dir, "FireDiversityDataset_20170504.RData")) # full data set with all the original vars, including fraction burned
 # computing mean values per ecoregion -- ONLY land masses
-db.land = db[land == 1,]	# selecting only land masses
-db.land$fracburn = round(db.land$tBA_mean/db.land$AREA.cell,4)	# computing "mean" fraction of area burned per cell (as opposed to burned area)
-setkey(db.land,eco_id)    # sorting the data set by ecoregion id
+db.land <- db[land == 1,]	# selecting only land masses
+db.land$fracburn <- round(db.land$tBA_mean/db.land$AREA.cell,4)	# computing "mean" fraction of area burned per cell (as opposed to burned area)
+setkey(db.land, eco_id)    # sorting the data set by ecoregion id
 db.land <- as.data.frame(db.land)
-biomes <- readOGR('D:/Enric/8.Fire_Biodiversity/official_teow/official','wwf_terr_ecos', verbose = FALSE)
-land_limits <- readOGR('D:/Enric/8.Fire_Biodiversity/official_teow','WORLD_Limits_LAND', verbose = FALSE)
+biomes <- readOGR(file.path(data_dir, 'wwf_terr_ecos'), verbose = FALSE)
+land_limits <- readOGR(file.path(data_dir, 'WORLD_Limits_LAND'), verbose = FALSE)
 # changing the coordinate reference system
 biomes <- spTransform(biomes, CRS = CRS("+proj=eck4 +lon_0=0 +x_0=0 +y_0=0 +a=6371000 +b=6371000 +units=m +no_defs"))
 ```
@@ -106,7 +115,6 @@ bio_to_plot <- spTransform(bio_to_plot, CRS = CRS("+proj=eck4 +lon_0=0 +x_0=0 +y
 bio_to_plot@data <- join(bio_to_plot@data,ecoreg,by='ECO_ID')
 ```
 
-  
 ## Framework (maps, NPP, biodiversity, etc...)
 
 ### Figure 1
@@ -215,12 +223,11 @@ axis(side=2,at=c(0,3.5),lab=c('l_Feat\nl_CV','h_Feat\nl_CV'),las=2,cex.axis=0.9,
 axis(side=4,at=c(0,3.5),lab=c('l_Feat\nh_CV','h_Feat\nh_CV'),las=2,cex.axis=0.9,lty=0)
 ```
 
-![](Fig_1.jpg)
-
 ### Figure 2
 
-Summary of NPP (green) and proportion of NPP eaten by fire (red) at the biome level. Divesity of amphibians, birds and mammals for each biome is also shown. Diversity data (number of species at 10km pixels) comes from Jenkins et al. (2013) PNAS, doi: 10.1073/pnas.1302251110. 
-```{r barplot}
+Summary of NPP (green) and proportion of NPP eaten by fire (red) at the biome level. Diversity of amphibians, birds and mammals for each biome is also shown. Diversity data (number of species at 10km pixels) comes from Jenkins et al. (2013) PNAS, doi: 10.1073/pnas.1302251110. 
+
+```{r old_barplot, echo=FALSE, eval=FALSE}
 ## biome_means <- ddply(ecoreg,.(biome),summarise,
 ##                      NPP = mean(NPP_mean,na.rm=TRUE),
 ##                      NPP_cv = mean(NPP_cv_inter,na.rm=TRUE),
@@ -244,7 +251,6 @@ biome_means <- (ecoreg
   %>% setNames(trans_names(names(.)))
   %>% mutate(FNPP=NPP*Feat)
 )
-
 
 # option 2 - computing FNPP at the ecoreg level and then computing biome means -- probably more correct?
 full_data$FNPP <- full_data$NPP_mean*full_data$Feat_mean
@@ -304,48 +310,80 @@ axis(side=1,at=seq(0,150,by=50),lab=seq(0,150,by=50), tck=-0.015)
 ```{r model_coefs}
 # Model coefficients' plot from Ben (MixedEfefcts.Rmd from 20200219)
 # adding best_models[1:3] selection to avoid plotting model results for plants
+L <- load("calc_rsq.rda")
+std_order <- c("Area","NPP","NPP CV","Fire","Fire CV")
+## create interaction terms
+oo <- outer(std_order[-1],std_order[-1],paste,sep=":")
+std_order2 <- c(std_order,oo[upper.tri(oo)]) ## append interactions to main effects
+## NOT idempotent
+all_rsq_gamm4_sgv_2 <- (all_rsq_gamm4_sgv
+  %>% filter(taxon != "plants_log")  ## snuck in
+  %>% mutate(across(taxon, factor,
+             ## FIXME: cross-check order with coeff plot
+             levels = c("mbirds_log", "mamph_log", "mmamm_log"),
+             labels = c("Birds", "Amphibians", "Mammals")))
+  %>% mutate(across(Effect, factor,
+                    ## reverse order for top-to-bottom
+                    levels = rev(c("Model", "all_fire", "all_NPP", std_order2)),
+                    labels = rev(c("Model", "NPP (all)", "Fire (all)",
+                               std_order2)))
+             )
+)
 
-all_rsq <- bind_rows(lapply(best_models[1:3],
-                            function(x) r2beta(x$mer)),.id="taxon") %>%
-    mutate(Effect=as.character(Effect),
-           Effect=gsub("^X","",Effect),
-           Effect=reorder(factor(Effect),Rsq))           
 
-rsqplot <- ggplot(all_rsq,aes(Rsq,Effect,colour=taxon,shape=taxon))+
-    geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
+break_range <- c(0.32, 0.5)
+vals <- unlist(all_rsq_gamm4_sgv_2[c("Rsq","upper.CL", "lower.CL")])
+stopifnot(vals < break_range[1] | vals > break_range[2])  ## make sure breaks are OK
+
+rsq_break_vals <- all_rsq_gamm4_sgv_2 %>% mutate(panel = Rsq > break_range[2])
+
+  ## mutate(across(where(is.numeric),
+  ##               ~ ifelse(. < break_range[1],
+  ##                        .,
+  ##                        . - break_range[2]))
+         
+## TRY AN AXIS BREAK (maybe a terrible idea)
+rsqplot <- ggplot(rsq_break_vals,
+                  aes(Rsq, Effect, colour=taxon, shape=taxon))+
+  geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
                    position=position_dodgev(height=0.5))+
-    scale_colour_brewer(palette="Dark2")+
+  scale_colour_brewer(palette="Dark2")+
     ## scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
-    labs(y="")
+  labs(y="", x = expression(R^2)) +
+  facet_grid(. ~ panel, scales ="free_x", space = "free_x") +
+  scale_x_continuous(breaks=seq(0,0.7, by = 0.1)) +
+  theme(legend.position = c(0.7,0.5),
+        strip.text = element_blank())
 
-# print(rsqplot) # use this to visualize R^2 in a single plot
+## Draw an explicit axis break?
+
+## print(rsqplot)
 
 ## Two panels plot
-all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP_log_sc","log(area_km2)"))
-r1 <- rsqplot %+% subset(all_rsq,upper)
-r2 <- rsqplot %+% subset(all_rsq,!upper)
-## facet_wrap doesn't have 'space' argument ...
-## rsqplot %+% all_rsq +facet_wrap(~upper,ncol=1,scales="free")
-## facet_grid doesn't use axes for all facets ...
-## rsqplot %+% all_rsq +facet_grid(upper~.,scales="free",space="free") +
-##    theme(strip.text=element_blank())
-## https://cran.r-project.org/web/packages/cowplot/vignettes/shared_legends.html
-L <- get_legend(r1)
-## stack facets
-p1 <- plot_grid(r1 + xlim(0,0.75)  #W adding manual xlim to set the min value to 0
-                +labs(x="")
-                ## rectangle indicating scale of lower box w/in upper
-                + geom_rect(xmin=0,xmax=0.125,ymin=-Inf,ymax=Inf,
-                            fill="black",
-                            colour=NA,alpha=0.02)
-                + theme(legend.position="none"),
-                r2+theme(legend.position="none")+xlab(expression("R" ^2)),  # adding expression to set R^2 in xlabels
-                ncol=1,
-                align="v",rel_heights=c(0.3,0.7),axis="b")
+## all_rsq$upper <- with(all_rsq,Effect %in% c("Model","NPP_log_sc","log(area_km2)"))
+## r1 <- rsqplot %+% subset(all_rsq,upper)z`
+## r2 <- rsqplot %+% subset(all_rsq,!upper)
+## ## facet_wrap doesn't have 'space' argument ...
+## ## rsqplot %+% all_rsq +facet_wrap(~upper,ncol=1,scales="free")
+## ## facet_grid doesn't use axes for all facets ...
+## ## rsqplot %+% all_rsq +facet_grid(upper~.,scales="free",space="free") +
+## ##    theme(strip.text=element_blank())
+## ## https://cran.r-project.org/web/packages/cowplot/vignettes/shared_legends.html
+## L <- get_legend(r1)
+## ## stack facets
+## p1 <- plot_grid(r1 + xlim(0,0.75)  #W adding manual xlim to set the min value to 0
+##                 +labs(x="")
+##                 ## rectangle indicating scale of lower box w/in upper
+##                 + geom_rect(xmin=0,xmax=0.125,ymin=-Inf,ymax=Inf,
+##                             fill="black",
+##                             colour=NA,alpha=0.02)
+##                 + theme(legend.position="none"),
+##                 r2+theme(legend.position="none")+xlab(expression("R" ^2)),  # adding expression to set R^2 in xlabels
+##                 ncol=1,
+##                 align="v",rel_heights=c(0.3,0.7),axis="b")
 
 ## Original Rsq plot + add legend
 # plot_grid(p1,L,rel_widths=c(2,0.4))
-
 
 ## coefficient plot
 coefs <- (best_models[1:3] ## leave out plants
@@ -353,24 +391,40 @@ coefs <- (best_models[1:3] ## leave out plants
                      conf.int=TRUE)
   ## n.b. these are Wald intervals, might need to go back to gamm4_res
   ##  if we want profile CIs
+  %>% mutate(across(term, ~ trans_labs(as.character(.))))
   %>% mutate(term=reorder(term,estimate))
   %>% rename(lwr="conf.low",upr="conf.high")
   %>% mutate(sig=(lwr*upr)>0)
   %>% filter(term!="(Intercept)")
+  %>% mutate(across(taxon, factor,
+                    levels=paste0(names(auto_lab_text_nounits),"_log"),
+                    labels=auto_lab_text_nounits))
 )
+
+## fix reordering of interaction
+coefs <- (coefs
+  %>% mutate(across(term, ~ replace_value_chr(., "Fire:NPP CV","NPP CV:Fire")))
+  %>% mutate(across(term, factor, levels = rev(std_order2)))
+)
+
 p2 <- ggplot(coefs,aes(estimate,term,colour=sig))+
     geom_linerangeh(aes(xmin=lwr,xmax=upr))+
     geom_point(fill="white")+
     geom_vline(xintercept=0,lty=2)+
     facet_wrap(~taxon,scale="free_x",nrow=1)+
-    labs(x="",y="")+
-    scale_colour_manual(values=c("black","orange"),guide=FALSE)+
-    zmargin
+    labs(x="Log-log regression coefficients (elasticities)", y="")+
+  scale_colour_manual(values=c("black","orange"),guide="none") +
+  ## don't squash panels together (messes with tick labels);
+  ## shrink y-axis tick labels
+  ## if being really fussy, add a phantom point with Mammals/x =-0.15 to expand range slightly
+  theme(axis.text.x = element_text(size=7))
+
 
 ## Combined Rsq + coefficient plot
-plot_grid(p1,L,p2,rel_widths=c(2,0.4,2),rel_heights=c(2,1.5),labels=c('(a)','','(b)'))
+## plot_grid(p1,L,p2,rel_widths=c(2,0.4,2),rel_heights=c(2,1.5),labels=c('(a)','','(b)'))
+plot_grid(rsqplot,p2, labels=c('(a)','(b)'), ncol= 1)
+ggsave("fig3.pdf", width=8, height = 6)
 ```
-
 
 
 ```{r plots_ori_vars,warning=FALSE,echo=FALSE}
@@ -412,6 +466,71 @@ sc_pred_names <- c(NPP_log_sc="log NPP g*C/m2*year",
                    Feat_log_sc="log Feat (% of NPP)",
                    NPP_cv_sc="scaled CV of NPP",
                    Feat_cv_sc = "scaled CV of Feat")
+
+taxon_names <- paste(c("Birds","Amphibians","Mammals"),"(species/km^2)",sep="~")
+names(taxon_names) <- paste0(c("mbirds","mamph","mmamm"),"_log")
+pred_names <- c(NPP_log_sc="NPP~(g*C %.% m^{-2} %.% year^{-1})",
+                NPP_cv_sc="Interannual~CV~of~NPP",
+                area_km2_log_sc="Ecoregion~area~(km^{-2})",
+                Feat_log_sc="Fire~consumption~('%'*NPP)",
+                Feat_cv_sc = "Interannual~CV~of~fire~consumption")
+
+
+replace_names <- (.
+  %>% mutate(across(taxon, ~factor(., levels = names(taxon_names), labels = taxon_names)))
+  %>% mutate(across(predvar, ~factor(., levels = names(pred_names), labels = pred_names)))
+)
+
+
+remef_vars <- list()
+for (tt in setdiff(names(best_models), "plants_log")) {
+  for (predvar in c("NPP_log_sc", "NPP_cv_sc", "area_km2_log_sc", "Feat_log_sc", "Feat_cv_sc")) {
+    pp <- plotfun(model = best_models[[tt]],
+                  xvar = predvar, respvar = "partial_res",
+                  auxvar = NULL, return_data = TRUE, backtrans = TRUE)
+    pp$data[["taxon"]] <- pp$pdata[["taxon"]] <- tt
+    pp$data[["predvar"]] <- pp$pdata[["predvar"]] <- predvar
+    remef_vars <- c(remef_vars, list(pp))
+  }
+}
+plotdata <- purrr::map_dfr(remef_vars, ~ .[["data"]]) %>% replace_names()
+preddata <- purrr::map_dfr(remef_vars, ~ .[["pdata"]]) %>% replace_names()
+
+
+minobs <- (plotdata
+  %>% group_by(taxon)
+  %>% summarise(minval = min(richness, na.rm = TRUE), .groups = "drop")
+)
+
+preddata <- (preddata
+  %>% full_join(minobs, by = "taxon")
+  %>% mutate(across(lwr, ~ ifelse(. < min(minval, min(richness)),
+                                  min(minval, min(richness)),
+                                  .)))
+)
+
+preddata %>% group_by(taxon) %>% summarise(minlwr = min(lwr[is.finite(lwr)]))
+
+do_plot <- function(plotdata, preddata) {
+  plot_alldat <- ggplot(plotdata, aes(focal, richness, colour = biome))  +
+    geom_point(aes(shape = flor_realms)) +
+    geom_line(data = preddata, colour = "black") +
+    geom_ribbon(data = preddata, colour = NA,
+                fill = "black", alpha = 0.3,
+                aes(ymin = lwr, ymax = upr)) +
+    facet_grid(taxon ~ predvar, scale="free", labeller= label_parsed) +
+    scale_x_log10(labels = scientific_10) +
+    scale_y_log10() + zmargin
+}
+
+fig4 <- do_plot(
+    filter(plotdata, predvar %in% pred_names[1:3]),
+    filter(preddata, predvar %in% pred_names[1:3]))
+
+fig5 <- do_plot(
+    filter(plotdata, predvar %in% pred_names[4:5]),
+    filter(preddata, predvar %in% pred_names[4:5]))
+
 
 ## partial residuals plots
 remef_plot <- function(taxon="mbirds_log",xvar="NPP_log",
@@ -489,8 +608,21 @@ for (tt in names(sc_taxon_names)) { ## for each taxon
     }
 }
 ```
-  
-  
+
+## Figure 4
+
+```{r fig4, fig.width = 8, fig.height = 8}
+print(fig4)
+ggsave(plot = fig4, file = "fig4.pdf", width = 8, height = 8)
+```
+
+## Figure 5
+
+```{r fig5, fig.width = 8, fig.height = 8}
+print(fig5)
+ggsave(plot = fig5, file = "fig5.pdf", width = 6.5, height = 8)
+```
+
 ## Productivity part of the story
 
 ### Figure 4.1: original variables, non-transformed

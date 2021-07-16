@@ -16,7 +16,7 @@ The manuscript in progress is [here](https://docs.google.com/document/d/1cW7Yw_b
 - document $R^2$ stuff better, remember we need to install BMB's fork of `r2glmm` (for now):
 
 ```{r r2glmm, message=FALSE}
-if (packageVersion("r2glmm") < "0.1.2.9002") stop("need hacked r2glmm")
+oif (packageVersion("r2glmm") < "0.1.2.9002") stop("need hacked r2glmm")
 remotes::install_github("bbolker/r2glmm")
 ```
 
@@ -411,7 +411,7 @@ mutate_rsq <- (.
 all_rsq2 <- all_rsq %>% mutate_rsq()
 ```
 
-```{r lme4_rq_calc, cache=TRUE}
+```{r lme4_rq_calc, cache=TRUE, warning=FALSE}
 ## try with plain old lme4 so we don't need hacked gamm4 stuff ...
 nn4 <- names(best_models_lme4)
 names(nn4) <- nn4

@@ -246,6 +246,7 @@ plotfun <- function(model=best_model,
                     adjust_othervar="mean",
                     auto_label=(backtrans==TRUE),
                     sci10_axis=NULL,
+                    return_data = FALSE,
                     ...
                     ) {
     require("ggplot2")
@@ -288,6 +289,13 @@ plotfun <- function(model=best_model,
         ## back-transform xvar in data
         data <- backtrans_var(data,xvar)
         xvar <- attr(data,"transvar")
+    }
+    if (return_data) {
+      data[["focal"]] <- data[[xvar]]
+      data[["richness"]] <- data[[respvar]]
+      pdata[["focal"]] <- pdata[[xvar]]
+      pdata[["richness"]] <- pdata[[mrespvar]]
+      return(list(data = data, pdata = pdata, respvar = respvar, xvar = xvar))
     }
     gg0 <- ggplot(data,aes_(x=as.name(xvar)))
     if (!is.null(model)) {
@@ -389,7 +397,9 @@ pkgList <- c(
   ,'tibble'     ## ditto: rownames_to_column
   ,'tidyr'      ## ditto
    ,'viridis'
-    , 'patchwork'
+  , 'patchwork'
+  , 'ggrepel'
+   , 'directlabels'
 )
 
 install_all_pkgs <- function() {
@@ -708,7 +718,8 @@ fix_NAs <- function(rem,model) {
     } else return(rem)
 }
 
-scientific_10 <- function(x,suppress_ones=TRUE) {
+scientific_10 <- function(x, suppress_ones=TRUE, log10_thresh = 2) {
+    if (all(abs(log10(na.omit(x))) < log10_thresh)) return(parse(text = x))
     s <- scales::scientific_format()(x)
     ## substitute for exact zeros
     s[s=="0e+00"] <- "0"
