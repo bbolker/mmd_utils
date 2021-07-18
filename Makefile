@@ -22,7 +22,10 @@ MixedEffects.html: ecoreg.rds allfits_sum_lme4.rds allfits_sum_gamm4.rds bestmod
 
 topfour.html: topfour.Rmd utils.R
 
-figures.html: figures.Rmd utils.R gamm4_utils.R palettes.R full_data_LAND.RData bestmodels_gamm4.rds make_figs.png
+calc_rsq.rda: calc_rsq.R
+	R CMD BATCH --vanilla calc_rsq.R
+
+figures.html: figures.Rmd utils.R gamm4_utils.R palettes.R full_data_LAND.RData bestmodels_gamm4.rds make_figs.png calc_rsq.rda
 
 ## process 'input' data to useful version
 ecoreg.rds: full_data.RData teow_data.RData proc_data.R biome_defs.csv olson_defs.csv

@@ -396,10 +396,11 @@ pkgList <- c(
   ,'sp'
   ,'tibble'     ## ditto: rownames_to_column
   ,'tidyr'      ## ditto
-   ,'viridis'
+  ,'viridis'
   , 'patchwork'
   , 'ggrepel'
-   , 'directlabels'
+  , 'directlabels'
+  , 'hues'
 )
 
 install_all_pkgs <- function() {
