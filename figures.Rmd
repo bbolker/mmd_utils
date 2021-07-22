@@ -171,7 +171,7 @@ biom_plot <- bio_to_plot[which(!is.na(bio_to_plot$x)),]
 # tiff('D:/Enric/8.Fire_Biodiversity/4.Mixed_Effects_Nov2019/Fig_1.tif',height=3500,width=3500,res=350,compression='lzw')
 
 ## can't use ggsave here
-png("figure1.png", width=12, height = 8, units = "in", res=300)
+png("fig1.png", width=12, height = 8, units = "in", res=300)
 # plot layout
 m_layout <- layout(matrix(1:9, ncol=3, byrow=TRUE))
 mktitle   <- function(lab, cex.axis = 1.6) axis(side=3, at=0, lab=lab, tck=0, lty=0, cex.axis=cex.axis, font=2)
@@ -281,7 +281,7 @@ axis(side=4,at=c(0,3.5),lab=c('l_Fcons\nh_CV','h_Fcons\nh_CV'),las=2,cex.axis=0.
 invisible(dev.off())  ## fig1.png
 ```
 
-![](figure1.png)
+![](fig1.png)
 
 ### Extra figs for supp (NPP Mean/CV, Fire consumption mean/cv)
 
