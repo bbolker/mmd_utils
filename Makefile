@@ -27,6 +27,9 @@ calc_rsq.rda: calc_rsq.R
 
 figures.html: figures.Rmd utils.R gamm4_utils.R palettes.R full_data_LAND.RData bestmodels_gamm4.rds make_figs.png calc_rsq.rda
 
+figures.zip: figures.html
+	Rscript -e "source('utils.R'); figzip()"
+
 ## process 'input' data to useful version
 ecoreg.rds: full_data.RData teow_data.RData proc_data.R biome_defs.csv olson_defs.csv
 	Rscript --vanilla proc_data.R >proc_data.Rout

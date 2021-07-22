@@ -143,6 +143,25 @@ bio_to_plot@data <- join(bio_to_plot@data,ecoreg,by='ECO_ID')
 
 Basic maps of realms, biomes, ecoregions, biodiversity, and NPP and Feat indices of joint mean and CV.
 
+```{r map_plot}
+map_plot <- function(x, x_orig, title = "", cex.title = 1.6, leg.digits = 0) {
+  brk <- seq(min(x,na.rm=TRUE), max(x,na.rm=TRUE), length=101)
+  x_class <- as.numeric(findInterval(x, brk, all.inside=FALSE, rightmost.closed=TRUE))
+  x_class <- data.frame(ECO_ID = ecoreg$ECO_ID, x_class)
+  bio_to_plot@data <- join(bio_to_plot@data, x_class, by='ECO_ID')
+  par(mar=c(0,0,0,0),mgp=c(0,-2,0),tck=0)
+  plot(bio_to_plot, col=pal_div(100)[bio_to_plot$x_class], border=NA)
+  mkborders()
+  mktitle(title, cex.axis = cex.title)
+  ## legend
+  par(bty='n'); llab <- round(range(x_orig, na.rm=TRUE), digits = leg.digits)
+  image.plot(legend.only=TRUE, smallplot=c(0.08,0.15,0.3,0.42), zlim=c(brk[1],brk[101]),
+             col=pal_div(100), axis.args=list(cex.axis=0.9,
+                                              at=c(brk[1], brk[101]),
+                                              lab=c(llab[1], llab[2]),mgp=c(0,0.3,0)))
+}
+```
+
 ```{r maps,fig.width=10,fig.height=8, echo=FALSE, eval=do_maps, cache = TRUE}
 ### Realms, Biomes, Ecoregions + Diversity -----------------------------------------------------
 library(fields)
@@ -151,10 +170,11 @@ biom_plot <- bio_to_plot[which(!is.na(bio_to_plot$x)),]
 
 # tiff('D:/Enric/8.Fire_Biodiversity/4.Mixed_Effects_Nov2019/Fig_1.tif',height=3500,width=3500,res=350,compression='lzw')
 
+## can't use ggsave here
 png("figure1.png", width=12, height = 8, units = "in", res=300)
 # plot layout
 m_layout <- layout(matrix(1:9, ncol=3, byrow=TRUE))
-mktitle   <- function(lab) axis(side=3, at=0, lab=lab, tck=0, lty=0, cex.axis=1.6, font=2)
+mktitle   <- function(lab, cex.axis = 1.6) axis(side=3, at=0, lab=lab, tck=0, lty=0, cex.axis=cex.axis, font=2)
 mkborders <- function() plot(land_limits, add=TRUE, col=NA, border='grey50', lwd=0.5)
 
 par(mar=c(0,0,0,0), mgp=c(0,-2,0), tck=0)
@@ -176,23 +196,6 @@ par(mar=c(0,0,0,0),mgp=c(0,-2,0),tck=0)
 plot(biom_plot, col=pal_ecoreg(length(brk-1))[sample(1:length(brk-1))],border=NA) #[findInterval(biom_plot$ECO_ID,brk,all.inside=F,rightmost.closed=TRUE)],border=NA)
 mkborders()
 mktitle("Ecoregions")
-
-map_plot <- function(x, x_orig, title = "") {
-  brk <- seq(min(x,na.rm=TRUE), max(x,na.rm=TRUE), length=101)
-  x_class <- as.numeric(findInterval(x, brk, all.inside=FALSE, rightmost.closed=TRUE))
-  x_class <- data.frame(ECO_ID = ecoreg$ECO_ID, x_class)
-  bio_to_plot@data <- join(bio_to_plot@data, x_class, by='ECO_ID')
-  par(mar=c(0,0,0,0),mgp=c(0,-2,0),tck=0)
-  plot(bio_to_plot, col=pal_div(100)[bio_to_plot$x_class], border=NA)
-  mkborders()
-  mktitle(title)
-  ## legend
-  par(bty='n'); llab <- round(range(x_orig, na.rm=TRUE))
-  image.plot(legend.only=TRUE, smallplot=c(0.08,0.15,0.3,0.42), zlim=c(brk[1],brk[101]),
-             col=pal_div(100), axis.args=list(cex.axis=0.9,
-                                              at=c(brk[1],brk[101]),
-                                              lab=c(llab[1],llab[2]),mgp=c(0,0.3,0)))
-}
 
 ## Birds richness
 
@@ -274,8 +277,8 @@ mktitle("Fire consumption")
 par(new=TRUE,plt=c(0.1,0.2,0.2,0.35),mgp=c(0,0.2,0),bty='n')
 image(r,col=pal_br,breaks=seq(0.5,9.5,by=1),axes=FALSE,xlab='',ylab='')
 axis(side=2,at=c(0,3.5),lab=c('l_Fcons\nl_CV','h_Fcons\nl_CV'),las=2,cex.axis=0.9,lty=0)
-axis(side=4,at=c(0,3.5),lab=c('l_Feat\nh_CV','h_Feat\nh_CV'),las=2,cex.axis=0.9,lty=0)
-invisible(dev.off())
+axis(side=4,at=c(0,3.5),lab=c('l_Fcons\nh_CV','h_Fcons\nh_CV'),las=2,cex.axis=0.9,lty=0)
+invisible(dev.off())  ## fig1.png
 ```
 
 ![](figure1.png)
@@ -283,17 +286,17 @@ invisible(dev.off())
 ### Extra figs for supp (NPP Mean/CV, Fire consumption mean/cv)
 
 ```{r supp_maps, cache=TRUE}
-png("figure1_supp.png", width=8, height = 5.333, units = "in", res=300)
+png("fig1_supp.png", width=8, height = 5.333, units = "in", res=300)
 # plot layout
 m_layout <- layout(matrix(1:4, ncol=2, byrow=TRUE))
 map_plot(ecoreg$NPP_log_sc, ecoreg$NPP_mean, "NPP (mean)")
-map_plot(ecoreg$NPP_cv_inter, ecoreg$NPP_cv_sc, "NPP (variability)")
-map_plot(ecoreg$Feat_log_sc, ecoreg$Feat_mean, "Fire consumption (mean)")
-map_plot(ecoreg$Feat_cv_inter, ecoreg$Feat_cv_sc, "Fire consumption (variability)")
-invisible(dev.off())
+map_plot(ecoreg$NPP_cv_sc, ecoreg$NPP_cv_inter, "NPP (variability)", leg.digits = 1)
+map_plot(ecoreg$Feat_log_sc, ecoreg$Feat_mean, "Fire consumption (mean)", leg.digits = 1)
+map_plot(ecoreg$Feat_cv_sc, ecoreg$Feat_cv_inter, "Fire consumption (variability)", leg.digits = 1)
+invisible(dev.off()) ## fig1_supp.png
 ```
 
-![](figure1_supp.png)
+![](fig1_supp.png)
 
 ### Figure 2
 
@@ -580,7 +583,20 @@ rsq_break_vals <- all_rsq_gamm4_sgv_2 %>% mutate(panel = Rsq > break_range[2])
   ##               ~ ifelse(. < break_range[1],
   ##                        .,
   ##                        . - break_range[2]))
-         
+
+rsqplot_plain <- ggplot(all_rsq_gamm4_sgv_2,
+                  aes(Rsq, Effect, colour=taxon, shape=taxon))+
+  geom_pointrangeh(aes(xmin=lower.CL,xmax=upper.CL),
+                   position=position_dodgev(height=-0.7))+
+  scale_colour_brewer(palette="Dark2")+
+    ## scale_x_log10(limits=c(1e-2,1),oob=scales::squish)+
+  labs(y="", x = expression(R^2)) +
+    ## facet_grid(. ~ panel, scales ="free_x", space = "free_x") +
+    scale_x_continuous(breaks=seq(0,0.7, by = 0.1)) +
+    theme(legend.position = c(0.7,0.5),
+          strip.text = element_blank())
+
+
 ## TRY AN AXIS BREAK (maybe a terrible idea)
 rsqplot <- ggplot(rsq_break_vals,
                   aes(Rsq, Effect, colour=taxon, shape=taxon))+
@@ -698,9 +714,9 @@ ggsave("fig3.pdf", width=8, height = 6)
 )
 ```
 
-## proportions
+<!-- ## proportions -->
 
-```{r prop_table, results = "asis"}
+```{r prop_table, results = "asis", eval=FALSE, echo = FALSE}
 mk_proptab <- (.
   %>% filter(Effect %in% c("Model", "NPP (all)", "Fire (all)", "Area"))
   %>% dplyr::select(taxon, Effect, Rsq)
@@ -788,7 +804,6 @@ replace_names <- (.
   %>% mutate(across(predvar, ~factor(., levels = names(pred_names), labels = pred_names)))
 )
 
-
 remef_vars <- list()
 for (tt in setdiff(names(best_models), "plants_log")) {
   for (predvar in c("NPP_log_sc", "NPP_cv_sc", "area_km2_log_sc", "Feat_log_sc", "Feat_cv_sc")) {
@@ -823,6 +838,12 @@ preddata <- (preddata
 ## preddata %>% group_by(taxon) %>% summarise(minlwr = min(lwr[is.finite(lwr)]))
 
 library(colorspace)
+nbiome <- length(levels(droplevels(ecoreg$biome)))
+oo <- c(t(matrix(seq(nbiome), ncol=2)))
+qq <- c(qualitative_hcl(n = nbiome/2, l = 30),
+       qualitative_hcl(n = nbiome/2, l = 70))
+paired_qual <- scale_colour_manual(values = qq[oo], name = "biome")
+
 do_plot <- function(plotdata, preddata) {
   ggplot(plotdata, aes(focal, richness, colour = bshort))  +
     geom_point(aes(shape = flor_realms)) +
@@ -832,16 +853,18 @@ do_plot <- function(plotdata, preddata) {
                 aes(ymin = lwr, ymax = upr)) +
     ## switch/strip.placement
     ## https://github.com/tidyverse/ggplot2/issues/1231
-    facet_grid(taxon ~ predvar, scale="free", labeller= label_parsed,
+      facet_grid(taxon ~ predvar, scale="free", labeller= label_parsed,
                switch = "both") +
-    theme(strip.placement = "outside", strip.background = element_blank()) +
-    scale_x_log10(labels = scientific_10) +
-    labs (x = "", y = "") +
-    scale_y_log10() +
-    zmargin  +
-    scale_colour_discrete_qualitative(name = "biome") +
-    scale_shape(name = "floristic realm")
+      theme(strip.placement = "outside", strip.background = element_blank()) +
+      scale_x_log10(labels = scientific_10) +
+      labs (x = "", y = "") +
+      scale_y_log10() +
+      zmargin  +
+      paired_qual +
+      ## scale_colour_discrete_qualitative(name = "biome") +
+      scale_shape(name = "floristic realm")
 }
+
 
 fig4 <- do_plot(
     filter(plotdata, predvar %in% pred_names[1:3]),
@@ -851,22 +874,29 @@ fig5 <- do_plot(
     filter(preddata, predvar %in% pred_names[4:5]))
 ```
 
-```{r colors, fig.width = 20, fig.height = 20, warning=FALSE, message=FALSE}
+```{r colors, fig.width = 20, fig.height = 20, warning=FALSE, message=FALSE, eval= FALSE}
 ## playing with colour choices
 ## go from "forest green" to "tan": need beginning/ending HCL values
 ## hcl.color.picker
 ##   (150, 48, 52) -> (60,63,70)
 ## colours in opposite order from legend
 green_to_tan <- scale_colour_discrete_sequential(h1 = 150, h2=60, c1=48, c2=63, l1=52, l2=70, rev=FALSE)
+scrambled_qual <- scale_colour_manual(values = qualitative_hcl(n = nbiome)[oo])
+                                         
 
 noleg <- theme(legend.position = "none")
+## fig4 + scrambled_qual  + ggtitle("colorspace qual, scrambled")
+## fig4 + paired_qual  + ggtitle("colorspace qual, paired")
+
 plot_grid(
     fig4 + scale_colour_discrete_qualitative() + noleg + ggtitle("colorspace, qualitative"),
-    fig4 + scale_colour_discrete_sequential() + noleg + ggtitle("colorspace, sequential"),
+    fig4 + scrambled_qual + noleg + ggtitle("colorspace qual, scrambled"),
     fig4 + scale_colour_viridis_d()  + noleg + ggtitle("viridis"),
     fig4 + scale_colour_manual(values = topo.colors(length(levels(plotdata$bshort))))  + noleg  + ggtitle("topo colors"),
     fig4 + green_to_tan  + noleg  + ggtitle("custom green-to-tan"),
-    fig4 + hues::scale_colour_iwanthue() + noleg  + ggtitle("maximal distinction"))
+    fig4 + paired_qual + noleg + ggtitle("colorspace qual, paired")
+    ## fig4 + hues::scale_colour_iwanthue() + noleg  + ggtitle("maximal distinction"))
+)
 ```    
 
 
@@ -897,8 +927,8 @@ remef_plot_nolog <- function(taxon="mbirds_log",xvar="NPP_log",
              paste(xvar,auxvar,sep=":")                                     
                                               }
     }
-    pp <- (plotfun(m,xvar=xvar,respvar="partial_res",
-                   auxvar=auxvar,data=ecoreg,
+    pp <- (plotfun(m, xvar=xvar, respvar="partial_res",
+                   auxvar=auxvar, data=ecoreg,
                    backtrans=TRUE) #,log="xy"
       + theme(legend.position="none")
       + ggtitle(title)
@@ -961,6 +991,85 @@ ggsave(plot = fig4, file = "fig4.pdf", width = 8, height = 8)
 ```{r fig5, fig.width = 8, fig.height = 8, warning = FALSE}
 print(fig5)
 ggsave(plot = fig5, file = "fig5.pdf", width = 6.5, height = 8)
+```
+## interactions (supp)
+
+## biome effects (supp)
+
+```{r predfun_biome_construct}
+allfits_restr_gamm4 <- readRDS("allfits_restr_gamm4.rds")
+predList <- lapply(allfits_restr_gamm4[1:3], ## skip plants
+       predfun,
+       auxvar=NULL,
+       grpvar="biome",
+       re.form=~(1+NPP_log_sc|biome))
+set.focal <- function(n,d) { d$focal <- d[[n]]; return(d) }
+predList <- Map(set.focal, names(predList), predList)
+predFrame <- bind_rows(predList,.id="taxon")
+## make copies of ecoreg for each panel (ugh?)
+dList <- setNames(replicate(3,ecoreg,simplify=FALSE), names(predList))
+dList <- Map(set.focal, names(dList), dList)
+dFrame <- bind_rows(dList,.id="taxon")
+```
+
+```{r make_pretty}
+make_pretty <- (.
+    %>% mutate(across(taxon, factor, 
+                      levels = c("mbirds_log", "mmamm_log", "mamph_log"),
+                      labels = c("Birds", "Mammals", "Amphibians")))
+    %>% mutate(across(focal, exp))
+    ## unscale/unlog NPP variable
+    %>% backtrans_var("NPP_log_sc", otherdata = ecoreg)
+    %>% backtrans_var("Feat_log_sc", otherdata = ecoreg)
+    %>% left_join(shortnames, by = "biome")
+    %>% mutate(biome = reorder(bshort, -NPP))
+)
+```
+
+```{r predfun_biome_plot,warning=FALSE,fig.width=10,fig.height=5}
+fig3a_supp <- ggplot(make_pretty(predFrame),
+       aes(x=NPP, y=focal, colour=biome)) +
+    geom_line(lwd=1.5)+
+    geom_point(data=make_pretty(dFrame),
+               aes(shape=flor_realms), alpha=0.7) +
+    facet_wrap(~taxon) +
+    zmargin +
+    labs(y="richness") +
+    scale_x_log10() + scale_y_log10() +
+    theme(legend.position="bottom") +
+    scale_shape(name = "floristic realm") +
+    paired_qual
+
+print(fig3a_supp)
+ggsave(file="fig3a_supp.pdf", width=10, height=5)
+```
+
+```{r predList_fire}
+predList_fire <- lapply(allfits_restr_gamm4[1:3],
+       predfun,
+       xvar="Feat_log_sc",
+       auxvar=NULL,grpvar="biome",
+       re.form=~(1+Feat_log_sc|biome))
+predList_fire <- Map(set.focal,names(predList_fire), predList_fire)
+predFrame_fire <- bind_rows(predList_fire,.id="taxon")
+```
+
+```{r predfun_biome_plot_fire,warning=FALSE,fig.width=10,fig.height=5}
+fig3b_supp <- ggplot(make_pretty(predFrame_fire),
+       aes(x=Feat, y=focal, colour=biome)) +
+    geom_line(lwd=1.5)+
+    geom_point(data=make_pretty(dFrame),
+               aes(shape=flor_realms), alpha=0.7) +
+    facet_wrap(~taxon) +
+    zmargin +
+    labs(y="richness", x="Fire consumption") +
+    scale_x_log10(labels = scientific_10) + scale_y_log10() +
+    theme(legend.position="bottom") +
+    paired_qual +
+    scale_shape(name = "floristic realm")
+
+print(fig3b_supp)
+ggsave(file="fig3b_supp.pdf", width=10, height=5)
 ```
 
 ## Productivity part of the story

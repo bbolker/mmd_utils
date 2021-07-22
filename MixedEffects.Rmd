@@ -16,7 +16,7 @@ The manuscript in progress is [here](https://docs.google.com/document/d/1cW7Yw_b
 - document $R^2$ stuff better, remember we need to install BMB's fork of `r2glmm` (for now):
 
 ```{r r2glmm, message=FALSE}
-oif (packageVersion("r2glmm") < "0.1.2.9002") stop("need hacked r2glmm")
+if (packageVersion("r2glmm") < "0.1.2.9002") stop("need hacked r2glmm")
 remotes::install_github("bbolker/r2glmm")
 ```
 

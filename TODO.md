@@ -1,6 +1,15 @@
 ## To do
 
-- sort out R^2: are gamm4 KR results really sensible??? should we be including the sos() smooth? compare lme4 fits? SGV fits?
+- remove binned R^2 values  (DONE)
+- Figure 1: "Feat" in legend (DONE)
+- interaction term figures
+- biome RE plots for NPP, Fire; add words/description to supplement text
+- try scrambling colours (DONE)
+
+- understand R^2, really? (Jaeger)
+---
+
+- sort out R^2: are gamm4 KR results really sensible??? should we be including the os() smooth? compare lme4 fits? SGV fits?
     - try R^2 on lme4 models where I didn't have to hack so much.  What is "null" model ?
 - check Enric's FC_FCC stuff: google drive/fire_diversity/FC_FCC_20201019.Rmd
 

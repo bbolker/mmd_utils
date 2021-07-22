@@ -275,8 +275,8 @@ plotfun <- function(model=best_model,
         ## back-transform response variable from model,
         ##  with CIs
         if (!is.null(model)) {
-            pdata <- backtrans_var(pdata,mrespvar,data,
-                                   othervars=c("lwr","upr"),log=TRUE)
+            pdata <- backtrans_var(pdata, mrespvar, data,
+                                   othervars=c("lwr","upr"), log=TRUE)
             ## change name to transformed name (e.g. minus "_log")
             mrespvar <- attr(pdata,"transvar")
             ## back-transform x-variable
@@ -693,7 +693,7 @@ copy_attributes <- function(x,y,attrs=c("logged","scaled:scale","scaled:center")
 ## what happens if we pass "rem1"?  How are we supposed to back-transform it?
 ## should be back-transformed according to the same rules as
 ## the original response variable ...
-backtrans_var <- function(data,xname,otherdata=NULL,othervars=NULL,...) {
+backtrans_var <- function(data, xname,otherdata=NULL,othervars=NULL,...) {
     if (xname %in% names(data)) {
         r1 <- backtrans_magic(data[[xname]],xname,
                               otherdata[[xname]],...)
@@ -811,3 +811,8 @@ replace_value_chr <- function(x, from, to) {
     replace(as.character(x), which(x==from), to)
 }
 
+
+figzip <- function() {
+    system(sprintf("zip figs_%s.zip figures.html fig*.pdf fig*.png",
+                   format(Sys.time(), "%Y%m%d")))
+}
