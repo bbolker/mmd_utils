@@ -1,12 +1,15 @@
 ## To do
 
-- remove binned R^2 values  (DONE)
-- Figure 1: "Feat" in legend (DONE)
 - interaction term figures
 - biome RE plots for NPP, Fire; add words/description to supplement text
-- try scrambling colours (DONE)
+- think about/double-check biome-specific slopes ...
 
 - understand R^2, really? (Jaeger)
+
+---
+- remove binned R^2 values  (DONE)
+- Figure 1: "Feat" in legend (DONE)
+- try scrambling colours (DONE)
 ---
 
 - sort out R^2: are gamm4 KR results really sensible??? should we be including the os() smooth? compare lme4 fits? SGV fits?

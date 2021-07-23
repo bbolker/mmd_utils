@@ -542,11 +542,11 @@ fc_tab <- (e_mean2
 knitr::kable(fc_tab, digits =1)
 ```
 
-## Model results (Rsq of model predictors)
+## Model results
 
 ### Figure 3
 
-**(a)** Partial R square values of all model predictors for each taxa. The upper plot displays Rsq values of the Model and NPP; the area highlighted in grey in the upper plot is the one shown in the bottom plot with the rest of predictors.  
+**(a)** Partial $R^2$ values of all model predictors for each taxa.
 **(b)** Coefficient plot.
 ```{r model_coefs, warning = FALSE}
 # Model coefficients' plot from Ben (MixedEfefcts.Rmd from 20200219)
@@ -866,12 +866,23 @@ do_plot <- function(plotdata, preddata) {
 }
 
 
+add_corner_labels <- function(p, type = "lowercase", size = 6,
+                              hjust = -0.25, vjust = 1.25) {
+    bb <- ggplot_build(p)
+    dd <- bb$layout$layout
+    dd$labs <- switch(type, lowercase = letters[seq(nrow(dd))])
+    p + geom_text(data = dd, x = -Inf, y = Inf, colour = "black", aes(label = labs),
+                  hjust = hjust, vjust = vjust, size = size)
+}
+
 fig4 <- do_plot(
     filter(plotdata, predvar %in% pred_names[1:3]),
-    filter(preddata, predvar %in% pred_names[1:3]))
+    filter(preddata, predvar %in% pred_names[1:3])) %>%
+    add_corner_labels()
 fig5 <- do_plot(
     filter(plotdata, predvar %in% pred_names[4:5]),
-    filter(preddata, predvar %in% pred_names[4:5]))
+    filter(preddata, predvar %in% pred_names[4:5])) %>%
+    add_corner_labels()
 ```
 
 ```{r colors, fig.width = 20, fig.height = 20, warning=FALSE, message=FALSE, eval= FALSE}
@@ -1052,6 +1063,16 @@ predList_fire <- lapply(allfits_restr_gamm4[1:3],
        re.form=~(1+Feat_log_sc|biome))
 predList_fire <- Map(set.focal,names(predList_fire), predList_fire)
 predFrame_fire <- bind_rows(predList_fire,.id="taxon")
+fire_slopes <- predList_fire %>% bind_rows(.id = "taxon") %>%
+    dplyr::select(taxon, biome, focal, Feat_log_sc) %>%
+    group_by(taxon, biome) %>%
+    summarise(slope = diff(range(focal)/diff(range(Feat_log_sc))), .groups = "drop")
+NPP_slopes <- predList %>% bind_rows(.id = "taxon") %>%
+   dplyr::select(taxon, biome, focal, NPP_log_sc) %>%
+    group_by(taxon, biome) %>%
+    summarise(slope = diff(range(focal)/diff(range(NPP_log_sc))), .groups = "drop")
+slopes <- bind_rows(list(Feat_log_sc=fire_slopes, NPP_log_sc=NPP_slopes),
+                    .id = "term")
 ```
 
 ```{r predfun_biome_plot_fire,warning=FALSE,fig.width=10,fig.height=5}
@@ -1071,6 +1092,45 @@ fig3b_supp <- ggplot(make_pretty(predFrame_fire),
 print(fig3b_supp)
 ggsave(file="fig3b_supp.pdf", width=10, height=5)
 ```
+
+```{r caterpillars}
+library(lme4)
+all_ranef <- purrr::map_dfr(allfits_restr_gamm4[1:3],
+                            ~(tidy(., effects = "ran_vals")
+                                %>% filter(group == "biome",
+                                           term %in% c("Feat_log_sc", "NPP_log_sc"))
+                                %>% dplyr::select(level, term, estimate, std.error)
+                                %>% rename(biome = "level")),
+                            .id = "taxon")
+
+bird_NPP_lev <- all_ranef %>% filter(taxon == "mbirds_log", term == "NPP_log_sc") %>%
+    arrange(estimate) %>% pull(biome)
+
+
+fe <- purrr::map_dfr(allfits_restr_gamm4[1:3],
+                     ~(tidy(., effects = "fixed") %>%
+                       filter(term %in% c("Feat_log_sc", "NPP_log_sc"))),
+                     .id = "taxon"
+                     ) %>% dplyr::select(taxon, term, estimate,std.error)
+
+all_coef <-
+    full_join(all_ranef, fe, by = c("taxon", "term")) %>%
+    mutate(across(biome, ~ factor(., levels = bird_NPP_lev))) %>%
+    transmute(taxon, biome, term, estimate = estimate.x + estimate.y,
+              std.error = sqrt(std.error.x^2 + std.error.y^2))
+
+biome_coef <- ggplot(all_coef, aes(x=estimate, y = biome )) +
+    geom_pointrange(aes(xmin = estimate-2*std.error,
+                        xmax = estimate + 2*std.error)) + 
+    geom_point(data=slopes, colour = "blue", aes(x=slope)) + 
+    facet_grid(taxon ~ term, scale = "free_x") +
+    zmargin +
+    labs(y="", x="pop slope (scaled)") +
+    geom_vline(xintercept = 0, colour = "red", lty = 2)
+print(biome_coef)
+ggsave("fig_biome_coef.pdf", width = 8, height = 12)
+```
+
 
 ## Productivity part of the story
 
