@@ -125,8 +125,10 @@ predfun <- function(model=best_model,
             if (is.null(grpvar)) {
                 pdata[[i]] <- mfun(cur_var)
             } else {
-                pdata[[i]] <- aggregate(cur_var,by=list(data[[grpvar]][ok]),
-                                        FUN=mfun)$x
+                agg <- aggregate(cur_var, by=list(data[[grpvar]][ok]),
+                                 FUN=mfun)
+                names(agg) <- c("biome", i)
+                pdata <- merge(pdata, agg, by = "biome")
             }
         }
     }

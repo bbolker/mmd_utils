@@ -68,7 +68,7 @@ land_limits <- readOGR(file.path(data_dir, 'WORLD_Limits_LAND'), verbose = FALSE
 # changing the coordinate reference system
 biomes <- spTransform(biomes, CRS = CRS("+proj=eck4 +lon_0=0 +x_0=0 +y_0=0 +a=6371000 +b=6371000 +units=m +no_defs"))
 # ecoreg-level means
-bb <- ddply(db.land,.(eco_id),summarise, biome = unique(biomes), fracburn = mean(fracburn, na.rm=TRUE))
+bb <- ddply(db.land,.(eco_id), summarise, biome = unique(biomes), fracburn = mean(fracburn, na.rm=TRUE))
 # biome-level means
 bm <- ddply(bb,.(biome),summarise, fracburn = mean(fracburn, na.rm = TRUE))
 read_fun <- function(x) {
@@ -1059,18 +1059,23 @@ ggsave(file="fig3a_supp.pdf", width=10, height=5)
 predList_fire <- lapply(allfits_restr_gamm4[1:3],
        predfun,
        xvar="Feat_log_sc",
-       auxvar=NULL,grpvar="biome",
+       auxvar=NULL,
+       grpvar="biome",
        re.form=~(1+Feat_log_sc|biome))
-predList_fire <- Map(set.focal,names(predList_fire), predList_fire)
+predList_fire <- Map(set.focal, names(predList_fire), predList_fire)
 predFrame_fire <- bind_rows(predList_fire,.id="taxon")
 fire_slopes <- predList_fire %>% bind_rows(.id = "taxon") %>%
     dplyr::select(taxon, biome, focal, Feat_log_sc) %>%
     group_by(taxon, biome) %>%
-    summarise(slope = diff(range(focal)/diff(range(Feat_log_sc))), .groups = "drop")
+    summarise(focal_range = diff(range(focal)),
+              x_range = diff(range(Feat_log_sc)),
+              slope = focal_range/x_range, .groups = "drop")
 NPP_slopes <- predList %>% bind_rows(.id = "taxon") %>%
    dplyr::select(taxon, biome, focal, NPP_log_sc) %>%
     group_by(taxon, biome) %>%
-    summarise(slope = diff(range(focal)/diff(range(NPP_log_sc))), .groups = "drop")
+    summarise(focal_range = diff(range(focal)),
+              x_range = diff(range(NPP_log_sc)),
+              slope = focal_range/x_range, .groups = "drop")
 slopes <- bind_rows(list(Feat_log_sc=fire_slopes, NPP_log_sc=NPP_slopes),
                     .id = "term")
 ```
