@@ -1,16 +1,9 @@
 ## To do
 
-- interaction term figures
-- biome RE plots for NPP, Fire; add words/description to supplement text
-- think about/double-check biome-specific slopes ...
+- add words/description about biome-specific plots to supplement text
 
 - understand R^2, really? (Jaeger)
-
----
-- remove binned R^2 values  (DONE)
-- Figure 1: "Feat" in legend (DONE)
-- try scrambling colours (DONE)
----
+- areas etc. (Enric?)
 
 - sort out R^2: are gamm4 KR results really sensible??? should we be including the os() smooth? compare lme4 fits? SGV fits?
     - try R^2 on lme4 models where I didn't have to hack so much.  What is "null" model ?

@@ -823,16 +823,18 @@ plotdata <- (purrr::map_dfr(remef_vars, ~ .[["data"]])
 )
 
 preddata <- purrr::map_dfr(remef_vars, ~ .[["pdata"]]) %>% replace_names()
+
 minobs <- (plotdata
   %>% group_by(taxon)
   %>% summarise(minval = min(richness, na.rm = TRUE), .groups = "drop")
 )
 
 preddata <- (preddata
-  %>% full_join(minobs, by = "taxon")
-  %>% mutate(across(lwr, ~ ifelse(. < min(minval, min(richness)),
-                                  min(minval, min(richness)),
-                                  .)))
+    %>% full_join(minobs, by = "taxon")
+    %>% group_by(taxon)
+    %>% mutate(across(lwr, ~ ifelse(. < min(minval, min(richness)),
+                                    min(minval, min(richness)),
+                                    .)))
 )
 
 ## preddata %>% group_by(taxon) %>% summarise(minlwr = min(lwr[is.finite(lwr)]))
@@ -844,30 +846,50 @@ qq <- c(qualitative_hcl(n = nbiome/2, l = 30),
        qualitative_hcl(n = nbiome/2, l = 70))
 paired_qual <- scale_colour_manual(values = qq[oo], name = "biome")
 
-do_plot <- function(plotdata, preddata) {
-  ggplot(plotdata, aes(focal, richness, colour = bshort))  +
-    geom_point(aes(shape = flor_realms)) +
-    geom_line(data = preddata, colour = "black") +
-    geom_ribbon(data = preddata, colour = NA,
-                fill = "black", alpha = 0.3,
-                aes(ymin = lwr, ymax = upr)) +
+do_plot <- function(plotdata, preddata, interax = FALSE, qvec = c(0.1, 0.5, 0.9)) {
+    gg0 <- (ggplot(plotdata, aes(focal, richness, colour = bshort))
+        + geom_point(aes(shape = flor_realms))
+        )
+    if (!interax) {
+        gg0 <- (gg0 
+            + geom_line(data = preddata, colour = "black")
+            + geom_ribbon(data = preddata, colour = NA,
+                          fill = "black", alpha = 0.3,
+                          aes(ymin = lwr, ymax = upr)) +
+            facet_grid(taxon ~ predvar, scale="free", labeller= label_parsed,
+                       switch = "both")
+        )
+    } else {
+        gg0 <- (gg0 + geom_line(data = preddata, colour = "black",
+                        aes(linetype = auxvarQ))
+            + geom_ribbon(data = preddata, colour = NA,
+                          fill = "black",
+                          alpha = 0.15,
+                          aes(ymin = lwr, ymax = upr, group = auxvarQ))
+            + scale_linetype(name = "aux var\nquantile",
+                             breaks = sprintf("Q(%1.1f)", qvec),
+                             labels = qvec)
+            + facet_grid(taxon ~ predvar+auxvar,
+                       scale="free", labeller= label_parsed,
+                       switch = "both")
+        )
+    }
     ## switch/strip.placement
     ## https://github.com/tidyverse/ggplot2/issues/1231
-      facet_grid(taxon ~ predvar, scale="free", labeller= label_parsed,
-               switch = "both") +
-      theme(strip.placement = "outside", strip.background = element_blank()) +
-      scale_x_log10(labels = scientific_10) +
-      labs (x = "", y = "") +
-      scale_y_log10() +
-      zmargin  +
-      paired_qual +
-      ## scale_colour_discrete_qualitative(name = "biome") +
-      scale_shape(name = "floristic realm")
+    gg0 +
+        theme(strip.placement = "outside", strip.background = element_blank()) +
+        scale_x_log10(labels = scientific_10) +
+        labs (x = "", y = "") +
+        scale_y_log10() +
+        zmargin  +
+        paired_qual +
+        ## scale_colour_discrete_qualitative(name = "biome") +
+        scale_shape(name = "floristic realm")
 }
 
 
 add_corner_labels <- function(p, type = "lowercase", size = 6,
-                              hjust = -0.25, vjust = 1.25) {
+                              hjust = -0.5, vjust = 1.25) {
     bb <- ggplot_build(p)
     dd <- bb$layout$layout
     dd$labs <- switch(type, lowercase = letters[seq(nrow(dd))])
@@ -1098,6 +1120,10 @@ print(fig3b_supp)
 ggsave(file="fig3b_supp.pdf", width=10, height=5)
 ```
 
+## plot slopes (checking)
+
+black dots are slopes based on the random effects (but with global values for the auxiliary variables); blue dots incorporate biome-specific values of the auxiliary variables
+
 ```{r caterpillars}
 library(lme4)
 all_ranef <- purrr::map_dfr(allfits_restr_gamm4[1:3],
@@ -1136,65 +1162,80 @@ print(biome_coef)
 ggsave("fig_biome_coef.pdf", width = 8, height = 12)
 ```
 
+## interaction plots
 
-## Productivity part of the story
+Interactions with NPP: NPP $\times$ {Fire cons, NPP_cv,  Fire cons CV}
 
-### Figure 4.1: original variables, non-transformed
+Interactions with Fire: Fire $\times$ {NPP_cv, Fire_cv}; NPP cv $\times$ Fire cv
 
-Relationship between NPP, interannual CV of NPP, and ecoregion area and the diversity of amphibians, birds, and mammals.  
-```{r NPP_part1_notrans,warning=FALSE,fig.width=10,fig.height=8}
-do.call(grid.arrange,
-        c(orig_plots_nolog[["mamph"]][c(1,3,5)],orig_plots_nolog[["mbirds"]][c(1,3,5)],orig_plots_nolog[["mmamm"]][c(1,3,5)],
-          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
-          list(ncol=3)))
+```{r interax_calc}
+vardf <- (tidy(best_models[[1]], effects="fixed")
+    %>% pull(term)
+    %>% grep(pattern = ":", value=TRUE)
+    %>% strsplit(":")
+    %>% do.call(what="rbind")
+    %>% as.data.frame()
+    %>% setNames(c("xvar", "auxvar"))
+)
+       
+remef2_vars <- list()
+for (tt in setdiff(names(best_models), "plants_log")) {
+    for (i in seq(nrow(vardf))) {
+        xvar <- vardf$xvar[[i]]
+        auxvar <- vardf$auxvar[[i]]
+        pp <- plotfun(model = best_models[[tt]],
+                  xvar = xvar,
+                  respvar = "partial_res",
+                  auxvar = auxvar,
+                  return_data = TRUE,
+                  backtrans = TRUE)
+        pp$data[["taxon"]] <- pp$pdata[["taxon"]] <- tt
+        pp$data[["predvar"]] <- pp$pdata[["predvar"]] <- xvar
+        pp$data[["auxvar"]] <- pp$pdata[["auxvar"]] <- auxvar
+        pp$pdata[["auxvarQ"]] <- pp$pdata[[paste0("f",auxvar)]]
+        remef2_vars <- c(remef2_vars, list(pp))
+    }
+}
+
+auxnames <- paste0("aux:~", c("Fire~cons",
+                              "NPP~CV",
+                              "Fire~cons~CV"))
+names(auxnames) <- c("Feat_log_sc", "NPP_cv_sc", "Feat_cv_sc")
+
+replace_auxvar <- (.
+    %>% mutate(across(auxvar, ~factor(., levels = names(auxnames), labels = auxnames)))
+)
+
+plotdata2 <- (purrr::map_dfr(remef2_vars, ~ .[["data"]])
+    %>% replace_names() %>% replace_auxvar()
+    %>% full_join(shortnames, by = "biome")
+    ## highest to lowest NPP
+    %>% mutate(across(bshort, ~ reorder(factor(.), -NPP_mean)))
+)
+
+preddata2 <- purrr::map_dfr(remef2_vars, ~ .[["pdata"]]) %>% replace_names() %>% replace_auxvar()
+
+minobs <- (plotdata2
+    %>% group_by(taxon)
+    %>% summarise(minval = min(richness, na.rm = TRUE), .groups = "drop")
+)
+
+## not idempotent!
+preddata2 <- (preddata2
+    %>% full_join(minobs, by = "taxon")
+    %>% group_by(taxon)
+    %>% mutate(across(lwr, ~ ifelse(. < min(minval, min(richness)),
+                                    min(minval, min(richness)),
+                                    .)))
+)
+
+interax_plot <- do_plot(plotdata2, preddata2, interax=TRUE) %>% add_corner_labels()
 ```
-  
-### Figure 4.2: original variables, transformed
 
-```{r NPP_part1_trans,warning=FALSE,fig.width=10,fig.height=8}
-do.call(grid.arrange,
-        c(orig_plots[["mamph"]][c(1,3,5)],orig_plots[["mbirds"]][c(1,3,5)],orig_plots[["mmamm"]][c(1,3,5)],
-          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
-          list(ncol=3)))
+```{r print_interax, fig.width=20, fig.height=12, warning = FALSE}
+print(interax_plot)
+ggsave("fig_interax_supp.pdf", width = 20, height = 12)
 ```
 
-### Figure 4.3: Partial residuals, non-transformed vars
-
-Effects of NPP, interannual CV of NPP, and ecoregion area on the diversity of amphibians, birds, and mammals. Plots show partial model residuals and, thus, display the effect of these three variables without the influence of the rest of variables included in the model (or, when the effects of other variables are removed). 
-```{r NPP_part2_notrans,warning=FALSE,fig.width=10,fig.height=8}
-do.call(grid.arrange,
-        c(remef_plots_nolog[["mamph_log"]][c(1,6,8)],c(remef_plots_nolog[["mbirds_log"]][c(1,6,8)]),c(remef_plots_nolog[["mmamm_log"]][c(1,6,8)]),
-          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
-          list(ncol=3)))
-```
-
-### Figure 4.4: Partial residuals, transformed vars
-
-```{r NPP_part2_trans,warning=FALSE,fig.width=10,fig.height=8}
-do.call(grid.arrange,
-        c(remef_plots[["mamph_log"]][c(1,6,8)],c(remef_plots[["mbirds_log"]][c(1,6,8)]),c(remef_plots[["mmamm_log"]][c(1,6,8)]),
-          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
-          list(ncol=3)))
-```
-
-## Fire part of the story
-
-### Figure 5.1: Effects of fire eaten etc., non-transformed
-
-```{r fire_part_notrans,warning=FALSE,fig.width=10,fig.height=8}
-do.call(grid.arrange,
-        c(remef_plots_nolog[["mamph_log"]][c(5,7,3,2)],c(remef_plots_nolog[["mbirds_log"]][c(5,7,3,2)]),c(remef_plots_nolog[["mmamm_log"]][c(5,7,3,2)]),
-          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
-          list(ncol=4)))
-```
-  
-### Figure 5.2: Effects of fire eaten etc., transformed
-
-```{r fire_part_trans,warning=FALSE,fig.width=10,fig.height=8}
-do.call(grid.arrange,
-        c(remef_plots[["mamph_log"]][c(5,7,3,2)],c(remef_plots[["mbirds_log"]][c(5,7,3,2)]),c(remef_plots[["mmamm_log"]][c(5,7,3,2)]),
-          ## NPP_log:Feat_csv, NPP_log:Feat_log, Feat_log:NPP_cv_sv, Feat_log
-          list(ncol=4)))
-```
-
+**to do**: split into two plots?
 
