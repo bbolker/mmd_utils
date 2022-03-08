@@ -7,25 +7,36 @@ target: MixedEffects.html
 
 fulldata=1pR9ymyfS1POyQj3Jhzj7GXh5rEJ5tMN1
 fullland=1oJGNtoj5RvD-z_43tajUOnu5qzHvuPeb
+fullfire=1rhQLRAfRGmX2930XTwGHODEFVB9wwpaM
+## cp -r ~/google-drive/fire_diversity/FireDiversityDataset_20170504.RData bigdata/
+## cp -r ~/google-drive/fire_diversity/wwf_terr_ecos/ bigdata/
+## cp -r ~/google-drive/fire_diversity/WORLD_Limits_LAND bigdata/
 
 install_packages:
 	Rscript --vanilla -e "source('utils.R'); install_all_pkgs()"
 
+## google-drive-ocamlfuse ~/google-drive
 full_data.RData:
 	Rscript --vanilla -e "source('utils.R'); get_googledrive(\"$(fulldata)\",dest='full_data.RData')"
 
+firedata=FireDiversityDataset_20170504.RData
+## https://bytesbin.com/skip-google-drive-virus-scan-warning-large-files/
+bigdata/$(firedata):
+	mkdir -p bigdata
+	Rscript --vanilla -e "source('utils.R'); get_googledrive(\"$(fullfire)\", dest='bigdata/$(firedata)')"
+
 full_data_LAND.RData:
-	Rscript --vanilla -e "source('utils.R'); get_googledrive(\"$(fullland)\",dest='full_data_LAND.RData')"
+	Rscript --vanilla -e "source('utils.R'); get_googledrive(\"$(fullland)\", dest='full_data_LAND.RData')"
 
 ## primary output
 MixedEffects.html: ecoreg.rds allfits_sum_lme4.rds allfits_sum_gamm4.rds bestmodels_gamm4.rds allfits_restr_gamm4.rds utils.R gamm4_utils.R make_ME.png
 
 topfour.html: topfour.Rmd utils.R
 
-calc_rsq.rda: calc_rsq.R
+calc_rsq.rda: calc_rsq.R  allfits_sum_lme4.rds
 	R CMD BATCH --vanilla calc_rsq.R
 
-figures.html: figures.Rmd utils.R gamm4_utils.R palettes.R full_data_LAND.RData bestmodels_gamm4.rds make_figs.png calc_rsq.rda
+figures.html: figures.Rmd utils.R gamm4_utils.R palettes.R full_data_LAND.RData bestmodels_gamm4.rds make_figs.png calc_rsq.rda bigdata/$(firedata)
 
 figures.zip: figures.html
 	Rscript -e "source('utils.R'); figzip()"

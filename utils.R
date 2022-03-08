@@ -556,7 +556,7 @@ remef_allran <- function(x, data,
     require(mgcv) ## for s()
     if (!inherits(x,"gamm4")) stop("only implemented for gamm4")
     ## construct fixed-effect model frame
-    ds <- glmmTMB:::drop.special2
+    ds <- glmmTMB:::drop.special
     dh <- glmmTMB:::dropHead
     ## random-effects formula, minus artificial parts
     ff <- ds(formula(x$mer,random.only=TRUE),quote((1|Xr)))

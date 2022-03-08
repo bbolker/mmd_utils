@@ -327,7 +327,7 @@ best_models <- readRDS("bestmodels_gamm4.rds")
 names(best_models)
 ```
 
-```{r}
+```{r get_allfits}
 allfits_lme4 <- readRDS("allfits_lme4.rds")
 best_models_lme4 <- apply(lme4_best_models, 1,
                           function(r) {
