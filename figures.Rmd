@@ -1239,3 +1239,51 @@ ggsave("fig_interax_supp.pdf", width = 20, height = 12)
 
 **to do**: split into two plots?
 
+```{r coefs}
+gamm4_res <- readRDS("allfits_sum_gamm4.rds") ## 4 taxa x 27 fits, using gamm4
+ex <- "mamm_log"
+mk_robplot <- function(ex, ex_title = NULL, AIC_thresh = 10) {
+
+  ## only non-singular model for mammals has AIC=15, make sure to keep it ...
+  gamm4_allcoef <- (get_allcoefs(gamm4_res, focal_taxon = ex)
+    %>% mutate(lwr = conf.low, upr = conf.high)
+    %>% dplyr::select(-c(effect, group, taxon))
+    ## order facets by variable R2/scaled magnitude; order models by AIC
+    %>% mutate(mval = AIC + as.numeric(singular)*100,
+               across(model, ~reorder(factor(.), -mval)),
+               tval = abs(statistic),
+               across(term, ~reorder(factor(.), -tval))
+               )
+    %>% arrange(term)
+    %>% filter(AIC < AIC_thresh | !singular)
+  )
+
+  
+  gamm4_allcoef %>% dplyr::select(model, singular, AIC, mval) %>% distinct() %>%
+    mutate(mcode = as.numeric(model))
+  
+  gg_allcoef <- (ggplot(gamm4_allcoef,
+                        aes(estimate, model, colour = singular, shape = singular))
+    ## use point + linerange because some RE are missing std.errors
+    + geom_point()
+    + geom_linerangeh(aes(xmin=lwr, xmax=upr))
+    + facet_wrap(~term, scale="free_x")
+    + geom_vline(xintercept=0, lty=2)
+    + scale_colour_brewer(palette="Set1")
+    + zmargin
+  )
+
+  if (!is.null(ex_title)) {
+    gg_allcoef <- gg_allcoef + ggtitle(ex_title)
+  }
+  
+  return(gg_allcoef)
+}
+
+
+robplots <- purrr::map2(c("mamph_log", "mbirds_log", "mmamm_log"),
+                        c("amphibians", "birds", "mammals"),
+                       mk_robplot)
+plot_grid(plotlist = robplots, nrow=1)
+ggsave("fig_robust_supp.pdf", width = 20, height = 8)
+```
