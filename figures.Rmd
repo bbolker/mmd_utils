@@ -8,12 +8,6 @@ output:
     code_folding: hide
 ---
 
-## To do
-
-- sort out R^2 stuff
-- add FC/FCC ??
-- tweak supp maps (clarify scales - log or orig scale?)
-
 ## Code and package dependencies
 
 ![](make_figs.png)
@@ -1242,7 +1236,7 @@ ggsave("fig_interax_supp.pdf", width = 20, height = 12)
 ```{r coefs}
 gamm4_res <- readRDS("allfits_sum_gamm4.rds") ## 4 taxa x 27 fits, using gamm4
 ex <- "mamm_log"
-mk_robplot <- function(ex, ex_title = NULL, AIC_thresh = 10) {
+mk_robplot <- function(ex, ex_title = NULL, drop_legend = FALSE, AIC_thresh = 10, label_size = 8) {
 
   ## only non-singular model for mammals has AIC=15, make sure to keep it ...
   gamm4_allcoef <- (get_allcoefs(gamm4_res, focal_taxon = ex)
@@ -1258,9 +1252,8 @@ mk_robplot <- function(ex, ex_title = NULL, AIC_thresh = 10) {
     %>% filter(AIC < AIC_thresh | !singular)
   )
 
-  
-  gamm4_allcoef %>% dplyr::select(model, singular, AIC, mval) %>% distinct() %>%
-    mutate(mcode = as.numeric(model))
+  ## gamm4_allcoef %>% dplyr::select(model, singular, AIC, mval) %>% distinct() %>%
+  ## mutate(mcode = as.numeric(model))
   
   gg_allcoef <- (ggplot(gamm4_allcoef,
                         aes(estimate, model, colour = singular, shape = singular))
@@ -1270,8 +1263,12 @@ mk_robplot <- function(ex, ex_title = NULL, AIC_thresh = 10) {
     + facet_wrap(~term, scale="free_x")
     + geom_vline(xintercept=0, lty=2)
     + scale_colour_brewer(palette="Set1")
+    + theme(strip.text.x = element_text(size = label_size))
     + zmargin
   )
+
+  if (drop_legend) gg_allcoef <- gg_allcoef + theme(legend.position = "none")
+  
 
   if (!is.null(ex_title)) {
     gg_allcoef <- gg_allcoef + ggtitle(ex_title)
@@ -1280,10 +1277,13 @@ mk_robplot <- function(ex, ex_title = NULL, AIC_thresh = 10) {
   return(gg_allcoef)
 }
 
-
-robplots <- purrr::map2(c("mamph_log", "mbirds_log", "mmamm_log"),
-                        c("amphibians", "birds", "mammals"),
-                       mk_robplot)
-plot_grid(plotlist = robplots, nrow=1)
+robplots <- purrr::pmap(list(c("mamph_log", "mbirds_log", "mmamm_log"),
+                             c("amphibians", "birds", "mammals"),
+                             c(TRUE, TRUE, FALSE)),
+                        mk_robplot
+                        )
+plot_grid(plotlist = robplots, nrow=1, rel_widths = c(0.85,0.85,1))
 ggsave("fig_robust_supp.pdf", width = 20, height = 8)
 ```
+
+Caption: robustness test of model variants. Models are denoted by the covariance structure (i = intercept-only; d = diagonal; f = full) used for each random effect (b = biome; fr = floral realm; b_FR = biome × floral realm interaction). They are ordered with non-singular models first; within singularity category they are ordered by AIC (thus, the best models are at the top within each panel). Only models with ΔAIC<10 are included. Parameters are ordered by average p-value (most significant terms at top left). Bars represent 95% confidence intervals
