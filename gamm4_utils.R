@@ -27,6 +27,7 @@ makeOp <- function(x,y,op=NULL) {
 }
 
 g4fit <- function(formula,data,na.action,...) {
+    mc <- match.call()
     ## remove all NA-containing rows
     mf <- data[all.vars(formula)]
     na.removed <- attr(na.action(mf),"na.action")
@@ -37,6 +38,7 @@ g4fit <- function(formula,data,na.action,...) {
                data=data,...)
     ## now restore information
     attr(g$mer@frame,"na.action") <- na.removed
+    attr(g, "call") <- mc
     class(g) <- c("gamm4","list")
     return(g)
 }

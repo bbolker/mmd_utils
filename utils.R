@@ -403,6 +403,7 @@ pkgList <- c(
   , 'ggrepel'
   , 'directlabels'
   , 'hues'
+   , 'pander'
 )
 
 install_all_pkgs <- function() {
@@ -412,6 +413,7 @@ install_all_pkgs <- function() {
     if (length(to_install)>0) {
         install.packages(to_install)
     }
+    remotes::install_github("bbolker/r2glmm")
     if (! "remef" %in% rownames(i1)) {
         remotes::install_github('https://github.com/hohenstein/remef')
     }

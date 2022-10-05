@@ -8,13 +8,15 @@ target: MixedEffects.html
 fulldata=1pR9ymyfS1POyQj3Jhzj7GXh5rEJ5tMN1
 fullland=1oJGNtoj5RvD-z_43tajUOnu5qzHvuPeb
 fullfire=1rhQLRAfRGmX2930XTwGHODEFVB9wwpaM
+## mkdir -p bigdata
 ## cp -r ~/google-drive/fire_diversity/FireDiversityDataset_20170504.RData bigdata/
 ## cp -r ~/google-drive/fire_diversity/wwf_terr_ecos/ bigdata/
 ## cp -r ~/google-drive/fire_diversity/WORLD_Limits_LAND bigdata/
 
 install_packages:
-	Rscript --vanilla -e "source('utils.R'); install_all_pkgs()"
+	Rscript -e "source('utils.R'); install_all_pkgs()"
 
+## https://launchpad.net/~alessandro-strada/+archive/ubuntu/ppa
 ## google-drive-ocamlfuse ~/google-drive
 full_data.RData:
 	Rscript --vanilla -e "source('utils.R'); get_googledrive(\"$(fulldata)\",dest='full_data.RData')"
@@ -49,7 +51,7 @@ ecoreg.rds: full_data.RData teow_data.RData proc_data.R biome_defs.csv olson_def
 allfits_lme4.rds: ecoreg.rds fit_utils.R fit_batch.R
 	Rscript --vanilla fit_batch.R lme4 > allfits_lme4.Rout
 
-allfits_gamm4.rds: ecoreg.rds fit_utils.R fit_batch.R
+allfits_gamm4.rds: ecoreg.rds fit_utils.R fit_batch.R gamm4_utils.R
 	Rscript --vanilla fit_batch.R gamm4 FALSE $(NCORES) >allfits_gamm4.Rout
 
 allfits_nofire_gamm4.rds: ecoreg.rds fit_utils.R fit_batch.R
@@ -88,13 +90,13 @@ allprofs.rds: allfits_lme4.rds
 ## https://unix.stackexchange.com/questions/145402/regex-alternation-or-operator-foobar-in-gnu-or-bsd-sed
 makefile2graph:
 	git clone https://github.com/lindenb/makefile2graph
-	cd makefile2graph; make
+	cd makefile2graph; make make2graph
 
 make_ME.dot: Makefile makefile2graph
-	exec make -nd MixedEffects.html | makefile2graph/make2graph | sed -E 's/red|green/gray/' >make_ME.dot 
+	exec make -nd MixedEffects.html | ./makefile2graph/make2graph | sed -E 's/red|green/gray/' >make_ME.dot 
 
 make_figs.dot: Makefile
-	exec make -nd figures.html | makefile2graph/make2graph | sed -E 's/red|green/gray/' >make_figs.dot 
+	exec make -nd figures.html | ./makefile2graph/make2graph | sed -E 's/red|green/gray/' >make_figs.dot 
 
 clean:
 	rm -f *~ .#* .RData

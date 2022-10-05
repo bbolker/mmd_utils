@@ -655,7 +655,7 @@ ggL <- lapply(unique(tt_all$term),
 ```{r coefplot_plot,fig.width=8}
 do.call(plot_grid,ggL)
 ff <- filter(tt_all, taxon=="mbirds_log", group=="biome",term=="NPP_log_sc")
-gg2A %+% ff
+gg2A %+% ff + aes(x=estimate,y=level, colour = NULL)
 ```
 
 ## Extract coefficients
