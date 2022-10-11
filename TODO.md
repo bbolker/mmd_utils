@@ -1,5 +1,14 @@
 ## To do
 
+Fig 2 box plots
+R^2 fig -- axis break?? all-in-one?
+labeling in supp fig 6 (?)
+etc.
+
+MRF polygon to neighbour list (ask Enric? aggregate + poly2nb seems to take too long)
+
+
+## old
 - add words/description about biome-specific plots to supplement text
 
 - understand R^2, really? (Jaeger)
