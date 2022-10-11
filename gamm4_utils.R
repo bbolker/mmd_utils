@@ -26,10 +26,10 @@ makeOp <- function(x,y,op=NULL) {
     } else substitute(OP(X,Y), list(X=x,OP=op,Y=y))
 }
 
-g4fit <- function(formula,data,na.action,...) {
+g4fit <- function(formula, data, na.action, extra.vars  = "nblist", ...) {
     mc <- match.call()
     ## remove all NA-containing rows
-    mf <- data[all.vars(formula)]
+    mf <- data[setdiff(all.vars(formula), extra.vars)]
     na.removed <- attr(na.action(mf),"na.action")
     data <- data[complete.cases(mf),]
     ## now fit gamm4

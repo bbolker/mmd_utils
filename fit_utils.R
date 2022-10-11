@@ -37,14 +37,22 @@ fit_all <- function(response="mbirds_log",
                     single_fit=NULL,
                     platform=c("lme4","gamm4","brms"),
                     add_sos=TRUE,
+                    add_mrf=FALSE,
+                    nblist=NULL,
                     verbose=FALSE)
 {
     platform <- match.arg(platform)
-    if (add_sos && platform!="lme4") {
+    if (add_sos && add_mrf) stop("at most one of add_sos/add_mrf should be specified")
+    if (add_sos) {
+        if (platform == "lme4") stop("can't use sos with lme4")
         ## add spherical smoothing term
         ## ?smooth.construct.sos.smooth.spec:
         ##  s(latitude,longitude,bs='sos') [lat first!]
         extra_pred_vars <- c(extra_pred_vars,"s(y,x,bs='sos')")
+    }
+    if (add_mrf) {
+        if (platform == "lme4") stop("can't use mrf with lme4")
+        extra_pred_vars <- c(extra_pred_vars,"s(eco_id, bs='mrf',xt=list(nb=nblist))")
     }
     ## n.b. need to pass data to function so lme4 internals can find it ...
     ## set up formula with specified combination of random effects
@@ -61,7 +69,7 @@ fit_all <- function(response="mbirds_log",
         }
         pred_vars <- c(pp,rterms2)
         if (!is.null(extra_pred_vars)) {
-            test_pv <- function(x) all(all.vars(parse(text=x)) %in% names(data))
+            test_pv <- function(x) all(all.vars(parse(text=x)) %in% c(names(data), "nblist"))
             for (v in extra_pred_vars) {
                 if (!test_pv(v)) stop("extra vars not found in data:",v)
             }

@@ -169,14 +169,24 @@ for (v in ctr_vars) {
 
 if (FALSE) {
     ## Original code to compute centroids for each polygon in the original wwf_terr_ecos shapefile
+    library(rgdal)
   ## load ecoregions shapefile
-    teow <- readOGR('...','wwf_terr_ecos', verbose = FALSE)
+    teow <- readOGR('bigdata/wwf_terr_ecos', verbose = FALSE)
     ## computing centroids (does not differ significantly from gCentroids function from rgeos)
     xy_teow <- coordinates(teow)
     ## generating a matrix with original teow polygon-level data (teow@data) + x,y coordinates
     teow_data <- cbind(teow@data,x=xy_teow[,1],y=xy_teow[,2])
     ## data output -- this data set will be loaded below to add x,y to 'ecoreg'
     save(teow_data,file='.../teow_data.RData')
+
+    teow_flat <- aggregate(teow, by = list(teow$ECO_ID), dissolve= TRUE, FUN = mean)
+    p <- poly2nb(teow_flat)  ## takes too long?
+    
+    library(spdep)
+    shp <- as(sf::st_read("bigdata/wwf_terr_ecos/wwf_terr_ecos.shp"), "Spatial")
+    ## https://github.com/r-spatial/sf/issues/1762
+    sf_use_s2(FALSE)
+    p <- poly2nb(shp)
 }
 
 chksc <- function(x) {
