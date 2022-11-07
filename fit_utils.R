@@ -36,7 +36,7 @@ fit_all <- function(response="mbirds_log",
                     data=ecoreg,
                     single_fit=NULL,
                     platform=c("lme4","gamm4","brms"),
-                    add_sos=TRUE,
+                    add_sos=(platform!="lme4"),
                     add_mrf=FALSE,
                     nblist=NULL,
                     verbose=FALSE)

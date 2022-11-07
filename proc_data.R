@@ -184,8 +184,10 @@ if (FALSE) {
     
     library(spdep)
     shp <- as(sf::st_read("bigdata/wwf_terr_ecos/wwf_terr_ecos.shp"), "Spatial")
+    shp <- sf::st_read("bigdata/wwf2/wwf_terr_ecos.shp")
+    shp <- sf::st_read("bigdata/official/wwf_terr_ecos.shp")
     ## https://github.com/r-spatial/sf/issues/1762
-    sf_use_s2(FALSE)
+    ## sf_use_s2(FALSE)
     p <- poly2nb(shp)
 }
 
