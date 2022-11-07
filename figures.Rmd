@@ -480,16 +480,38 @@ ggsave("fig2.pdf",width=14, height=8)
 ```
 
 Same thing but as boxplots (sorted by latitude??)
-```{r plot_fig2box, fig.width=14, fig.height=5.5}
+```{r plot_fig2box, fig.width=14, fig.height=5.5, warning=FALSE}
 biome_latlon <- (ecoreg
     |> group_by(biome)
-    |> summarise(lon = mean(x), lat = mean(y))
+    |> summarise(lon = mean(x), lat = median(y))
 )
 e2 <- (ecoreg
-    |> mutate(across(biome, forcats::fct_reorder,
+    ## n.b. fct_reorder uses median by default
+    |> mutate(across(biome, forcats::fct_reorder, .fun = mean,
                      .x = y))
 )
-mkbplot <- function(var, colour, leftmost = FALSE, xlab = "", title= "") {
+area_wid <- (ecoreg
+    |> group_by(biome)
+    |> summarise(y = mean(y), area_km2 = sum(area_km2)/1e6)
+    |> arrange(y)
+)
+
+adj_widths <- function(g1, rel_widths) {
+    g1B <- ggplot_build(g1)
+    newdat <- g1B$data[[1]]
+    wids <- mean(newdat$new_width)*rel_widths/mean(rel_widths)
+    newdat <- within(newdat,
+    {
+        ymin <- y - wids/2
+        ymax <- y + wids/2
+    })
+    g2 <- g1B
+    g2$data[[1]] <- newdat
+    library(grid)
+    grid.draw(ggplot_gtable(g2))
+}
+
+mkbplot <- function(var, colour, leftmost = FALSE, xlab = "", title= "", rel_widths = NULL) {
   g1 <- ggplot(e2)
   g1 <- g1 + geom_boxplot(aes(x={{var}}, y = biome), fill = colour)
   if (leftmost) {
@@ -499,12 +521,16 @@ mkbplot <- function(var, colour, leftmost = FALSE, xlab = "", title= "") {
           theme(plot.margin = margin(t=5.5, r=1, b=5.5, l=1, unit="pt"),
                 axis.text.y = element_blank())
   }
-  g1  + labs(x=xlab, title= title) +
+  g1 <- g1  + labs(x=xlab, title= title) +
       theme(axis.title.y = element_blank()) +
       theme(plot.title = element_text(hjust = 0.5))
+  if (is.null(rel_widths)) return(g1)
+  adj_widths(g1, rel_widths)
 }
+
 plot_list <- list(
     mkbplot(NPP_mean, cols[1], leftmost = TRUE, xlab=expression(g~C/m^{2}/year), title="NPP"),
+    ##            rel_widths = area_wid$area_km2)
     mkbplot(Feat_mean, cols[2], xlab="% of NPP", title = "Fire consumption"),
     mkbplot(mbirds, cols[4], xlab=expression(species/(10~km^{2})), title="Bird\nrichness"),
     mkbplot(mmamm, cols[5], xlab=expression(species/(10~km^{2})), title="Mammal\nrichness"),
