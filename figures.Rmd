@@ -481,18 +481,20 @@ ggsave("fig2.pdf",width=14, height=8)
 
 Same thing but as boxplots (sorted by latitude??)
 ```{r plot_fig2box, fig.width=14, fig.height=5.5, warning=FALSE}
-biome_latlon <- (ecoreg
-    |> group_by(biome)
-    |> summarise(lon = mean(x), lat = median(y))
-)
 e2 <- (ecoreg
+    |> as_tibble()
     ## n.b. fct_reorder uses median by default
-    |> mutate(across(biome, forcats::fct_reorder, .fun = mean,
+    |> full_join(shortnames, by = "biome")
+    |> mutate(across(bshort, forcats::fct_reorder, .fun = \(x) mean(abs(x)),
                      .x = y))
+    |> dplyr::select(biome, bshort, plants, mamph, mbirds, mmamm, NPP_mean, Feat_mean)
 )
+levels(e2$biome)
+
 area_wid <- (ecoreg
     |> group_by(biome)
-    |> summarise(y = mean(y), area_km2 = sum(area_km2)/1e6)
+    |> summarise(y = mean(abs(y)), area_km2 = sum(area_km2)/1e6)
+    |> full_join(shortnames, by = "biome")
     |> arrange(y)
 )
 
@@ -513,7 +515,7 @@ adj_widths <- function(g1, rel_widths) {
 
 mkbplot <- function(var, colour, leftmost = FALSE, xlab = "", title= "", rel_widths = NULL) {
   g1 <- ggplot(e2)
-  g1 <- g1 + geom_boxplot(aes(x={{var}}, y = biome), fill = colour)
+  g1 <- g1 + geom_boxplot(aes(x={{var}}, y = bshort), fill = colour)
   if (leftmost) {
       g1 <- g1 + theme(plot.margin = margin(t=5.5, r=1, b=5.5, l=50, unit="pt"))
   } else {
@@ -1206,16 +1208,26 @@ fe <- purrr::map_dfr(allfits_restr_gamm4[1:3],
                      .id = "taxon"
                      ) %>% dplyr::select(taxon, term, estimate,std.error)
 
+trans_names <- . %>%    mutate(across(taxon, factor,
+                  levels = c("mamph_log", "mbirds_log", "mmamm_log"),
+                  labels = c("Amphibians", "Birds", "Mammals"))) %>% 
+    mutate(across(term, factor,
+                  levels = c("NPP_log_sc", "Feat_log_sc"),
+                  labels = c("NPP", "Fire consumption")))
+
 all_coef <-
     full_join(all_ranef, fe, by = c("taxon", "term")) %>%
     mutate(across(biome, ~ factor(., levels = bird_NPP_lev))) %>%
     transmute(taxon, biome, term, estimate = estimate.x + estimate.y,
-              std.error = sqrt(std.error.x^2 + std.error.y^2))
+              std.error = sqrt(std.error.x^2 + std.error.y^2)) %>%
+    trans_names()
 
+slopes2 <- slopes %>% trans_names()
+                  
 biome_coef <- ggplot(all_coef, aes(x=estimate, y = biome )) +
     geom_pointrange(aes(xmin = estimate-2*std.error,
                         xmax = estimate + 2*std.error)) + 
-    geom_point(data=slopes, colour = "blue", aes(x=slope)) + 
+    geom_point(data=slopes2, colour = "blue", aes(x=slope)) + 
     facet_grid(taxon ~ term, scale = "free_x") +
     zmargin +
     labs(y="", x="pop slope (scaled)") +
@@ -1355,3 +1367,62 @@ ggsave("fig_robust_supp.pdf", width = 20, height = 8)
 ```
 
 Caption: robustness test of model variants. Models are denoted by the covariance structure (i = intercept-only; d = diagonal; f = full) used for each random effect (b = biome; fr = floral realm; b_FR = biome × floral realm interaction). They are ordered with non-singular models first; within singularity category they are ordered by AIC (thus, the best models are at the top within each panel). Only models with ΔAIC<10 are included. Parameters are ordered by average p-value (most significant terms at top left). Bars represent 95% confidence intervals
+
+## spatial autocorr plots
+
+```{r refit0}
+res <- readRDS("allfits_sum_gamm4.rds")
+taxa <- unique(res$coefs$taxon)
+best_names <- purrr::map(taxa, get_best_name, x=res) %>% setNames(taxa)
+```
+
+```{r refit, cache=TRUE}
+## refit best gamm models -- something dropped?
+source("fit_utils.R")
+newfits <- list(
+    mbirds = fit_all("mbirds_log", single_fit = c(1, 1, 2), platform = "gamm4", add_sos = TRUE),
+    mamph = fit_all("mamph_log", single_fit = c(1, 1, 3), platform = "gamm4", add_sos = TRUE),
+    mmamm = fit_all("mmamm_log", single_fit = c(1, 2, 1), platform = "gamm4", add_sos = TRUE))
+```
+
+```{r plot_spat, fig.keep = "none"}
+get_plotdata <- function(x) {
+    pp <- plot(x$gam, scheme = 4, pch = 1)
+    return(pp[[1]])
+}
+pd <- lapply(newfits, get_plotdata)
+```
+
+```{r plot_spat2, results = "hide", fig.width = 14, fig.height = 6}
+my_plot <- function(x, main = "") {
+    with(x, {
+        m <- matrix(fit, 40, 40)
+        p <- raw
+        image(y, x, t(m), useRaster = TRUE)
+        points(p$y, p$x)
+        ## x-axis -180 to 180
+        ## y-axis -50 to 70
+    })
+    title(main)
+}
+tnms <- c("birds", "amphibians", "mammals")
+op <- par(mfrow = c(2,2), las = 1, mar = c(4,4,3,3))
+invisible(Map(my_plot, pd, tnms))
+dev.copy(pdf,file="fig_supp_autocorr.pdf", width = 12, height=8)
+dev.off()
+```
+
+```{r}
+library(patchwork)
+library(ggplotify)
+ld <- function(x, title = "hello") {
+    r <- lattice::dotplot(ranef(x), as.table = TRUE)$flor_realms
+    r$main <- title
+    as.ggplot(r)
+}
+pl <- Map(ld, newfits, tnms)
+(pl[[1]] + pl[[2]]) / pl[[3]]
+dev.copy(pdf,file="fig_supp_realms.pdf", width = 10, height=10)
+dev.off()
+```
+

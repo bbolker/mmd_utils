@@ -403,7 +403,8 @@ pkgList <- c(
   , 'ggrepel'
   , 'directlabels'
   , 'hues'
-   , 'pander'
+  , 'pander'
+  , 'ggplotify'
 )
 
 install_all_pkgs <- function() {
