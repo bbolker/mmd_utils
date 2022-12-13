@@ -658,6 +658,12 @@ ff <- filter(tt_all, taxon=="mbirds_log", group=="biome",term=="NPP_log_sc")
 gg2A %+% ff + aes(x=estimate,y=level, colour = NULL)
 ```
 
+## Test effects
+
+```{r}
+test_biome_eff <- function(x) {
+    update
+
 ## Extract coefficients
 
 In this particular case the effect of NPP only varies across floristic realms,
@@ -741,7 +747,7 @@ mkplot <- function(var, colour, type="rect", xlab = "", title= "") {
     ylabs <- e_mean2$bshort  ## short names
   } else {
     g1 <- g1 + geom_point(aes(x={{var}}, y = mid), colour = colour, size=3) +
-      geom_segment(x=0, aes(xend = {{var}}, y = mid, yend = mid), colour = colour, size=1)
+      geom_segment(x=0, aes(xend = {{var}}, y = mid, yend = mid), colour = colour, linewidth=1)
     g1 <- g1 + theme(axis.text.y = element_blank()) +
       theme(plot.margin = margin(t=5.5, r=1, b=5.5, l=1, unit="pt"))
     ylabs <- NULL

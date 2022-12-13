@@ -17,3 +17,6 @@ full_data.RData
 full_data_LAND.RData
 *.rds
 makefile2graph
+*.pdf
+*.png
+*.docx

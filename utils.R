@@ -299,7 +299,9 @@ plotfun <- function(model=best_model,
       pdata[["richness"]] <- pdata[[mrespvar]]
       return(list(data = data, pdata = pdata, respvar = respvar, xvar = xvar))
     }
-    gg0 <- ggplot(data,aes_(x=as.name(xvar)))
+    ## gg0 <- ggplot(data,aes_(x=as.name(xvar)))
+    xvar_s <- ensym(xvar)
+    gg0 <- ggplot(data,aes(x=!!xvar_s))
     if (!is.null(model)) {
         if (!is.null(auxvar)) {
             fauxvar <- paste0("f",auxvar)
