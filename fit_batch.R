@@ -2,7 +2,6 @@ args <- commandArgs(trailingOnly=TRUE)
 ## arguments: platform, restricted fit?, num cores, include plants?, exclude fir?
 ## args <- c("gamm4",FALSE,1,TRUE,TRUE)
 print(args)
-## 'lme4', 'gamm4', 'brms'
 platform <- if (length(args)<1) "lme4" else args[1]
 if (!platform %in% c("lme4","gamm4","brms","glmmTMB")) stop("unknown platform",platform)
 ## restricted fit?
