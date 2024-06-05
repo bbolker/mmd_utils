@@ -395,6 +395,7 @@ pkgList <- c(
   ,'r2glmm'
   ,'raster'
   ,'remef'      ## remotes::install_github('https://github.com/hohenstein/remef')
+   ,'reformulas'
   ,'remotes'
   ,'rgdal'
   ,'sp'
@@ -561,8 +562,8 @@ remef_allran <- function(x, data,
     require(mgcv) ## for s()
     if (!inherits(x,"gamm4")) stop("only implemented for gamm4")
     ## construct fixed-effect model frame
-    ds <- glmmTMB:::drop.special
-    dh <- glmmTMB:::dropHead
+    ds <- reformulas::drop.special
+    dh <- reformulas::dropHead
     ## random-effects formula, minus artificial parts
     ff <- ds(formula(x$mer,random.only=TRUE),quote((1|Xr)))
     ## RHS only

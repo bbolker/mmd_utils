@@ -3,6 +3,8 @@
 
 - MRF polygon to neighbour list (ask Enric? aggregate + poly2nb seems to take too long)
 - redo sensitivity
+- redo with `glmmTMB` (+ smooths + priors)? `brms`?
+- better documentation (especially `fit_batch` arguments)
 
 - caption for spatial autocorr
 - something about realms

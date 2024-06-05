@@ -35,7 +35,7 @@ fit_all <- function(response="mbirds_log",
                     interax=TRUE,
                     data=ecoreg,
                     single_fit=NULL,
-                    platform=c("lme4","gamm4","brms"),
+                    platform=c("lme4","gamm4","brms","glmmTMB"),
                     add_sos=(platform!="lme4"),
                     add_mrf=FALSE,
                     nblist=NULL,
@@ -80,8 +80,8 @@ fit_all <- function(response="mbirds_log",
         return(ff)
     }
     ## g4fit() just calls gamm4 and assigns class "gamm4" to the result
-    fitfun <- switch(platform,gamm4=g4fit,lme4=lmer,
-                     brms=brm)
+    fitfun <- switch(platform, gamm4=g4fit,lme4=lmer,
+                     brms=brm,glmmTMB=glmmTMB)
     ## set up options/arguments
     argList <- list(data=data)
     if (platform %in% c("gamm4","lme4")) {
@@ -96,7 +96,10 @@ fit_all <- function(response="mbirds_log",
         argList <- c(argList,
                      list(control=list(adapt_delta=0.99),
                           family=gaussian))
+    } else if (platform=="glmmTMB") {
+        ## nothing to add to argList for now ...
     }
+
     ## run just one model
     if (!is.null(single_fit)) {
         ff <- mform(single_fit,extra_pred_vars=extra_pred_vars)

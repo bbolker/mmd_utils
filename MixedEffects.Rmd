@@ -10,7 +10,7 @@ output:
 This is an attempt at a streamlined and yet complete, relatively *a priori*/non-
 snooped model analysis.
 
-The manuscript in progress is [here](https://docs.google.com/document/d/1cW7Yw_bLQnf1R_BUTExNCrSCXC4fzAZCG4p-DpJkm0U/edit).
+Moritz, Max A., Enric Batllori, and Benjamin M. Bolker. 2023. “The Role of Fire in Terrestrial Vertebrate Richness Patterns.” Ecology Letters 26 (4): 563–74. https://doi.org/10.1111/ele.14177.
 
 - decide on ordering of plots/tables (Area/NPP/Fire/interactions, or by $R^2$ magnitude?)
 - document $R^2$ stuff better, remember we need to install BMB's fork of `r2glmm` (for now):
@@ -116,9 +116,10 @@ gamm4_best_pred <- gamm4_res$pred %>%
 
 Fitted vs residual for all four taxa:
 ```{r fr,message=FALSE,warning=FALSE,fig.width=8,fig.height=4}
-ggplot(gamm4_best_pred,aes(.fitted,.resid))+
+gg_fr <- ggplot(gamm4_best_pred,aes(.fitted,.resid))+
     geom_point()+geom_smooth()+
     facet_wrap(~taxon,nrow=1)+zmargin
+suppressWarnings(print(gg_fr))
 ```
 
 A little bit heavy-tailed ...
@@ -129,7 +130,9 @@ ggqq <- ggplot(gamm4_best_pred,aes(sample=.resid,
                                    flor_realms=flor_realms))+
     stat_qq()+stat_qq_line(aes(group=taxon))+
     facet_wrap(~taxon,nrow=1)+zmargin
-comb_out(ggqq,"ggqq.html",tooltip=c("biome","flor_realms"))
+suppressWarnings(
+    comb_out(ggqq,"ggqq.html",tooltip=c("biome","flor_realms"))
+)
 ```
 
 ([dynamic alternative](./ggqq.html))
@@ -145,7 +148,7 @@ lme4_allcoef <- get_allcoefs(lme4_res,focal_taxon=ex) %>% add_wald_ci()
 gg_allcoef <- ggplot(gamm4_allcoef,aes(estimate,model,colour=singular,shape=singular))+
     ## use point + linerange because some RE are missing std.errors
     geom_point()+
-    geom_linerangeh(aes(xmin=lwr,xmax=upr))+
+    geom_linerange(aes(xmin=lwr,xmax=upr))+
     facet_wrap(~term,scale="free_x")+
     geom_vline(xintercept=0,lty=2)+
     scale_colour_brewer(palette="Set1")+
@@ -205,8 +208,9 @@ ctx <- all_best_coef %>%
     mutate(sig=factor((lwr*upr)>0),
            term=reorder(term,estimate))
 pd <- position_dodgev(height=0.33)
-ggplot(ctx,aes(estimate,term,group=interaction(term,type),colour=sig,shape=type))+
-    geom_linerangeh(aes(xmin=lwr,xmax=upr),position=pd)+
+ggplot(ctx,aes(estimate,term,
+               group=interaction(term,type),colour=sig,shape=type))+
+    geom_linerange(aes(xmin=lwr,xmax=upr),position=pd)+
     geom_point(position=pd,fill="white")+
     geom_vline(xintercept=0,lty=2)+
     facet_wrap(~taxon)+  ## ncol=1 might be nice, but too skinny
@@ -464,7 +468,7 @@ rsqplot + facet_zoom(x=Effect %in% bigvals, zoom.data=Effect %in% bigvals, show.
 ```
 Plot in two panels:
 
-```{r rsqplot2,message=FALSE}
+```{r rsqplot2,message=FALSE,warning=FALSE}
 all_rsq2$upper <- with(all_rsq2,Effect %in% c("Model","NPP","Area"))
 r1 <- rsqplot %+% subset(all_rsq2,upper) + scale_x_continuous(position="top")
 r2 <- rsqplot %+% subset(all_rsq2,!upper)
@@ -474,6 +478,8 @@ r2 <- rsqplot %+% subset(all_rsq2,!upper)
 ## rsqplot %+% all_rsq2 +facet_grid(upper~.,scales="free",space="free") +
 ##    theme(strip.text=element_blank())
 ## https://cran.r-project.org/web/packages/cowplot/vignettes/shared_legends.html
+## FIXME: Warning in get_plot_component(plot, "guide-box"): Multiple components found;
+##        returning the first one. To return all, use `return_all = TRUE`.
 L <- get_legend(r1)
 ## stack facets
 p1 <- plot_grid(r1
@@ -660,9 +666,7 @@ gg2A %+% ff + aes(x=estimate,y=level, colour = NULL)
 
 ## Test effects
 
-```{r}
-test_biome_eff <- function(x) {
-    update
+(??? what was I going to do here ???)
 
 ## Extract coefficients
 
@@ -708,7 +712,7 @@ e_mean <- (ecoreg
   %>% full_join(shortnames, by = "biome")
   %>% group_by(bshort)
   %>% mutate(across(area_km2, ~ sum(.) / 1e6)) ## set area to **sum** of area (millions of km^2)
-  %>% summarise(across(c(NPP_mean, Feat_mean, mamph, mbirds, mmamm, area_km2), mean, na.rm = TRUE))
+  %>% summarise(across(c(NPP_mean, Feat_mean, mamph, mbirds, mmamm, area_km2), ~ mean(., na.rm = TRUE)))
   %>% mutate(across(bshort, ~ reorder(factor(.), NPP_mean)))
   %>% mutate(across(Feat_mean, ~ . * 100)) ## convert to pct
 )

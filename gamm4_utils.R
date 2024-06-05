@@ -110,7 +110,7 @@ formula.gamm4 <- function(x, type=c("gam","mer"), drop.smooth=TRUE, fixed.only=F
     type <- match.arg(type)
     ff <- formula(x[[type]])
     if (drop.smooth) {
-        ff <- glmmTMB:::drop.special(ff, quote(s))
+        ff <- reformulas::drop.special(ff, quote(s))
     }
     return(ff)
 }

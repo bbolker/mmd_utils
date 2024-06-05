@@ -4,7 +4,7 @@ args <- commandArgs(trailingOnly=TRUE)
 print(args)
 ## 'lme4', 'gamm4', 'brms'
 platform <- if (length(args)<1) "lme4" else args[1]
-if (!platform %in% c("lme4","gamm4","brms")) stop("unknown platform",platform)
+if (!platform %in% c("lme4","gamm4","brms","glmmTMB")) stop("unknown platform",platform)
 ## restricted fit?
 restr <- if (length(args)<2) FALSE else as.logical(args[2])
 ## specify number of parallel cores
